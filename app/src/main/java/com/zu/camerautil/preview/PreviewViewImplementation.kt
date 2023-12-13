@@ -1,4 +1,4 @@
-package com.zu.camerautil.view.preview
+package com.zu.camerautil.preview
 
 import android.content.Context
 import android.util.Size

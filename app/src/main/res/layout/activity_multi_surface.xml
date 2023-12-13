@@ -36,7 +36,7 @@
             <TextureView
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:id="@+id/surface_main_1"/>
+                android:id="@+id/surface_main"/>
         </LinearLayout>
         <LinearLayout
             android:layout_column="1"
@@ -64,7 +64,7 @@
                     android:layout_height="wrap_content"
                     android:id="@+id/sw_surface_1"/>
             </LinearLayout>
-            <com.zu.camerautil.view.preview.Camera2PreviewView
+            <com.zu.camerautil.preview.Camera2PreviewView
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:id="@+id/surface_1"/>
@@ -134,12 +134,6 @@
                 android:id="@+id/iv_2"/>
         </LinearLayout>
     </GridLayout>
-    <TextureView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/ll_restart"
-        android:id="@+id/surface_main"/>
     <GridLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

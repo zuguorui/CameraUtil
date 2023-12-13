@@ -18,19 +18,20 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Range
-import android.util.Rational
 import android.util.Size
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.TextureView
 import androidx.appcompat.app.AppCompatActivity
 import com.zu.camerautil.bean.CameraInfoWrapper
+import com.zu.camerautil.camera.computeImageReaderSize
+import com.zu.camerautil.camera.computePreviewSize
+import com.zu.camerautil.camera.queryCameraInfo
+import com.zu.camerautil.camera.selectCameraID
 import com.zu.camerautil.databinding.ActivityMultiSurfaceBinding
-import com.zu.camerautil.view.preview.Camera2PreviewView
+import com.zu.camerautil.preview.Camera2PreviewView
 import timber.log.Timber
-import java.util.ArrayDeque
 import java.util.concurrent.Executors
-import kotlin.math.abs
 
 @SuppressLint("MissingPermission")
 class MultiSurfaceActivity : AppCompatActivity() {
@@ -41,11 +42,13 @@ class MultiSurfaceActivity : AppCompatActivity() {
         ((getSystemService(Context.CAMERA_SERVICE)) as CameraManager)
     }
 
-    private val cameraInfoMap = HashMap<String, CameraInfoWrapper>()
+    private val cameraInfoMap: HashMap<String, CameraInfoWrapper> by lazy {
+        queryCameraInfo(this)
+    }
 
     private val cameraID: String by lazy {
-        var id = selectBackCameraID()
-        id = "3"
+        var id = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
+        // id = "3"
         Timber.d("cameraID: $id")
         id
     }
@@ -322,7 +325,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
         val list = ArrayList<Surface>()
         list.add(mainSurface)
         list.add(binding.surface1.surface)
-//        list.add(imageReader1.surface)
+        list.add(imageReader1.surface)
         //list.add(imageReader2.surface)
 
         return list
@@ -334,9 +337,9 @@ class MultiSurfaceActivity : AppCompatActivity() {
         if (binding.swSurface1.isChecked) {
             list.add(binding.surface1.surface)
         }
-//        if (binding.swImageReader1.isChecked) {
-//            list.add(imageReader1.surface)
-//        }
+        if (binding.swImageReader1.isChecked) {
+            list.add(imageReader1.surface)
+        }
 //        if (binding.swImageReader2.isChecked) {
 //            list.add(imageReader2.surface)
 //        }
@@ -367,214 +370,18 @@ class MultiSurfaceActivity : AppCompatActivity() {
      *
      * */
     private fun computeSizes() {
-        var viewSize = when (binding.root.display.rotation) {
-            Surface.ROTATION_90, Surface.ROTATION_270 -> {
-                binding.surfaceMain.run { Size(width, height) }
-            }
-            else -> {
-                binding.surfaceMain.run { Size(height, width) }
-            }
+        val viewSize = with(binding.surfaceMain) {
+            Size(width, height)
         }
-        var viewRational = viewSize.toRational()
+        previewSize = computePreviewSize(characteristics, viewSize, binding.root.display.rotation,
+            SurfaceHolder::class.java)
+        imageReaderSize = computeImageReaderSize(characteristics, previewSize,
+            true, -1) ?: throw RuntimeException("No reader size")
 
-        // 几种标准分辨率
-        var standardRatios = arrayListOf(
-            Rational(21, 9),
-            Rational(2, 1),
-            Rational(16, 9),
-            Rational(4, 3),
-            Rational(1, 1)
-        )
-
-        val config = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!
-
-        var imageFormatSizes = config.getOutputSizes(imageReaderFormat)
-//        for (size in imageFormatSizes) {
-//            Log.d(TAG, "size: $size, ratio: ${size.toRational()}")
-//        }
-
-        val allPreviewSizes = config.getOutputSizes(SurfaceHolder::class.java).let {
-            if (it == null || it.isEmpty()) {
-                throw IllegalStateException("No preview sizes")
-            }
-            it
-        }
-        val allAnalysisSizes = config.getOutputSizes(ImageReader::class.java).let {
-            if (it == null || it.isEmpty()) {
-                throw IllegalStateException("No analysis sizes")
-            }
-            it
-        }
-
-        // 将分辨率按照宽高比分组
-        val previewRationalSizeMap = groupSizeByRatio(allPreviewSizes)
-        val analysisRationalSizeMap = groupSizeByRatio(allAnalysisSizes)
-
-        // 按宽高比与view最接近来排序，这样可以避免无用的大尺寸图像
-        standardRatios.sortBy {
-            abs(it.toFloat() - viewRational.toFloat())
-        }
-
-        for (rational in standardRatios) {
-            val previewSizes = previewRationalSizeMap[rational] ?: continue
-            val analysisSizes = analysisRationalSizeMap[rational] ?: continue
-
-            var pixelDiff = Int.MAX_VALUE
-            var finalPreviewSize: Size? = null
-            for (size in previewSizes) {
-                if (abs(size.area() - viewSize.area()) < pixelDiff) {
-                    pixelDiff = abs(size.area() - viewSize.area())
-                    finalPreviewSize = size
-                }
-            }
-            previewSize = finalPreviewSize!!
-
-            analysisSizes.sortBy { it.area() }
-            imageReaderSize = analysisSizes[0]
-
-            break
-        }
-        previewSize = Size(1280, 720)
-        Timber.d("previewViewSize: $viewSize, ratio: $viewRational")
+        Timber.d("previewViewSize: $viewSize, ratio: ${viewSize.toRational()}")
         Timber.d("previewSize: $previewSize, ratio: ${previewSize.toRational()}")
         Timber.d("analysisSize: $imageReaderSize, ratio: ${imageReaderSize.toRational()}")
 
     }
-
-    private fun groupSizeByRatio(sizes: Array<Size>): Map<Rational, ArrayList<Size>> {
-        var result = HashMap<Rational, ArrayList<Size>>()
-        for (size in sizes) {
-            val rational = size.toRational()
-            if (result[rational] == null) {
-                result[rational] = ArrayList()
-            }
-
-            result[rational]?.add(size)
-        }
-        return result
-    }
-
-
-
-
-    private fun selectBackCameraID(): String {
-        queryCameraInfo()
-        cameraInfoMap.values.forEach {
-            if (it.lensFacing != CameraCharacteristics.LENS_FACING_BACK) {
-                return@forEach
-            }
-
-            if (!it.isLogical) {
-                return@forEach
-            }
-
-            // Query the available capabilities and output formats
-            val capabilities = it.characteristics.get(
-                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)!!
-            val outputFormats = it.characteristics.get(
-                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!.outputFormats
-
-
-            // Return cameras that support RAW capability
-            if (capabilities.contains(
-                    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW) &&
-                outputFormats.contains(ImageFormat.RAW_SENSOR)) {
-                return it.cameraID
-            }
-
-        }
-        throw RuntimeException("no suitable back camera id found")
-    }
-
-    private fun queryCameraInfo() {
-        val presentIdQueue = ArrayDeque<String>().apply {
-            addAll(cameraManager.cameraIdList)
-        }
-        cameraInfoMap.clear()
-
-        val logicalIdQueue = ArrayDeque<String>()
-
-        // 先处理通过CameraManager能查询到的
-        while (presentIdQueue.isNotEmpty()) {
-            val id = presentIdQueue.poll()
-            if (cameraInfoMap.containsKey(id)) {
-                continue
-            }
-            val characteristics = cameraManager.getCameraCharacteristics(id)
-            val infoWrapper = CameraInfoWrapper(id, characteristics).apply {
-                isPresentByCameraManager = true
-            }
-            cameraInfoMap.put(id, infoWrapper)
-            if (infoWrapper.isLogical) {
-                logicalIdQueue.add(id)
-            }
-        }
-
-        // 然后处理隐藏的物理镜头。如果一个摄像头既能被CameraManager独立查询到，又属于逻辑镜头。
-        // 那最终将它视作属于逻辑镜头，要打开它，就通过逻辑镜头打开
-        while (logicalIdQueue.isNotEmpty()) {
-            val logicalID = logicalIdQueue.poll()
-            val logicalInfo = cameraInfoMap[logicalID] ?: continue
-            for (physicalID in logicalInfo.logicalPhysicalIDs) {
-                val characteristics = cameraManager.getCameraCharacteristics(physicalID)
-                val infoWrapper = CameraInfoWrapper(physicalID, characteristics).apply {
-                    isPresentByCameraManager = false
-                    this.logicalID = logicalID
-                }
-                cameraInfoMap[physicalID] = infoWrapper
-            }
-        }
-
-        val infoList = ArrayList<CameraInfoWrapper>().apply {
-            addAll(cameraInfoMap.values)
-        }
-
-
-        infoList.sortWith(Comparator { o1, o2 ->
-            if (o1.lensFacing == CameraCharacteristics.LENS_FACING_FRONT && o2.lensFacing != CameraCharacteristics.LENS_FACING_FRONT) {
-                -1
-            } else if (o1.lensFacing != CameraCharacteristics.LENS_FACING_FRONT && o2.lensFacing == CameraCharacteristics.LENS_FACING_FRONT) {
-                1
-            } else {
-                if (o1.isLogical && !o2.isLogical) {
-                    -1
-                } else if (!o1.isLogical && o2.isLogical) {
-                    1
-                } else {
-                    if (o1.focalArray[0] > o2.focalArray[0]) {
-                        1
-                    } else if (o1.focalArray[0] < o2.focalArray[0]) {
-                        -1
-                    } else {
-                        0
-                    }
-                }
-            }
-        })
-
-        infoList.forEach {
-            Timber.d(it.toString())
-        }
-
-        infoList.forEach {
-            val str = """
-                {
-                    id: ${it.cameraID}
-                    supportLevel: ${it.characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)}
-                    maxOutputProc: ${it.characteristics.get(CameraCharacteristics.REQUEST_MAX_NUM_OUTPUT_PROC)}
-                    maxOutputStalling: ${it.characteristics.get(CameraCharacteristics.REQUEST_MAX_NUM_OUTPUT_PROC_STALLING)}
-                    maxOutputRaw: ${it.characteristics.get(CameraCharacteristics.REQUEST_MAX_NUM_OUTPUT_RAW)}
-                    maxInputStream: ${it.characteristics.get(CameraCharacteristics.REQUEST_MAX_NUM_INPUT_STREAMS)}
-                }
-            """.trimIndent()
-            Timber.d(str)
-        }
-
-
-
-    }
-
-
-
 
 }
