@@ -49,7 +49,6 @@ class MultiSurfaceActivity : AppCompatActivity() {
         queryCameraInfo(this)
     }
 
-    private var cameraID: String? = null
     private var surfaceCreated = false
     private var openCameraID: String? = null
 
@@ -83,9 +82,8 @@ class MultiSurfaceActivity : AppCompatActivity() {
     private val textureCallback = object : TextureView.SurfaceTextureListener {
         override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
             surfaceCreated = true
-            if (cameraID != null) {
-                openDevice(cameraID!!)
-            }
+            val cameraID = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
+            binding.spinnerCamera.setSelection(cameraList.indexOfFirst { info -> info.cameraID == cameraID })
         }
 
         override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
@@ -105,15 +103,21 @@ class MultiSurfaceActivity : AppCompatActivity() {
     private val surfaceCallback = object : SurfaceHolder.Callback {
         override fun surfaceCreated(holder: SurfaceHolder) {
             surfaceCreated = true
-            Timber.d("surfaceCreated: select cameraOutputSize: w * h = ${previewSize.width} * ${previewSize.height}")
-            if (cameraID != null) {
-                openDevice(cameraID!!)
-            }
+            Timber.d("surfaceCreated: Thread = ${Thread.currentThread().name}")
+            val cameraID = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
+            binding.spinnerCamera.setSelection(cameraList.indexOfFirst { info -> info.cameraID == cameraID })
         }
 
         override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-            Timber.d("surfaceChanged: w * h = $width * $height, ratio = ${width.toFloat() / height}")
-            Timber.d("surfaceChanged: surfaceView: w * h = ${binding.surfaceMain.width} * ${binding.surfaceMain.height}, ratio = ${binding.surfaceMain.run { width.toFloat() / height }}")
+            val surfaceSize = with(binding.surfaceMain.holder.surfaceFrame) {
+                Size(this.width(), this.height())
+            }
+
+            val surfaceViewSize = with(binding.surfaceMain.surfaceView) {
+                Size(this.width, this.height)
+            }
+            Timber.d("surfaceChanged: surfaceSize = $surfaceSize, ratio = ${surfaceSize.toRational()}")
+            Timber.d("surfaceChanged: surfaceViewSize = $surfaceViewSize, ratio = ${surfaceViewSize.toRational()}")
         }
 
         override fun surfaceDestroyed(holder: SurfaceHolder) {
@@ -143,7 +147,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMultiSurfaceBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        cameraID = null
+        openCameraID = null
         surfaceCreated = false
         initViews()
     }
@@ -154,11 +158,8 @@ class MultiSurfaceActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        var initCameraID = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
         binding.surfaceMain.holder.addCallback(surfaceCallback)
         binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
-
-
         binding.surface1.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.swSurface1.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
@@ -185,9 +186,10 @@ class MultiSurfaceActivity : AppCompatActivity() {
         }
 
         binding.btnRestartCamera.setOnClickListener {
+            val cameraID = openCameraID
             closeDevice()
-            if (openCameraID != null) {
-                openDevice(openCameraID!!)
+            if (cameraID != null) {
+                openDevice(cameraID!!)
             }
 
         }
@@ -200,8 +202,6 @@ class MultiSurfaceActivity : AppCompatActivity() {
         adapter = CameraAdapter()
         adapter.setData(cameraList)
         binding.spinnerCamera.adapter = adapter
-        binding.spinnerCamera.setSelection(cameraList.indexOf(cameraInfoMap[initCameraID]))
-
         binding.spinnerCamera.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(
                 parent: AdapterView<*>?,
@@ -209,14 +209,13 @@ class MultiSurfaceActivity : AppCompatActivity() {
                 position: Int,
                 id: Long
             ) {
-                cameraID = cameraList[position]!!.cameraID
+                val cameraID = cameraList[position]!!.cameraID
                 if (surfaceCreated) {
                     openDevice(cameraID!!)
                 }
             }
 
             override fun onNothingSelected(parent: AdapterView<*>) {
-                cameraID = null
                 closeDevice()
 
             }
@@ -268,7 +267,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
         if (camera != null) {
             closeDevice()
         }
-        this@MultiSurfaceActivity.cameraID = cameraID
+
         openCameraID = cameraID
 
         val characteristics = cameraInfoMap[cameraID]!!.characteristics
@@ -278,8 +277,9 @@ class MultiSurfaceActivity : AppCompatActivity() {
         binding.surface1.setSourceResolution(previewSize.width, previewSize.height)
         initImageReaders()
 
-        val info = cameraInfoMap[cameraID]!!
-        val finalID = info.logicalID ?: cameraID
+        val info = cameraInfoMap[openCameraID]!!
+        val finalID = info.logicalID ?: openCameraID!!
+        Timber.d("openDevice $finalID")
         cameraManager.openCamera(finalID, object : CameraDevice.StateCallback() {
             override fun onOpened(camera: CameraDevice) {
                 this@MultiSurfaceActivity.camera = camera
@@ -309,7 +309,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
         closeSession()
         camera?.close()
         camera = null
-        cameraID = null
+        openCameraID = null
     }
 
     private fun createSession() {
@@ -331,13 +331,12 @@ class MultiSurfaceActivity : AppCompatActivity() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             val info = cameraInfoMap[openCameraID]!!
-            val finalID = info.logicalID ?: info.cameraID
             val outputConfigurations = ArrayList<OutputConfiguration>()
             for (surface in target) {
                 val outputConfiguration = OutputConfiguration(surface)
                 if (info.logicalID != null) {
                     Timber.w("camera${info.cameraID} belong to logical camera${info.logicalID}, set physical camera")
-                    outputConfiguration.setPhysicalCameraId(cameraID)
+                    outputConfiguration.setPhysicalCameraId(info.cameraID)
                 }
                 outputConfigurations.add(outputConfiguration)
             }
@@ -359,8 +358,6 @@ class MultiSurfaceActivity : AppCompatActivity() {
         captureRequestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
             set(CaptureRequest.CONTROL_AF_MODE,
                 CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
-
-            set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range(60, 60))
 
             getCaptureSurfaceList().forEach {
                 addTarget(it)

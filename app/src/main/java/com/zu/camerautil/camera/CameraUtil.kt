@@ -208,8 +208,7 @@ fun <T> computePreviewSize(
         previewSize = finalPreviewSize!!
         break
     }
-    previewSize = Size(1280, 720)
-    return previewSize
+    return previewSize ?: throw RuntimeException("can't find preview size")
 }
 
 /**

@@ -79,7 +79,7 @@ class ZoomActivity : AppCompatActivity() {
 
     private val surfaceCallback = object : SurfaceHolder.Callback {
         override fun surfaceCreated(holder: SurfaceHolder) {
-            Timber.d("surfaceCreated")
+            Timber.d("surfaceCreated: Thread = ${Thread.currentThread().name}")
             surfaceCreated = true
             val cameraID = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
             binding.spinnerCamera.setSelection(cameraList.indexOfFirst { info -> info.cameraID == cameraID })
@@ -127,10 +127,10 @@ class ZoomActivity : AppCompatActivity() {
     private fun initViews() {
         binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.surfaceMain.holder.addCallback(surfaceCallback)
+
         adapter = CameraAdapter()
         adapter.setData(cameraList)
         binding.spinnerCamera.adapter = adapter
-
         binding.spinnerCamera.onItemSelectedListener = object : OnItemSelectedListener {
             override fun onItemSelected(
                 parent: AdapterView<*>?,
@@ -154,7 +154,7 @@ class ZoomActivity : AppCompatActivity() {
                 binding.root.viewTreeObserver.removeOnGlobalLayoutListener(this)
             }
         })
-        Timber.d("initView")
+        Timber.d("initView, Thread = ${Thread.currentThread().name}")
     }
 
     @Synchronized
@@ -253,8 +253,6 @@ class ZoomActivity : AppCompatActivity() {
         captureRequestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
             set(CaptureRequest.CONTROL_AF_MODE,
                 CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
-
-            // set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range(60, 60))
 
             getCaptureSurfaceList().forEach {
                 addTarget(it)
