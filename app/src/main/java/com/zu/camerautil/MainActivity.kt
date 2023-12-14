@@ -22,9 +22,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun initViews() {
         binding.btnMultiSurface.setOnClickListener {
-            val intent = Intent(this, MultiSurfaceActivity::class.java)
-            startActivity(intent)
+            startActivity(MultiSurfaceActivity::class.java)
         }
+
+        binding.btnZoom.setOnClickListener {
+            startActivity(ZoomActivity::class.java)
+        }
+
+    }
+
+    private fun <T> startActivity(target: Class<T>) {
+        val intent = Intent(this, target)
+        startActivity(intent)
     }
 
     private fun checkPermission() {

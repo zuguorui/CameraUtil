@@ -1,19 +1,29 @@
 package com.zu.camerautil
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.TotalCaptureResult
+import android.hardware.camera2.params.OutputConfiguration
+import android.hardware.camera2.params.SessionConfiguration
+import android.media.ImageReader
+import android.media.ImageReader.OnImageAvailableListener
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
+import android.util.Range
 import android.util.Size
+import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.View
+import android.view.ViewTreeObserver.OnGlobalLayoutListener
 import android.widget.AdapterView
 import android.widget.AdapterView.OnItemSelectedListener
 import com.zu.camerautil.bean.CameraInfoWrapper
@@ -21,12 +31,15 @@ import com.zu.camerautil.camera.computePreviewSize
 import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.camera.selectCameraID
 import com.zu.camerautil.databinding.ActivityZoomBinding
+import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.view.CameraAdapter
 import timber.log.Timber
 import java.util.concurrent.Executors
 
+@SuppressLint("MissingPermission")
 class ZoomActivity : AppCompatActivity() {
 
+    // camera objects start
     private val cameraManager: CameraManager by lazy {
         ((getSystemService(Context.CAMERA_SERVICE)) as CameraManager)
     }
@@ -35,13 +48,8 @@ class ZoomActivity : AppCompatActivity() {
         queryCameraInfo(this)
     }
 
-    private var cameraID: String? = null
-        set(value) {
-            field = value
-
-        }
-    private val characteristics: CameraCharacteristics
-        get() = cameraInfoMap[cameraID]!!.characteristics
+    private var surfaceCreated = false
+    private var openedCameraID: String? = null
 
     private var camera: CameraDevice? = null
 
@@ -57,32 +65,6 @@ class ZoomActivity : AppCompatActivity() {
 
     private var cameraExecutor = Executors.newSingleThreadExecutor()
 
-    private val surfaceCallback = object : SurfaceHolder.Callback {
-        override fun surfaceCreated(holder: SurfaceHolder) {
-            // 获取最接近容器宽高比的Camera输出，并且设置给SurfaceView
-            val viewSize = with(binding.surfaceMain) {
-                Size(width, height)
-            }
-            previewSize = computePreviewSize(characteristics, viewSize, binding.root.display.rotation, SurfaceHolder::class.java)
-            initComponents()
-            // binding.surfaceMain.setSourceResolution(previewSize.width, previewSize.height)
-            binding.surface1.setSourceResolution(previewSize.width, previewSize.height)
-            Timber.d("surfaceCreated: select cameraOutputSize: w * h = ${previewSize.width} * ${previewSize.height}")
-            binding.root.post {
-                openDevice()
-            }
-        }
-
-        override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-            Timber.d("surfaceChanged: w * h = $width * $height, ratio = ${width.toFloat() / height}")
-            Timber.d("surfaceChanged: surfaceView: w * h = ${binding.surfaceMain.width} * ${binding.surfaceMain.height}, ratio = ${binding.surfaceMain.run { width.toFloat() / height }}")
-        }
-
-        override fun surfaceDestroyed(holder: SurfaceHolder) {
-
-        }
-    }
-
     private val captureCallback = object : CameraCaptureSession.CaptureCallback() {
         override fun onCaptureCompleted(
             session: CameraCaptureSession,
@@ -90,6 +72,33 @@ class ZoomActivity : AppCompatActivity() {
             result: TotalCaptureResult
         ) {
             super.onCaptureCompleted(session, request, result)
+        }
+    }
+    // camera objects end
+
+
+    private val surfaceCallback = object : SurfaceHolder.Callback {
+        override fun surfaceCreated(holder: SurfaceHolder) {
+            Timber.d("surfaceCreated")
+            surfaceCreated = true
+            val cameraID = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
+            binding.spinnerCamera.setSelection(cameraList.indexOfFirst { info -> info.cameraID == cameraID })
+        }
+
+        override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+            val surfaceSize = with(binding.surfaceMain.holder.surfaceFrame) {
+                Size(this.width(), this.height())
+            }
+
+            val surfaceViewSize = with(binding.surfaceMain.surfaceView) {
+                Size(this.width, this.height)
+            }
+            Timber.d("surfaceChanged: surfaceSize = $surfaceSize, ratio = ${surfaceSize.toRational()}")
+            Timber.d("surfaceChanged: surfaceViewSize = $surfaceViewSize, ratio = ${surfaceViewSize.toRational()}")
+        }
+
+        override fun surfaceDestroyed(holder: SurfaceHolder) {
+
         }
     }
 
@@ -105,15 +114,23 @@ class ZoomActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityZoomBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        openedCameraID = null
+        surfaceCreated = false
         initViews()
     }
 
+    override fun onDestroy() {
+        closeDevice()
+        super.onDestroy()
+    }
+
     private fun initViews() {
-        cameraID = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
+        binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
+        binding.surfaceMain.holder.addCallback(surfaceCallback)
         adapter = CameraAdapter()
         adapter.setData(cameraList)
         binding.spinnerCamera.adapter = adapter
-        binding.spinnerCamera.setSelection(cameraList.indexOf(cameraInfoMap[cameraID]))
+
         binding.spinnerCamera.onItemSelectedListener = object : OnItemSelectedListener {
             override fun onItemSelected(
                 parent: AdapterView<*>?,
@@ -121,12 +138,151 @@ class ZoomActivity : AppCompatActivity() {
                 position: Int,
                 id: Long
             ) {
-
+                val cameraID = cameraList[position]!!.cameraID
+                if (surfaceCreated) {
+                    openDevice(cameraID!!)
+                }
             }
 
-            override fun onNothingSelected(parent: AdapterView<*>?) {
-                TODO("Not yet implemented")
+            override fun onNothingSelected(parent: AdapterView<*>) {
+                closeDevice()
             }
         }
+        binding.root.viewTreeObserver.addOnGlobalLayoutListener(object : OnGlobalLayoutListener{
+            override fun onGlobalLayout() {
+                Timber.d("onGlobalLayout")
+                binding.root.viewTreeObserver.removeOnGlobalLayoutListener(this)
+            }
+        })
+        Timber.d("initView")
+    }
+
+    @Synchronized
+    private fun openDevice(cameraID: String) {
+        if (openedCameraID == cameraID) {
+            Timber.w("same cameraID, return")
+        }
+        if (camera != null) {
+            closeDevice()
+        }
+        openedCameraID = cameraID
+
+        val characteristics = cameraInfoMap[openedCameraID]!!.characteristics
+        computeSize(characteristics)
+        // 获取最接近容器宽高比的Camera输出，并且设置给SurfaceView
+        binding.surfaceMain.setSourceResolution(previewSize.width, previewSize.height)
+
+        val info = cameraInfoMap[openedCameraID]!!
+        val finalID = info.logicalID ?: openedCameraID!!
+        Timber.d("openDevice $finalID")
+        cameraManager.openCamera(finalID, object : CameraDevice.StateCallback() {
+            override fun onOpened(camera: CameraDevice) {
+                this@ZoomActivity.camera = camera
+                createSession()
+            }
+
+            override fun onDisconnected(camera: CameraDevice) {
+                Timber.e("open camera failed")
+            }
+
+            override fun onError(camera: CameraDevice, error: Int) {
+                val msg = when (error) {
+                    ERROR_CAMERA_DEVICE -> "Fatal (device)"
+                    ERROR_CAMERA_DISABLED -> "Device policy"
+                    ERROR_CAMERA_IN_USE -> "Camera in use"
+                    ERROR_CAMERA_SERVICE -> "Fatal (service)"
+                    ERROR_MAX_CAMERAS_IN_USE -> "Maximum cameras in use"
+                    else -> "Unknown"
+                }
+                val exc = RuntimeException("Camera $cameraID error: ($error) $msg")
+                Timber.e(exc.message, exc)
+            }
+        }, cameraHandler)
+    }
+
+    private fun closeDevice() {
+        closeSession()
+        camera?.close()
+        camera = null
+        openedCameraID = null
+    }
+
+    private fun createSession() {
+        val camera = this.camera ?: return
+
+        val createSessionCallback = object : CameraCaptureSession.StateCallback() {
+            override fun onConfigured(session: CameraCaptureSession) {
+                this@ZoomActivity.session = session
+                startPreview()
+            }
+
+            override fun onConfigureFailed(session: CameraCaptureSession) {
+                val exception = RuntimeException("create session failed")
+                Timber.e("onConfigureFailed: ${exception.message}")
+            }
+        }
+
+        val target = getSessionSurfaceList()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val info = cameraInfoMap[openedCameraID]!!
+            val outputConfigurations = ArrayList<OutputConfiguration>()
+            for (surface in target) {
+                val outputConfiguration = OutputConfiguration(surface)
+                if (info.logicalID != null) {
+                    Timber.w("camera${info.cameraID} belong to logical camera${info.logicalID}, set physical camera")
+                    outputConfiguration.setPhysicalCameraId(info.cameraID)
+                }
+                outputConfigurations.add(outputConfiguration)
+            }
+            camera.createCaptureSession(SessionConfiguration(SessionConfiguration.SESSION_REGULAR, outputConfigurations, cameraExecutor, createSessionCallback))
+        } else {
+            camera.createCaptureSession(target, createSessionCallback, cameraHandler)
+        }
+    }
+
+    private fun closeSession() {
+        session?.close()
+        session = null
+    }
+
+    private fun startPreview() {
+        val session = this.session ?: return
+        val camera = this.camera ?: return
+
+        captureRequestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
+            set(CaptureRequest.CONTROL_AF_MODE,
+                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+
+            // set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range(60, 60))
+
+            getCaptureSurfaceList().forEach {
+                addTarget(it)
+            }
+        }
+
+        session.setRepeatingRequest(captureRequestBuilder!!.build(), captureCallback, cameraHandler)
+    }
+
+    private fun getSessionSurfaceList(): ArrayList<Surface> {
+        return arrayListOf(binding.surfaceMain.surface)
+    }
+
+    private fun getCaptureSurfaceList(): ArrayList<Surface> {
+        return arrayListOf(binding.surfaceMain.surface)
+    }
+
+    private fun computeSize(characteristics: CameraCharacteristics) {
+        val viewSize = with(binding.surfaceMain) {
+            Size(width, height)
+        }
+        previewSize = computePreviewSize(
+            characteristics,
+            viewSize,
+            binding.root.display.rotation,
+            SurfaceHolder::class.java
+        )
+
+        //previewSize = Size(1280, 720)
     }
 }

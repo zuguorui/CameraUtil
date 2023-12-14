@@ -14,6 +14,7 @@ import com.zu.camerautil.toRational
 import timber.log.Timber
 import java.util.ArrayDeque
 import kotlin.math.abs
+import kotlin.math.log
 
 fun queryCameraInfo(context: Context): HashMap<String, CameraInfoWrapper> {
     val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
@@ -48,11 +49,15 @@ fun queryCameraInfo(context: Context): HashMap<String, CameraInfoWrapper> {
         val logicalInfo = cameraInfoMap[logicalID] ?: continue
         for (physicalID in logicalInfo.logicalPhysicalIDs) {
             val characteristics = cameraManager.getCameraCharacteristics(physicalID)
-            val infoWrapper = CameraInfoWrapper(physicalID, characteristics).apply {
-                isPresentByCameraManager = false
-                this.logicalID = logicalID
+            cameraInfoMap[physicalID]?.let {
+                it.logicalID = logicalID
+            } ?: kotlin.run {
+                val infoWrapper = CameraInfoWrapper(physicalID, characteristics).apply {
+                    isPresentByCameraManager = false
+                    this.logicalID = logicalID
+                }
+                cameraInfoMap[physicalID] = infoWrapper
             }
-            cameraInfoMap[physicalID] = infoWrapper
         }
     }
 
@@ -83,23 +88,23 @@ fun queryCameraInfo(context: Context): HashMap<String, CameraInfoWrapper> {
         }
     })
 
-    infoList.forEach {
-        Timber.d(it.toString())
-    }
+//    infoList.forEach {
+//        Timber.d(it.toString())
+//    }
 
-    infoList.forEach {
-        val str = """
-                {
-                    id: ${it.cameraID}
-                    supportLevel: ${it.characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)}
-                    maxOutputProc: ${it.characteristics.get(CameraCharacteristics.REQUEST_MAX_NUM_OUTPUT_PROC)}
-                    maxOutputStalling: ${it.characteristics.get(CameraCharacteristics.REQUEST_MAX_NUM_OUTPUT_PROC_STALLING)}
-                    maxOutputRaw: ${it.characteristics.get(CameraCharacteristics.REQUEST_MAX_NUM_OUTPUT_RAW)}
-                    maxInputStream: ${it.characteristics.get(CameraCharacteristics.REQUEST_MAX_NUM_INPUT_STREAMS)}
-                }
-            """.trimIndent()
-        Timber.d(str)
-    }
+//    infoList.forEach {
+//        val str = """
+//                {
+//                    id: ${it.cameraID}
+//                    supportLevel: ${it.characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)}
+//                    maxOutputProc: ${it.characteristics.get(CameraCharacteristics.REQUEST_MAX_NUM_OUTPUT_PROC)}
+//                    maxOutputStalling: ${it.characteristics.get(CameraCharacteristics.REQUEST_MAX_NUM_OUTPUT_PROC_STALLING)}
+//                    maxOutputRaw: ${it.characteristics.get(CameraCharacteristics.REQUEST_MAX_NUM_OUTPUT_RAW)}
+//                    maxInputStream: ${it.characteristics.get(CameraCharacteristics.REQUEST_MAX_NUM_INPUT_STREAMS)}
+//                }
+//            """.trimIndent()
+//        Timber.d(str)
+//    }
 
     return cameraInfoMap
 }

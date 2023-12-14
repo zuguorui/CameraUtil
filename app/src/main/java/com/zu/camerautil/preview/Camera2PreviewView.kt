@@ -8,6 +8,7 @@ import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.widget.FrameLayout
+import timber.log.Timber
 
 /**
  * @author zuguorui
@@ -114,6 +115,7 @@ class Camera2PreviewView: FrameLayout {
         surfaceView.measure(surfaceWidthSpec, surfaceHeightSpec)
 
         setMeasuredDimension(measuredWidth, measuredHeight)
+        Timber.d("onMeasure: surfaceRect = $surfaceRect, sourceResolution = $sourceResolution, viewSize = ${Size(width, height)}")
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
@@ -123,7 +125,7 @@ class Camera2PreviewView: FrameLayout {
     fun setSourceResolution(width: Int, height: Int) {
         sourceResolution = Size(width, height)
         surfaceView.holder.setFixedSize(width, height)
-        postInvalidate()
+        requestLayout()
     }
 
     fun getSourceResolution(): Size? {

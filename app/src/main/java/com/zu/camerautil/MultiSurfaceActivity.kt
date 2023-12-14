@@ -22,6 +22,8 @@ import android.util.Size
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.TextureView
+import android.view.View
+import android.widget.AdapterView
 import androidx.appcompat.app.AppCompatActivity
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.camera.computeImageReaderSize
@@ -30,6 +32,7 @@ import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.camera.selectCameraID
 import com.zu.camerautil.databinding.ActivityMultiSurfaceBinding
 import com.zu.camerautil.preview.Camera2PreviewView
+import com.zu.camerautil.view.CameraAdapter
 import timber.log.Timber
 import java.util.concurrent.Executors
 
@@ -46,15 +49,9 @@ class MultiSurfaceActivity : AppCompatActivity() {
         queryCameraInfo(this)
     }
 
-    private val cameraID: String by lazy {
-        var id = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
-        // id = "3"
-        Timber.d("cameraID: $id")
-        id
-    }
-
-    private val characteristics: CameraCharacteristics
-        get() = cameraInfoMap[cameraID]!!.characteristics
+    private var cameraID: String? = null
+    private var surfaceCreated = false
+    private var openCameraID: String? = null
 
     private var camera: CameraDevice? = null
 
@@ -66,9 +63,9 @@ class MultiSurfaceActivity : AppCompatActivity() {
 
     private lateinit var imageReaderSize: Size
 
-    private lateinit var imageReader1: ImageReader
+    private var imageReader1: ImageReader? = null
 
-    private lateinit var imageReader2: ImageReader
+    private var imageReader2: ImageReader? = null
 
     private val imageReaderFormat = ImageFormat.YUV_420_888
 
@@ -82,19 +79,12 @@ class MultiSurfaceActivity : AppCompatActivity() {
 
     private var imageReaderHandler = Handler(imageReaderThread.looper)
 
-    private lateinit var mainSurface: Surface
 
     private val textureCallback = object : TextureView.SurfaceTextureListener {
         override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
-            computeSizes()
-            initComponents()
-            Timber.d("textureAvailable, width = $width, height = $height")
-            surface.setDefaultBufferSize(previewSize.width, previewSize.height)
-            mainSurface = Surface(surface)
-            binding.surface1.setSourceResolution(previewSize.width, previewSize.height)
-            Timber.d("surfaceCreated: select cameraOutputSize: w * h = ${previewSize.width} * ${previewSize.height}")
-            binding.root.post {
-                openDevice()
+            surfaceCreated = true
+            if (cameraID != null) {
+                openDevice(cameraID!!)
             }
         }
 
@@ -114,14 +104,10 @@ class MultiSurfaceActivity : AppCompatActivity() {
 
     private val surfaceCallback = object : SurfaceHolder.Callback {
         override fun surfaceCreated(holder: SurfaceHolder) {
-            // 获取最接近容器宽高比的Camera输出，并且设置给SurfaceView
-            computeSizes()
-            initComponents()
-            // binding.surfaceMain.setSourceResolution(previewSize.width, previewSize.height)
-            binding.surface1.setSourceResolution(previewSize.width, previewSize.height)
+            surfaceCreated = true
             Timber.d("surfaceCreated: select cameraOutputSize: w * h = ${previewSize.width} * ${previewSize.height}")
-            binding.root.post {
-                openDevice()
+            if (cameraID != null) {
+                openDevice(cameraID!!)
             }
         }
 
@@ -145,18 +131,33 @@ class MultiSurfaceActivity : AppCompatActivity() {
         }
     }
 
+    private lateinit var adapter: CameraAdapter
+    private val cameraList: ArrayList<CameraInfoWrapper> by lazy {
+        ArrayList<CameraInfoWrapper>().apply {
+            addAll(cameraInfoMap.values)
+        }
+    }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMultiSurfaceBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        cameraID = null
+        surfaceCreated = false
         initViews()
     }
 
+    override fun onDestroy() {
+        closeDevice()
+        super.onDestroy()
+    }
+
     private fun initViews() {
-//        binding.surfaceMain.holder.addCallback(surfaceCallback)
-//        binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
-        binding.surfaceMain.surfaceTextureListener = textureCallback
+        var initCameraID = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
+        binding.surfaceMain.holder.addCallback(surfaceCallback)
+        binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
+
 
         binding.surface1.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.swSurface1.setOnCheckedChangeListener { _, isChecked ->
@@ -168,11 +169,11 @@ class MultiSurfaceActivity : AppCompatActivity() {
         }
 
         binding.swImageReader1.setOnCheckedChangeListener { _, isChecked ->
-//            if (isChecked) {
-//                addSurface(imageReader1.surface)
-//            } else {
-//                removeSurface(imageReader1.surface)
-//            }
+            if (isChecked) {
+                addSurface(imageReader1!!.surface)
+            } else {
+                removeSurface(imageReader1!!.surface)
+            }
         }
 
         binding.swImageReader2.setOnCheckedChangeListener { _, isChecked ->
@@ -185,51 +186,98 @@ class MultiSurfaceActivity : AppCompatActivity() {
 
         binding.btnRestartCamera.setOnClickListener {
             closeDevice()
-            openDevice()
+            if (openCameraID != null) {
+                openDevice(openCameraID!!)
+            }
+
         }
 
         binding.btnRestartSession.setOnClickListener {
             closeSession()
             createSession()
         }
+
+        adapter = CameraAdapter()
+        adapter.setData(cameraList)
+        binding.spinnerCamera.adapter = adapter
+        binding.spinnerCamera.setSelection(cameraList.indexOf(cameraInfoMap[initCameraID]))
+
+        binding.spinnerCamera.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>?,
+                view: View?,
+                position: Int,
+                id: Long
+            ) {
+                cameraID = cameraList[position]!!.cameraID
+                if (surfaceCreated) {
+                    openDevice(cameraID!!)
+                }
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>) {
+                cameraID = null
+                closeDevice()
+
+            }
+        }
     }
 
-    private fun initComponents() {
+    private fun initImageReaders() {
         val imageReaderSize = imageReaderSize ?: return
-        imageReader1 = ImageReader.newInstance(imageReaderSize.width, imageReaderSize.height, imageReaderFormat, 2).apply {
-            setOnImageAvailableListener({reader ->
-                val image = reader.acquireLatestImage() ?: kotlin.run {
-                    Timber.e("image 1 is null")
-                    return@setOnImageAvailableListener
-                }
-                val bitmap = convertYPlaneToBitmap(image)
-                image.close()
-                runOnUiThread {
-                    binding.iv1.setImageBitmap(bitmap)
-                }
-            }, imageReaderHandler)
+        if (imageReader1?.width != imageReaderSize.width || imageReader1?.height != imageReaderSize.height) {
+            imageReader1?.close()
+            imageReader1 = ImageReader.newInstance(imageReaderSize.width, imageReaderSize.height, imageReaderFormat, 2).apply {
+                setOnImageAvailableListener({reader ->
+                    val image = reader.acquireLatestImage() ?: kotlin.run {
+                        Timber.e("image 1 is null")
+                        return@setOnImageAvailableListener
+                    }
+                    val bitmap = convertYPlaneToBitmap(image)
+                    image.close()
+                    runOnUiThread {
+                        binding.iv1.setImageBitmap(bitmap)
+                    }
+                }, imageReaderHandler)
+            }
         }
 
-        imageReader2 = ImageReader.newInstance(imageReaderSize.width, imageReaderSize.height, imageReaderFormat, 2).apply {
-            setOnImageAvailableListener({reader ->
-                val image = reader.acquireLatestImage() ?: kotlin.run {
-                    Timber.e("image 2 is null")
-                    return@setOnImageAvailableListener
-                }
-                val bitmap = convertYPlaneToBitmap(image)
-                image.close()
-                runOnUiThread {
-                    binding.iv2.setImageBitmap(bitmap)
-                }
-            }, imageReaderHandler)
+        if (imageReader2?.width != imageReaderSize.width || imageReader2?.height != imageReaderSize.height) {
+            imageReader2?.close()
+            imageReader2 = ImageReader.newInstance(imageReaderSize.width, imageReaderSize.height, imageReaderFormat, 2).apply {
+                setOnImageAvailableListener({reader ->
+                    val image = reader.acquireLatestImage() ?: kotlin.run {
+                        Timber.e("image 2 is null")
+                        return@setOnImageAvailableListener
+                    }
+                    val bitmap = convertYPlaneToBitmap(image)
+                    image.close()
+                    runOnUiThread {
+                        binding.iv2.setImageBitmap(bitmap)
+                    }
+                }, imageReaderHandler)
+            }
         }
     }
 
 
-    private fun openDevice() {
+    private fun openDevice(cameraID: String) {
+        if (openCameraID == cameraID) {
+            Timber.d("same cameraID, return")
+        }
         if (camera != null) {
             closeDevice()
         }
+        this@MultiSurfaceActivity.cameraID = cameraID
+        openCameraID = cameraID
+
+        val characteristics = cameraInfoMap[cameraID]!!.characteristics
+        computeSizes(characteristics)
+        // 获取最接近容器宽高比的Camera输出，并且设置给SurfaceView
+        binding.surfaceMain.setSourceResolution(previewSize.width, previewSize.height)
+        binding.surface1.setSourceResolution(previewSize.width, previewSize.height)
+        initImageReaders()
+
         val info = cameraInfoMap[cameraID]!!
         val finalID = info.logicalID ?: cameraID
         cameraManager.openCamera(finalID, object : CameraDevice.StateCallback() {
@@ -261,6 +309,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
         closeSession()
         camera?.close()
         camera = null
+        cameraID = null
     }
 
     private fun createSession() {
@@ -281,7 +330,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
         val target = getSessionSurfaceList()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val info = cameraInfoMap[cameraID]!!
+            val info = cameraInfoMap[openCameraID]!!
             val finalID = info.logicalID ?: info.cameraID
             val outputConfigurations = ArrayList<OutputConfiguration>()
             for (surface in target) {
@@ -323,25 +372,25 @@ class MultiSurfaceActivity : AppCompatActivity() {
 
     private fun getSessionSurfaceList(): ArrayList<Surface> {
         val list = ArrayList<Surface>()
-        list.add(mainSurface)
+        list.add(binding.surfaceMain.surface)
         list.add(binding.surface1.surface)
-        list.add(imageReader1.surface)
-        //list.add(imageReader2.surface)
+        list.add(imageReader1!!.surface)
+        //list.add(imageReader2!!.surface)
 
         return list
     }
 
     private fun getCaptureSurfaceList(): ArrayList<Surface> {
         val list = ArrayList<Surface>()
-        list.add(mainSurface)
+        list.add(binding.surfaceMain.surface)
         if (binding.swSurface1.isChecked) {
             list.add(binding.surface1.surface)
         }
         if (binding.swImageReader1.isChecked) {
-            list.add(imageReader1.surface)
+            list.add(imageReader1!!.surface)
         }
 //        if (binding.swImageReader2.isChecked) {
-//            list.add(imageReader2.surface)
+//            list.add(imageReader2!!.surface)
 //        }
 
         return list
@@ -369,12 +418,13 @@ class MultiSurfaceActivity : AppCompatActivity() {
      * 要同时查询支持Surface的分辨率及ImageReader的分辨率，两者宽高比要一致才行，否则分析会失败。
      *
      * */
-    private fun computeSizes() {
+    private fun computeSizes(characteristics: CameraCharacteristics) {
         val viewSize = with(binding.surfaceMain) {
             Size(width, height)
         }
         previewSize = computePreviewSize(characteristics, viewSize, binding.root.display.rotation,
             SurfaceHolder::class.java)
+
         imageReaderSize = computeImageReaderSize(characteristics, previewSize,
             true, -1) ?: throw RuntimeException("No reader size")
 

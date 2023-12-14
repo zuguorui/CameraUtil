@@ -1,5 +1,6 @@
 package com.zu.camerautil.view
 
+import android.graphics.Color
 import android.hardware.camera2.CameraCharacteristics
 import android.view.LayoutInflater
 import android.view.TextureView
@@ -58,6 +59,11 @@ class CameraAdapter: BaseAdapter() {
         val focal = if (info.focalArray.isNotEmpty()) String.format("%.1f", info.focalArray[0]) else "_"
         val str = "Camera${info.cameraID}_${facing}_${logical}_focal(${focal})"
         tv.text = str
+        if (info.isPresentByCameraManager) {
+            tv.setTextColor(Color.GREEN)
+        } else {
+            tv.setTextColor(Color.RED)
+        }
         return view
     }
 }

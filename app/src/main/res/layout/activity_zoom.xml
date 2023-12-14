@@ -44,9 +44,9 @@
     <Spinner
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        app:layout_constraintTop_toBottomOf="@id/gl1"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintLeft_toRightOf="@id/rg"
+        app:layout_constraintLeft_toLeftOf="parent"
         app:barrierDirection="top"
         android:id="@+id/spinner_camera"
         android:padding="5dp"
