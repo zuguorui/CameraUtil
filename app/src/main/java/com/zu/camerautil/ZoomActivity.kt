@@ -32,6 +32,7 @@ import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.camera.selectCameraID
 import com.zu.camerautil.databinding.ActivityZoomBinding
 import com.zu.camerautil.preview.Camera2PreviewView
+import com.zu.camerautil.preview.PreviewViewImplementation
 import com.zu.camerautil.view.CameraAdapter
 import timber.log.Timber
 import java.util.concurrent.Executors
@@ -86,19 +87,30 @@ class ZoomActivity : AppCompatActivity() {
         }
 
         override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-            val surfaceSize = with(binding.surfaceMain.holder.surfaceFrame) {
-                Size(this.width(), this.height())
-            }
-
-            val surfaceViewSize = with(binding.surfaceMain.surfaceView) {
-                Size(this.width, this.height)
-            }
+            val surfaceSize = binding.surfaceMain.surfaceSize
             Timber.d("surfaceChanged: surfaceSize = $surfaceSize, ratio = ${surfaceSize.toRational()}")
-            Timber.d("surfaceChanged: surfaceViewSize = $surfaceViewSize, ratio = ${surfaceViewSize.toRational()}")
         }
 
         override fun surfaceDestroyed(holder: SurfaceHolder) {
 
+        }
+    }
+
+    private val surfaceStateListener = object : PreviewViewImplementation.SurfaceStateListener {
+        override fun onSurfaceCreated(surface: Surface) {
+            Timber.d("surfaceCreated: Thread = ${Thread.currentThread().name}")
+            surfaceCreated = true
+            val cameraID = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
+            binding.spinnerCamera.setSelection(cameraList.indexOfFirst { info -> info.cameraID == cameraID })
+        }
+
+        override fun onSurfaceSizeChanged(surface: Surface, width: Int, height: Int) {
+            val surfaceSize = binding.surfaceMain.surfaceSize
+            Timber.d("surfaceChanged: surfaceSize = $surfaceSize, ratio = ${surfaceSize.toRational()}")
+        }
+
+        override fun onSurfaceDestroyed(surface: Surface) {
+            TODO("Not yet implemented")
         }
     }
 
@@ -126,7 +138,7 @@ class ZoomActivity : AppCompatActivity() {
 
     private fun initViews() {
         binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
-        binding.surfaceMain.holder.addCallback(surfaceCallback)
+        binding.surfaceMain.surfaceStateListener = surfaceStateListener
 
         adapter = CameraAdapter()
         adapter.setData(cameraList)
@@ -139,9 +151,7 @@ class ZoomActivity : AppCompatActivity() {
                 id: Long
             ) {
                 val cameraID = cameraList[position]!!.cameraID
-                if (surfaceCreated) {
-                    openDevice(cameraID!!)
-                }
+                openDevice(cameraID!!)
             }
 
             override fun onNothingSelected(parent: AdapterView<*>) {
@@ -170,7 +180,7 @@ class ZoomActivity : AppCompatActivity() {
         val characteristics = cameraInfoMap[openedCameraID]!!.characteristics
         computeSize(characteristics)
         // 获取最接近容器宽高比的Camera输出，并且设置给SurfaceView
-        binding.surfaceMain.setSourceResolution(previewSize.width, previewSize.height)
+        binding.surfaceMain.previewSize = previewSize
 
         val info = cameraInfoMap[openedCameraID]!!
         val finalID = info.logicalID ?: openedCameraID!!

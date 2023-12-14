@@ -1,25 +1,125 @@
 package com.zu.camerautil.preview
 
 import android.content.Context
+import android.graphics.Rect
 import android.util.Size
 import android.view.Surface
+import android.view.ViewGroup
 
 /**
  * @author zuguorui
  * @date 2023/12/12
  * @description
  */
-abstract class PreviewViewImplementation {
+abstract class PreviewViewImplementation(val context: Context) {
 
-    var surfaceListener: SurfaceListener? = null
-
-    var scaleType: Camera2PreviewView.ScaleType = Camera2PreviewView.ScaleType.FIT_CENTER
-
-    constructor(context: Context)
+    var surfaceStateListener: SurfaceStateListener? = null
 
     abstract val surface: Surface
 
-    abstract fun setSourceResolution(width: Int, height: Int)
+    protected var parent: ViewGroup? = null
+    var scaleType: Camera2PreviewView.ScaleType = Camera2PreviewView.ScaleType.FIT_CENTER
+        set(value) {
+            val same = field == value
+            field = value
+            if (!same) {
+                parent?.requestLayout()
+            }
+        }
 
-    abstract fun getSourceResolution(): Size
+    abstract var previewSize: Size
+
+    abstract val surfaceSize: Size
+
+    private var surfaceRect = Rect()
+
+    open fun measure(parentMeasuredWidth: Int, parentMeasuredHeight: Int) {
+        val parent = parent ?: return
+
+        var resolution = previewSize ?: kotlin.run {
+            surfaceRect = Rect(0, 0, parentMeasuredWidth, parentMeasuredHeight)
+            onMeasure(surfaceRect)
+            return
+        }
+
+        var rotate = parent.display.rotation
+
+        // Surface坐标系固定为自然方向，这里根据手机旋转来将其转换为view坐标方向
+        var sourceRatio = when (rotate) {
+            Surface.ROTATION_90, Surface.ROTATION_270 -> resolution.run { width.toFloat() / height }
+            else -> resolution.run { height.toFloat() / width }
+        }
+
+        var viewRatio = parentMeasuredWidth.toFloat() / parentMeasuredHeight
+
+        var centerX = parentMeasuredWidth / 2
+        var centerY = parentMeasuredHeight / 2
+
+        var surfaceWidth: Int
+        var surfaceHeight: Int
+
+        if (viewRatio >= sourceRatio) {
+            // 图片比view窄
+            when (scaleType) {
+                Camera2PreviewView.ScaleType.FIT_CENTER -> {
+                    surfaceHeight = parentMeasuredHeight
+                    surfaceWidth = (surfaceHeight * sourceRatio).toInt()
+                }
+                else -> {
+                    surfaceWidth = parentMeasuredWidth
+                    surfaceHeight = (surfaceWidth / sourceRatio).toInt()
+                }
+            }
+        } else {
+            // 图片比view宽
+            when (scaleType) {
+                Camera2PreviewView.ScaleType.FIT_CENTER -> {
+                    surfaceWidth = parentMeasuredWidth
+                    surfaceHeight = (surfaceWidth / sourceRatio).toInt()
+                }
+                else -> {
+                    surfaceHeight = parentMeasuredHeight
+                    surfaceWidth = (surfaceHeight * sourceRatio).toInt()
+                }
+            }
+        }
+
+        surfaceRect.apply {
+            left = centerX - surfaceWidth / 2
+            right = left + surfaceWidth
+            top = centerY - surfaceHeight / 2
+            bottom = top + surfaceHeight
+        }
+
+        onMeasure(surfaceRect)
+    }
+
+    abstract fun onMeasure(bound: Rect)
+
+    fun layout() {
+        onLayout(surfaceRect)
+    }
+
+    abstract fun onLayout(bound: Rect)
+
+    fun attachToParent(viewGroup: ViewGroup) {
+        parent = viewGroup
+        requestAttachToParent(viewGroup)
+    }
+
+    abstract fun requestAttachToParent(viewGroup: ViewGroup)
+
+    fun detachFromParent() {
+        val parent = parent ?: return
+        requestDetachFromParent(parent)
+        this.parent = null
+    }
+
+    abstract fun requestDetachFromParent(viewGroup: ViewGroup)
+
+    interface SurfaceStateListener {
+        fun onSurfaceCreated(surface: Surface)
+        fun onSurfaceSizeChanged(surface: Surface, width: Int, height: Int)
+        fun onSurfaceDestroyed(surface: Surface)
+    }
 }

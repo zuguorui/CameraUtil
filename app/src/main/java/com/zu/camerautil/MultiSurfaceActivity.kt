@@ -17,7 +17,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
-import android.util.Range
 import android.util.Size
 import android.view.Surface
 import android.view.SurfaceHolder
@@ -32,6 +31,7 @@ import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.camera.selectCameraID
 import com.zu.camerautil.databinding.ActivityMultiSurfaceBinding
 import com.zu.camerautil.preview.Camera2PreviewView
+import com.zu.camerautil.preview.PreviewViewImplementation
 import com.zu.camerautil.view.CameraAdapter
 import timber.log.Timber
 import java.util.concurrent.Executors
@@ -109,18 +109,29 @@ class MultiSurfaceActivity : AppCompatActivity() {
         }
 
         override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-            val surfaceSize = with(binding.surfaceMain.holder.surfaceFrame) {
-                Size(this.width(), this.height())
-            }
-
-            val surfaceViewSize = with(binding.surfaceMain.surfaceView) {
-                Size(this.width, this.height)
-            }
+            val surfaceSize = binding.surfaceMain.surfaceSize
             Timber.d("surfaceChanged: surfaceSize = $surfaceSize, ratio = ${surfaceSize.toRational()}")
-            Timber.d("surfaceChanged: surfaceViewSize = $surfaceViewSize, ratio = ${surfaceViewSize.toRational()}")
         }
 
         override fun surfaceDestroyed(holder: SurfaceHolder) {
+
+        }
+    }
+
+    private val surfaceStateListener = object : PreviewViewImplementation.SurfaceStateListener {
+        override fun onSurfaceCreated(surface: Surface) {
+            surfaceCreated = true
+            Timber.d("surfaceCreated: Thread = ${Thread.currentThread().name}")
+            val cameraID = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
+            binding.spinnerCamera.setSelection(cameraList.indexOfFirst { info -> info.cameraID == cameraID })
+        }
+
+        override fun onSurfaceSizeChanged(surface: Surface, width: Int, height: Int) {
+            val surfaceSize = binding.surfaceMain.surfaceSize
+            Timber.d("surfaceChanged: surfaceSize = $surfaceSize, ratio = ${surfaceSize.toRational()}")
+        }
+
+        override fun onSurfaceDestroyed(surface: Surface) {
 
         }
     }
@@ -158,7 +169,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        binding.surfaceMain.holder.addCallback(surfaceCallback)
+        binding.surfaceMain.surfaceStateListener = surfaceStateListener
         binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.surface1.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.swSurface1.setOnCheckedChangeListener { _, isChecked ->
@@ -273,8 +284,8 @@ class MultiSurfaceActivity : AppCompatActivity() {
         val characteristics = cameraInfoMap[cameraID]!!.characteristics
         computeSizes(characteristics)
         // 获取最接近容器宽高比的Camera输出，并且设置给SurfaceView
-        binding.surfaceMain.setSourceResolution(previewSize.width, previewSize.height)
-        binding.surface1.setSourceResolution(previewSize.width, previewSize.height)
+        binding.surfaceMain.previewSize = previewSize
+        binding.surface1.previewSize = previewSize
         initImageReaders()
 
         val info = cameraInfoMap[openCameraID]!!
