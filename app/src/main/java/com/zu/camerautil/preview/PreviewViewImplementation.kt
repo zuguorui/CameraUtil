@@ -27,7 +27,7 @@ abstract class PreviewViewImplementation(val context: Context) {
             }
         }
 
-    abstract var previewSize: Size
+    abstract var previewSize: Size?
 
     abstract val surfaceSize: Size
 

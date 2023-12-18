@@ -2,38 +2,101 @@ package com.zu.camerautil.preview
 
 import android.content.Context
 import android.graphics.Rect
+import android.graphics.SurfaceTexture
 import android.util.Size
 import android.view.Surface
+import android.view.TextureView
+import android.view.TextureView.SurfaceTextureListener
+import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
+import com.zu.camerautil.toRational
+import timber.log.Timber
 
 class TextureViewImplementation: PreviewViewImplementation {
 
-    override var previewSize: Size
-        get() = TODO("Not yet implemented")
-        set(value) {}
+    override var previewSize: Size? = null
+        set(value) {
+            field = value
+            value?.let {
+                surfaceTexture.setDefaultBufferSize(value.width, value.height)
+            }
+            parent?.requestLayout()
+        }
+
     override val surfaceSize: Size
-        get() = TODO("Not yet implemented")
+        get() = innerSurfaceSize
+
+
+    override val surface: Surface
+        get() = innerSurface
+
+    private var textureView: TextureView
+    private lateinit var surfaceTexture: SurfaceTexture
+    private lateinit var innerSurface: Surface
+    private lateinit var innerSurfaceSize: Size
+
 
     constructor(context: Context): super(context) {
+        textureView = TextureView(context)
+        textureView.layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        )
+        textureView.surfaceTextureListener = object : SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(
+                surface: SurfaceTexture,
+                width: Int,
+                height: Int
+            ) {
+                innerSurfaceSize = Size(width, height)
+                Timber.d("onSurfaceTextureAvailable: size = $innerSurfaceSize, ratio = ${innerSurfaceSize.toRational()}, previewSize = $previewSize, ratio = ${previewSize?.toRational()}")
+                surfaceTexture = surface
+                surfaceTexture.setDefaultBufferSize(width, height)
+                innerSurface = Surface(surface)
+                surfaceStateListener?.onSurfaceCreated(this@TextureViewImplementation.surface)
+            }
 
+            override fun onSurfaceTextureSizeChanged(
+                surface: SurfaceTexture,
+                width: Int,
+                height: Int
+            ) {
+                innerSurfaceSize = Size(width, height)
+                Timber.d("onSurfaceTextureSizeChanged, size = $innerSurfaceSize, ratio = ${innerSurfaceSize.toRational()}, previewSize = $previewSize, ratio = ${previewSize?.toRational()}")
+                surfaceStateListener?.onSurfaceSizeChanged(this@TextureViewImplementation.surface, width, height)
+            }
+
+            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                Timber.d("onSurfaceTextureDestroyed")
+                surfaceStateListener?.onSurfaceDestroyed(this@TextureViewImplementation.surface)
+                return true
+            }
+
+            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
+
+            }
+        }
     }
-    override val surface: Surface
-        get() = TODO("Not yet implemented")
 
     override fun onMeasure(bound: Rect) {
-        TODO("Not yet implemented")
+        var widthSpec = View.MeasureSpec.makeMeasureSpec(bound.width(), View.MeasureSpec.EXACTLY)
+        var heightSpec = View.MeasureSpec.makeMeasureSpec(bound.height(), View.MeasureSpec.EXACTLY)
+        textureView.measure(widthSpec, heightSpec)
     }
 
     override fun onLayout(bound: Rect) {
-        TODO("Not yet implemented")
+        textureView.layout(bound.left, bound.top, bound.right, bound.bottom)
     }
 
     override fun requestAttachToParent(viewGroup: ViewGroup) {
-        TODO("Not yet implemented")
+        viewGroup.addView(textureView)
+        viewGroup.postInvalidate()
     }
 
     override fun requestDetachFromParent(viewGroup: ViewGroup) {
-        TODO("Not yet implemented")
+        viewGroup.removeView(textureView)
+        viewGroup.postInvalidate()
     }
 
 

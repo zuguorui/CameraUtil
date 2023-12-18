@@ -77,30 +77,11 @@ class ZoomActivity : AppCompatActivity() {
     }
     // camera objects end
 
-
-    private val surfaceCallback = object : SurfaceHolder.Callback {
-        override fun surfaceCreated(holder: SurfaceHolder) {
-            Timber.d("surfaceCreated: Thread = ${Thread.currentThread().name}")
-            surfaceCreated = true
-            val cameraID = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
-            binding.spinnerCamera.setSelection(cameraList.indexOfFirst { info -> info.cameraID == cameraID })
-        }
-
-        override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-            val surfaceSize = binding.surfaceMain.surfaceSize
-            Timber.d("surfaceChanged: surfaceSize = $surfaceSize, ratio = ${surfaceSize.toRational()}")
-        }
-
-        override fun surfaceDestroyed(holder: SurfaceHolder) {
-
-        }
-    }
-
     private val surfaceStateListener = object : PreviewViewImplementation.SurfaceStateListener {
         override fun onSurfaceCreated(surface: Surface) {
             Timber.d("surfaceCreated: Thread = ${Thread.currentThread().name}")
             surfaceCreated = true
-            val cameraID = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
+            val cameraID = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, false)
             binding.spinnerCamera.setSelection(cameraList.indexOfFirst { info -> info.cameraID == cameraID })
         }
 
@@ -110,7 +91,7 @@ class ZoomActivity : AppCompatActivity() {
         }
 
         override fun onSurfaceDestroyed(surface: Surface) {
-            TODO("Not yet implemented")
+
         }
     }
 
@@ -137,6 +118,7 @@ class ZoomActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
+        binding.surfaceMain.setImplementationType(Camera2PreviewView.ImplementationType.TEXTURE_VIEW)
         binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.surfaceMain.surfaceStateListener = surfaceStateListener
 

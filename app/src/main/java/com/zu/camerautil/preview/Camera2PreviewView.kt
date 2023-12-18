@@ -28,7 +28,7 @@ class Camera2PreviewView: FrameLayout {
     val surfaceSize: Size
         get() = implementation.surfaceSize
 
-    var previewSize: Size
+    var previewSize: Size?
         get() = implementation.previewSize
         set(value) {
             implementation.previewSize = value

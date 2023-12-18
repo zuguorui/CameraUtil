@@ -18,10 +18,9 @@ import timber.log.Timber
  */
 class SurfaceViewImplementation: PreviewViewImplementation {
 
-    var surfaceView: SurfaceView
-        private set
+    private var surfaceView: SurfaceView
 
-    val holder: SurfaceHolder
+    private val holder: SurfaceHolder
         get() = surfaceView.holder
 
     override val surface: Surface
@@ -32,9 +31,12 @@ class SurfaceViewImplementation: PreviewViewImplementation {
             Size(this.width(), this.height())
         }
 
-    override var previewSize: Size = Size(0, 0)
+    override var previewSize: Size? = null
         set(value) {
             field = value
+            value?.let {
+                holder.setFixedSize(it.width, it.height)
+            }
             parent?.requestLayout()
         }
 

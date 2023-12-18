@@ -110,6 +110,10 @@ fun queryCameraInfo(context: Context): HashMap<String, CameraInfoWrapper> {
 }
 
 fun selectCameraID(cameraInfoMap: HashMap<String, CameraInfoWrapper>, facing: Int, logical: Boolean): String {
+    if (cameraInfoMap.isEmpty()) {
+        throw IllegalArgumentException("cameraInfoMap is empty")
+    }
+    var result: String? = null
     cameraInfoMap.values.forEach {
         if (it.lensFacing != facing) {
             return@forEach
@@ -124,17 +128,20 @@ fun selectCameraID(cameraInfoMap: HashMap<String, CameraInfoWrapper>, facing: In
         val outputFormats = it.characteristics.get(
             CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!.outputFormats
 
-
         // Return cameras that support RAW capability
         if (capabilities.contains(
                 CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW) &&
             outputFormats.contains(ImageFormat.RAW_SENSOR)) {
-            return it.cameraID
+            result = it.cameraID
         }
 
     }
 
-    throw RuntimeException("no suitable back camera id found")
+    if (result == null) {
+        result = cameraInfoMap.values.stream().findFirst()?.get()?.cameraID
+    }
+
+    return result!!
 }
 
 // 几种标准宽高比
