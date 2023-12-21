@@ -21,6 +21,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
+        binding.btnCameraInfo.setOnClickListener {
+            startActivity(CameraListActivity::class.java)
+        }
+
         binding.btnMultiSurface.setOnClickListener {
             startActivity(MultiSurfaceActivity::class.java)
         }

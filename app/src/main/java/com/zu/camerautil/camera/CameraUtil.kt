@@ -18,8 +18,28 @@ import java.util.ArrayDeque
 import kotlin.math.abs
 import kotlin.math.log
 
-val cameraInfoMap: HashMap<String, CameraInfoWrapper> by lazy {
-    queryCameraInfo(MyApplication.context)
+fun sortCamera(cameras: MutableList<CameraInfoWrapper>) {
+    cameras.sortWith { o1, o2 ->
+        if (o1.lensFacing == CameraCharacteristics.LENS_FACING_FRONT && o2.lensFacing != CameraCharacteristics.LENS_FACING_FRONT) {
+            -1
+        } else if (o1.lensFacing != CameraCharacteristics.LENS_FACING_FRONT && o2.lensFacing == CameraCharacteristics.LENS_FACING_FRONT) {
+            1
+        } else {
+            if (o1.isLogical && !o2.isLogical) {
+                -1
+            } else if (!o1.isLogical && o2.isLogical) {
+                1
+            } else {
+                if (o1.focalArray[0] > o2.focalArray[0]) {
+                    1
+                } else if (o1.focalArray[0] < o2.focalArray[0]) {
+                    -1
+                } else {
+                    0
+                }
+            }
+        }
+    }
 }
 
 fun queryCameraInfo(context: Context): HashMap<String, CameraInfoWrapper> {
@@ -72,27 +92,7 @@ fun queryCameraInfo(context: Context): HashMap<String, CameraInfoWrapper> {
     }
 
 
-    infoList.sortWith(Comparator { o1, o2 ->
-        if (o1.lensFacing == CameraCharacteristics.LENS_FACING_FRONT && o2.lensFacing != CameraCharacteristics.LENS_FACING_FRONT) {
-            -1
-        } else if (o1.lensFacing != CameraCharacteristics.LENS_FACING_FRONT && o2.lensFacing == CameraCharacteristics.LENS_FACING_FRONT) {
-            1
-        } else {
-            if (o1.isLogical && !o2.isLogical) {
-                -1
-            } else if (!o1.isLogical && o2.isLogical) {
-                1
-            } else {
-                if (o1.focalArray[0] > o2.focalArray[0]) {
-                    1
-                } else if (o1.focalArray[0] < o2.focalArray[0]) {
-                    -1
-                } else {
-                    0
-                }
-            }
-        }
-    })
+    sortCamera(infoList)
 
     infoList.forEach {
         Timber.d(it.toString())

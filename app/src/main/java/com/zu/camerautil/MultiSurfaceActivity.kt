@@ -32,7 +32,7 @@ import com.zu.camerautil.camera.selectCameraID
 import com.zu.camerautil.databinding.ActivityMultiSurfaceBinding
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
-import com.zu.camerautil.view.CameraAdapter
+import com.zu.camerautil.view.CameraSpinnerAdapter
 import timber.log.Timber
 import java.util.concurrent.Executors
 
@@ -146,7 +146,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
         }
     }
 
-    private lateinit var adapter: CameraAdapter
+    private lateinit var adapter: CameraSpinnerAdapter
     private val cameraList: ArrayList<CameraInfoWrapper> by lazy {
         ArrayList<CameraInfoWrapper>().apply {
             addAll(cameraInfoMap.values)
@@ -210,7 +210,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
             createSession()
         }
 
-        adapter = CameraAdapter()
+        adapter = CameraSpinnerAdapter()
         adapter.setData(cameraList)
         binding.spinnerCamera.adapter = adapter
         binding.spinnerCamera.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {

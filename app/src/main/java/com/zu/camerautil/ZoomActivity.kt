@@ -2,7 +2,6 @@ package com.zu.camerautil
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Rect
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
@@ -30,7 +29,7 @@ import com.zu.camerautil.camera.selectCameraID
 import com.zu.camerautil.databinding.ActivityZoomBinding
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
-import com.zu.camerautil.view.CameraAdapter
+import com.zu.camerautil.view.CameraSpinnerAdapter
 import timber.log.Timber
 import java.util.concurrent.Executors
 
@@ -87,7 +86,7 @@ class ZoomActivity : AppCompatActivity() {
     }
 
     private lateinit var binding: ActivityZoomBinding
-    private lateinit var adapter: CameraAdapter
+    private lateinit var adapter: CameraSpinnerAdapter
     private val cameraList: ArrayList<CameraInfoWrapper> by lazy {
         ArrayList<CameraInfoWrapper>().apply {
             addAll(cameraInfoMap.values)
@@ -118,7 +117,7 @@ class ZoomActivity : AppCompatActivity() {
         binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.surfaceMain.surfaceStateListener = surfaceStateListener
 
-        adapter = CameraAdapter()
+        adapter = CameraSpinnerAdapter()
         adapter.setData(cameraList)
         binding.spinnerCamera.adapter = adapter
         binding.spinnerCamera.onItemSelectedListener = object : OnItemSelectedListener {

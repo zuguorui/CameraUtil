@@ -28,7 +28,7 @@ import com.zu.camerautil.camera.selectCameraID
 import com.zu.camerautil.databinding.ActivityCropBinding
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
-import com.zu.camerautil.view.CameraAdapter
+import com.zu.camerautil.view.CameraSpinnerAdapter
 import timber.log.Timber
 import java.util.concurrent.Executors
 
@@ -85,7 +85,7 @@ class CropActivity : AppCompatActivity() {
     }
 
     private lateinit var binding: ActivityCropBinding
-    private lateinit var adapter: CameraAdapter
+    private lateinit var adapter: CameraSpinnerAdapter
     private val cameraList: ArrayList<CameraInfoWrapper> by lazy {
         ArrayList<CameraInfoWrapper>().apply {
             addAll(cameraInfoMap.values)
@@ -111,7 +111,7 @@ class CropActivity : AppCompatActivity() {
         binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.surfaceMain.surfaceStateListener = surfaceStateListener
 
-        adapter = CameraAdapter()
+        adapter = CameraSpinnerAdapter()
         adapter.setData(cameraList)
         binding.spinnerCamera.adapter = adapter
         binding.spinnerCamera.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {

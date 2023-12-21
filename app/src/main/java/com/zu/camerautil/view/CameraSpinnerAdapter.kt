@@ -3,16 +3,14 @@ package com.zu.camerautil.view
 import android.graphics.Color
 import android.hardware.camera2.CameraCharacteristics
 import android.view.LayoutInflater
-import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
-import android.widget.SpinnerAdapter
 import android.widget.TextView
 import com.zu.camerautil.R
 import com.zu.camerautil.bean.CameraInfoWrapper
 
-class CameraAdapter: BaseAdapter() {
+class CameraSpinnerAdapter: BaseAdapter() {
 
     private val data = ArrayList<CameraInfoWrapper>()
 
@@ -48,7 +46,7 @@ class CameraAdapter: BaseAdapter() {
                 layoutInflater = LayoutInflater.from(parent.context)
                 layoutInflater!!
             }
-            inflater.inflate(R.layout.item_camera, parent, false)
+            inflater.inflate(R.layout.item_camera_simple, parent, false)
         }
 
         val tv = view.findViewById<TextView>(R.id.tv)

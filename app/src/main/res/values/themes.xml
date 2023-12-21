@@ -6,4 +6,16 @@
     </style>
 
     <style name="Theme.CameraUtil" parent="Base.Theme.CameraUtil" />
+    <style name="CameraInfoTitleText">
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">40sp</item>
+    </style>
+    <style name="CameraInfoItemText">
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:paddingLeft">5dp</item>
+        <item name="android:paddingRight">5dp</item>
+        <item name="android:paddingTop">10dp</item>
+        <item name="android:paddingBottom">10dp</item>
+    </style>
 </resources>
