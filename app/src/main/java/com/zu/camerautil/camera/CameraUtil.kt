@@ -2,12 +2,14 @@ package com.zu.camerautil.camera
 
 import android.content.Context
 import android.graphics.ImageFormat
+import android.hardware.Camera.CameraInfo
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.media.ImageReader
 import android.util.Rational
 import android.util.Size
 import android.view.Surface
+import com.zu.camerautil.MyApplication
 import com.zu.camerautil.area
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.toRational
@@ -15,6 +17,10 @@ import timber.log.Timber
 import java.util.ArrayDeque
 import kotlin.math.abs
 import kotlin.math.log
+
+val cameraInfoMap: HashMap<String, CameraInfoWrapper> by lazy {
+    queryCameraInfo(MyApplication.context)
+}
 
 fun queryCameraInfo(context: Context): HashMap<String, CameraInfoWrapper> {
     val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
@@ -88,23 +94,9 @@ fun queryCameraInfo(context: Context): HashMap<String, CameraInfoWrapper> {
         }
     })
 
-//    infoList.forEach {
-//        Timber.d(it.toString())
-//    }
-
-//    infoList.forEach {
-//        val str = """
-//                {
-//                    id: ${it.cameraID}
-//                    supportLevel: ${it.characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)}
-//                    maxOutputProc: ${it.characteristics.get(CameraCharacteristics.REQUEST_MAX_NUM_OUTPUT_PROC)}
-//                    maxOutputStalling: ${it.characteristics.get(CameraCharacteristics.REQUEST_MAX_NUM_OUTPUT_PROC_STALLING)}
-//                    maxOutputRaw: ${it.characteristics.get(CameraCharacteristics.REQUEST_MAX_NUM_OUTPUT_RAW)}
-//                    maxInputStream: ${it.characteristics.get(CameraCharacteristics.REQUEST_MAX_NUM_INPUT_STREAMS)}
-//                }
-//            """.trimIndent()
-//        Timber.d(str)
-//    }
+    infoList.forEach {
+        Timber.d(it.toString())
+    }
 
     return cameraInfoMap
 }

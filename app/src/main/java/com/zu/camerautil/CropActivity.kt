@@ -20,14 +20,12 @@ import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.View
 import android.widget.AdapterView
-import android.widget.AdapterView.OnItemSelectedListener
 import android.widget.SeekBar
-import android.widget.SeekBar.OnSeekBarChangeListener
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.camera.computePreviewSize
 import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.camera.selectCameraID
-import com.zu.camerautil.databinding.ActivityZoomBinding
+import com.zu.camerautil.databinding.ActivityCropBinding
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
 import com.zu.camerautil.view.CameraAdapter
@@ -35,7 +33,7 @@ import timber.log.Timber
 import java.util.concurrent.Executors
 
 @SuppressLint("MissingPermission")
-class ZoomActivity : AppCompatActivity() {
+class CropActivity : AppCompatActivity() {
 
     // camera objects start
     private val cameraManager: CameraManager by lazy {
@@ -86,7 +84,7 @@ class ZoomActivity : AppCompatActivity() {
         }
     }
 
-    private lateinit var binding: ActivityZoomBinding
+    private lateinit var binding: ActivityCropBinding
     private lateinit var adapter: CameraAdapter
     private val cameraList: ArrayList<CameraInfoWrapper> by lazy {
         ArrayList<CameraInfoWrapper>().apply {
@@ -96,16 +94,11 @@ class ZoomActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityZoomBinding.inflate(layoutInflater)
+        binding = ActivityCropBinding.inflate(layoutInflater)
         setContentView(binding.root)
         openedCameraID = null
         surfaceCreated = false
         initViews()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        Timber.d("onResume")
     }
 
     override fun onDestroy() {
@@ -121,7 +114,7 @@ class ZoomActivity : AppCompatActivity() {
         adapter = CameraAdapter()
         adapter.setData(cameraList)
         binding.spinnerCamera.adapter = adapter
-        binding.spinnerCamera.onItemSelectedListener = object : OnItemSelectedListener {
+        binding.spinnerCamera.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(
                 parent: AdapterView<*>?,
                 view: View?,
@@ -138,13 +131,13 @@ class ZoomActivity : AppCompatActivity() {
         }
 
 
-        binding.sb.setOnSeekBarChangeListener(object : OnSeekBarChangeListener {
+        binding.sb.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                 if (!fromUser) {
                     return
                 }
                 val percent = progress * 1.0f / seekBar.max
-                setZoomPercent(percent)
+                setCropPercent(percent)
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar?) {
@@ -177,7 +170,7 @@ class ZoomActivity : AppCompatActivity() {
         Timber.d("openDevice $finalID")
         cameraManager.openCamera(finalID, object : CameraDevice.StateCallback() {
             override fun onOpened(camera: CameraDevice) {
-                this@ZoomActivity.camera = camera
+                this@CropActivity.camera = camera
                 createSession()
             }
 
@@ -212,7 +205,7 @@ class ZoomActivity : AppCompatActivity() {
 
         val createSessionCallback = object : CameraCaptureSession.StateCallback() {
             override fun onConfigured(session: CameraCaptureSession) {
-                this@ZoomActivity.session = session
+                this@CropActivity.session = session
                 startPreview()
             }
 
@@ -289,38 +282,48 @@ class ZoomActivity : AppCompatActivity() {
     }
 
 
-    private fun setZoomPercent(percent: Float) {
-        if (Build.VERSION.SDK_INT < 30) {
-            return
-        }
+    private fun setCropPercent(percent: Float) {
         val info = cameraInfoMap[openedCameraID] ?: return
-        val zoomRange = info.zoomRange ?: return
 
-        val zoom = (1 - percent) * zoomRange.lower + percent * zoomRange.upper
-        setZoom(zoom)
+        val min = 1.0f
+        val max = info.maxDigitalZoom
+
+        val crop = (1 - percent) * min + percent * max
+
+        setCrop(crop)
     }
 
-    private fun setZoom(zoom: Float) {
-        if (Build.VERSION.SDK_INT < 30) {
-            return
-        }
+    private fun setCrop(crop: Float) {
         val builder = captureRequestBuilder ?: return
         val info = cameraInfoMap[openedCameraID] ?: return
-        val session = this@ZoomActivity.session ?: return
-        val zoomRange = info.zoomRange ?: return
+        val session = this@CropActivity.session ?: return
 
-        val min = zoomRange.lower
-        val max = zoomRange.upper
 
-        val finalZoom = if (zoom < min) {
+        val sensorSize = info.activeArraySize
+        val centerX = sensorSize.centerX()
+        val centerY = sensorSize.centerY()
+
+        val min = 1.0f
+        val max = info.maxDigitalZoom
+
+        val finalCrop = if (crop < min) {
             min
-        } else if (zoom > max) {
+        } else if (crop > max) {
             max
         } else {
-            zoom
+            crop
         }
-        binding.tvCurrent.text = String.format("%.2f", finalZoom)
-        builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, finalZoom)
+
+        val width = (sensorSize.width() / finalCrop).toInt()
+        val height = (sensorSize.height() / finalCrop).toInt()
+        val left = centerX - width / 2
+        val right = centerX + width / 2
+        val top = centerY - height / 2
+        val bottom = centerY + height / 2
+        val rect = Rect(left, top, right, bottom)
+
+        binding.tvCurrent.text = String.format("%.2f", finalCrop)
+        builder.set(CaptureRequest.SCALER_CROP_REGION, rect)
         session.setRepeatingRequest(builder.build(), captureCallback, cameraHandler)
     }
 
@@ -330,23 +333,21 @@ class ZoomActivity : AppCompatActivity() {
             return
         }
 
-        val zoomRange = info.zoomRange
 
-        val supportZoom = (Build.VERSION.SDK_INT >= 30 && zoomRange != null)
-        binding.sb.isEnabled = supportZoom
         binding.sb.progress = computeProgress(1.0f)
-        binding.tvCurrent.text = if (supportZoom) "1.0" else "不支持"
-        binding.tvMin.text = if (supportZoom) String.format("%.2f", zoomRange!!.lower) else "Null"
-        binding.tvMax.text = if (supportZoom) String.format("%.2f", zoomRange!!.upper) else "Null"
+        binding.tvCurrent.text = "1.0"
+        binding.tvMin.text = String.format("%.2f", 1.0f)
+        binding.tvMax.text = String.format("%.2f", info.maxDigitalZoom)
     }
 
-    private fun computeProgress(zoom: Float): Int {
+    private fun computeProgress(crop: Float): Int {
         val info = cameraInfoMap[openedCameraID] ?: kotlin.run {
             return 0
         }
+
         val zoomRange = info.zoomRange ?: return 0
 
-        val percent = (zoom - zoomRange.lower) * 1.0f / (zoomRange.upper - zoomRange.lower).apply {
+        val percent = (crop - 1.0f) / (info.maxDigitalZoom - 1.0f).apply {
             if (this < 0) {
                 0
             } else if (this > 1) {
@@ -361,5 +362,4 @@ class ZoomActivity : AppCompatActivity() {
 
         return ((max - min) * percent + min).toInt()
     }
-
 }

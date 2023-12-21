@@ -5,6 +5,7 @@ import android.util.AttributeSet
 import android.util.Size
 import android.view.Surface
 import android.widget.FrameLayout
+import timber.log.Timber
 
 /**
  * @author zuguorui
@@ -13,13 +14,19 @@ import android.widget.FrameLayout
  */
 class Camera2PreviewView: FrameLayout {
 
-    private lateinit var implementation: PreviewViewImplementation
+    private var implementation: PreviewViewImplementation
 
-    val implementationType: ImplementationType
-        get() = when (implementation) {
-            is SurfaceViewImplementation -> ImplementationType.SURFACE_VIEW
-            is TextureViewImplementation -> ImplementationType.TEXTURE_VIEW
-            else -> throw RuntimeException("unknown implementation type")
+    var implementationType: ImplementationType = ImplementationType.SURFACE_VIEW
+        set (value) {
+            val diff = value != field
+            if (diff) {
+                Timber.d("implementationType::setter, value = $value, field = $field")
+            }
+            field = value
+            if (diff) {
+                implementation.detachFromParent()
+                implementation = createImplementation(value)
+            }
         }
 
     val surface: Surface
@@ -54,7 +61,7 @@ class Camera2PreviewView: FrameLayout {
     constructor(context: Context, attributeSet: AttributeSet?, defStyleAttr: Int): this(context, attributeSet, defStyleAttr, 0)
 
     constructor(context: Context, attributeSet: AttributeSet?, defStyleAttr: Int, defStyle: Int): super(context, attributeSet, defStyleAttr, defStyle) {
-        implementation = createImplementation(ImplementationType.SURFACE_VIEW)
+        implementation = createImplementation(implementationType)
     }
 
     private fun createImplementation(type: ImplementationType): PreviewViewImplementation {
@@ -66,11 +73,6 @@ class Camera2PreviewView: FrameLayout {
         impl.attachToParent(this)
         impl.surfaceStateListener = surfaceStateListener
         return impl
-    }
-
-    fun setImplementationType(type: ImplementationType) {
-        implementation.detachFromParent()
-        implementation = createImplementation(type)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {

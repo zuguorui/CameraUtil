@@ -1,6 +1,7 @@
 package com.zu.camerautil
 
 import android.app.Application
+import android.content.Context
 import timber.log.Timber
 
 /**
@@ -10,13 +11,19 @@ import timber.log.Timber
  */
 class MyApplication: Application() {
 
-
     override fun onCreate() {
         super.onCreate()
+        context = this
         initTimber()
     }
 
     private fun initTimber() {
         Timber.plant(Timber.DebugTree())
+    }
+
+    companion object {
+        @JvmStatic
+        lateinit var context: Context
+            private set
     }
 }

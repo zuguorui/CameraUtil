@@ -5,6 +5,8 @@ import android.graphics.Rect
 import android.util.Size
 import android.view.Surface
 import android.view.ViewGroup
+import com.zu.camerautil.toRational
+import timber.log.Timber
 
 /**
  * @author zuguorui
@@ -90,6 +92,11 @@ abstract class PreviewViewImplementation(val context: Context) {
             top = centerY - surfaceHeight / 2
             bottom = top + surfaceHeight
         }
+        val measureSize = Size(parentMeasuredWidth, parentMeasuredHeight)
+        Timber.d("measure:\n" +
+                "viewSize = ${measureSize}, ratio = ${measureSize.toRational()}\n" +
+                "previewSize = ${previewSize}, ratio = ${previewSize?.toRational()}\n" +
+                "surfaceRect = $surfaceRect, ratio = ${surfaceRect.toRational()}")
 
         onMeasure(surfaceRect)
     }
@@ -110,6 +117,7 @@ abstract class PreviewViewImplementation(val context: Context) {
     abstract fun requestAttachToParent(viewGroup: ViewGroup)
 
     fun detachFromParent() {
+        surfaceStateListener = null
         val parent = parent ?: return
         requestDetachFromParent(parent)
         this.parent = null

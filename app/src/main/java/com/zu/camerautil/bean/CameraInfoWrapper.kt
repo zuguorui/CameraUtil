@@ -44,6 +44,11 @@ open class CameraInfoWrapper(
         null
     }
 
+    val isoRange: Range<Int>? = characteristics.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)
+
+    // 曝光时间，纳秒
+    val exposureRange: Range<Long>? = characteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
+
     var isPresentByCameraManager = true
 
     //计算 水平 和 竖直 视野 角度。标准镜头 视角约50度左右
@@ -75,6 +80,7 @@ open class CameraInfoWrapper(
         result
     }
 
+    // 如果镜头时逻辑镜头，那该值就是组成它的物理镜头的ID。
     val logicalPhysicalIDs by lazy {
         val result = ArrayList<String>()
         if (Build.VERSION.SDK_INT >= 28) {
@@ -87,9 +93,8 @@ open class CameraInfoWrapper(
         result
     }
 
+    // 如果一个物理镜头属于某个逻辑镜头，那该值就是逻辑镜头ID
     var logicalID: String? = null
-
-    fun <T> getCameraCharacteristics(key: CameraCharacteristics.Key<T>): T? = characteristics.get(key)
 
     override fun toString(): String {
 
@@ -118,7 +123,16 @@ open class CameraInfoWrapper(
                 verticalFOV: $verticalFOV
             }
         """.trimIndent()
-        return str
+        val str1 = """
+            camera: $cameraID {
+                facing: $facingStr
+                isLogical: $isLogical
+                focalArray: ${focalArray.contentToString()}
+                ISO range: $isoRange
+                exposure range: $exposureRange
+            }
+        """.trimIndent()
+        return str1
     }
 }
 

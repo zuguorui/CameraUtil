@@ -1,19 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ZoomActivity">
-    
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context=".CropActivity">
     <androidx.constraintlayout.widget.Guideline
         android:layout_width="match_parent"
         android:layout_height="1dp"
         app:layout_constraintGuide_percent="0.8"
         android:orientation="horizontal"
         android:id="@+id/gl1"/>
-    
+
     <com.zu.camerautil.preview.Camera2PreviewView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -47,7 +45,7 @@
         app:layout_constraintRight_toLeftOf="@id/gl2"
         app:layout_constraintBottom_toTopOf="@id/sb"
         android:layout_marginBottom="10dp"
-        android:text="zoom:"
+        android:text="crop:"
         android:textSize="15sp"
         android:id="@+id/label_zoom"/>
 
@@ -92,6 +90,4 @@
         app:layout_constraintRight_toLeftOf="@id/tv_max"
         android:max="100"
         android:id="@+id/sb"/>
-
-
 </androidx.constraintlayout.widget.ConstraintLayout>

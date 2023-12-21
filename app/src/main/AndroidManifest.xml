@@ -16,6 +16,9 @@
         android:theme="@style/Theme.CameraUtil"
         tools:targetApi="31">
         <activity
+            android:name=".CropActivity"
+            android:exported="false" />
+        <activity
             android:name=".ZoomActivity"
             android:exported="false" />
         <activity

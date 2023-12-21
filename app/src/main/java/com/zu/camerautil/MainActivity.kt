@@ -29,6 +29,9 @@ class MainActivity : AppCompatActivity() {
             startActivity(ZoomActivity::class.java)
         }
 
+        binding.btnCrop.setOnClickListener {
+            startActivity(CropActivity::class.java)
+        }
     }
 
     private fun <T> startActivity(target: Class<T>) {

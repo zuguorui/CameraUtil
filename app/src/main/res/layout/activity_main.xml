@@ -27,7 +27,13 @@
                 android:layout_height="wrap_content"
                 android:id="@+id/btn_zoom"
                 android:layout_margin="10dp"
-                android:text="变焦"/>
+                android:text="zoom变焦"/>
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/btn_crop"
+                android:layout_margin="10dp"
+                android:text="crop变焦"/>
         </LinearLayout>
     </ScrollView>
 </FrameLayout>

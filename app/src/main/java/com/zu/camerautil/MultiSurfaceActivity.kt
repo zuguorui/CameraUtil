@@ -435,6 +435,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
 
         imageReaderSize = computeImageReaderSize(characteristics, previewSize,
             true, -1) ?: throw RuntimeException("No reader size")
+        //imageReaderSize = Size(320, 240)
 
         Timber.d("previewViewSize: $viewSize, ratio: ${viewSize.toRational()}")
         Timber.d("previewSize: $previewSize, ratio: ${previewSize.toRational()}")
