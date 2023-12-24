@@ -2,14 +2,11 @@ package com.zu.camerautil.bean
 
 import android.graphics.Rect
 import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CameraMetadata
 import android.os.Build
 import android.util.Range
 import android.util.Size
 import android.util.SizeF
-import androidx.annotation.OptIn
-import androidx.annotation.RequiresApi
 import kotlin.math.floor
 
 /**
@@ -17,10 +14,16 @@ import kotlin.math.floor
  * @date 2023/11/9
  * @description
  */
+
+typealias FPSList = ArrayList<Int>
+typealias SizeList = ArrayList<Size>
+
+
 open class CameraInfoWrapper(
     val cameraID: String,
     val characteristics: CameraCharacteristics
 ) {
+    val level: CameraLevel = CameraLevel.valueOf(characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)!!)
 
     val lensFacing: Int = characteristics.get(CameraCharacteristics.LENS_FACING)!!
 
@@ -95,6 +98,46 @@ open class CameraInfoWrapper(
 
     // 如果一个物理镜头属于某个逻辑镜头，那该值就是逻辑镜头ID
     var logicalID: String? = null
+
+    val fpsRange: ArrayList<Int> by lazy {
+        val ranges = characteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)!!
+        val rangeSet = HashSet<Int>()
+        for (range in ranges) {
+            rangeSet.add(range.lower)
+            rangeSet.add(range.upper)
+        }
+        val result = ArrayList<Int>().apply {
+            addAll(rangeSet)
+            sort()
+        }
+        result
+    }
+
+    val outputFormat = ArrayList<Int>()
+
+    val regularFpsSize = HashMap<Int, FpsSizeMap>()
+
+    val highSpeedFpsSize = HashMap<Int, FpsSizeMap>()
+
+    init {
+        val configurationMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!
+        outputFormat.addAll(configurationMap.outputFormats.asIterable())
+
+
+
+    }
+
+    private fun queryHighSpeedInfo(format: Int) {
+        val configurationMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!
+
+        val highSpeedMap = FpsSizeMap()
+        val highSpeedSizes = configurationMap.highSpeedVideoSizes
+        for (size in highSpeedSizes) {
+            val highSpeedFps = configurationMap.getHighSpeedVideoFpsRangesFor(size)
+        }
+    }
+
+
 
     override fun toString(): String {
 
