@@ -169,11 +169,8 @@ fun <T> computePreviewSize(
 
     val config = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!
 
-    val supportedPreviewSizes = config.getOutputSizes(targetClass).let {
-        if (it == null || it.isEmpty()) {
-            throw IllegalStateException("No preview sizes")
-        }
-        it
+    val supportedPreviewSizes = ArrayList<Size>().apply {
+        addAll(config.getOutputSizes(targetClass))
     }
 
     // 将分辨率按照宽高比分组，只取标准宽高比的
@@ -220,6 +217,7 @@ fun <T> computePreviewSize(
 fun computeImageReaderSize(
     characteristics: CameraCharacteristics,
     previewSize: Size,
+    format: Int = ImageFormat.YUV_420_888,
     keepRational: Boolean = true,
     preferResolutionType: Int = 0
 ): Size? {
@@ -233,7 +231,16 @@ fun computeImageReaderSize(
         if (it == null || it.isEmpty()) {
             throw IllegalStateException("No analysis sizes")
         }
-        it
+        val formatSizes = HashSet<Size>().apply {
+            addAll(config.getOutputSizes(format))
+        }
+        val result = ArrayList<Size>()
+        for (size in it) {
+            if (formatSizes.contains(size)) {
+                result.add(size)
+            }
+        }
+        result
     }
 
     // 将分辨率按照宽高比分组，只取标准宽高比的
@@ -305,7 +312,7 @@ fun computeImageReaderSize(
 }
 
 
-private fun groupSizeByRatio(sizes: Array<Size>): Map<Rational, ArrayList<Size>> {
+private fun groupSizeByRatio(sizes: ArrayList<Size>): Map<Rational, ArrayList<Size>> {
     var result = HashMap<Rational, ArrayList<Size>>()
     for (size in sizes) {
         val rational = size.toRational()

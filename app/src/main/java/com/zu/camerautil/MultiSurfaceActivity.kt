@@ -433,7 +433,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
         previewSize = computePreviewSize(characteristics, viewSize, binding.root.display.rotation,
             SurfaceHolder::class.java)
 
-        imageReaderSize = computeImageReaderSize(characteristics, previewSize,
+        imageReaderSize = computeImageReaderSize(characteristics, previewSize, ImageFormat.YUV_420_888,
             true, -1) ?: throw RuntimeException("No reader size")
         //imageReaderSize = Size(320, 240)
 
