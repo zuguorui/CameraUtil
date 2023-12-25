@@ -34,6 +34,21 @@ fun FloatArray.toFormattedText(points: Int = 2): String {
     return sb.toString()
 }
 
+fun <T> Array<T>.toFormattedString(): String {
+    val sb = StringBuilder()
+    sb.append("[")
+    var i = 0
+    for (t in iterator()) {
+        sb.append("$t")
+        if (i < size - 1) {
+            sb.append(", ")
+        }
+        i++
+    }
+    sb.append("]")
+    return sb.toString()
+}
+
 fun <T> Collection<T>.toFormattedString(): String {
     val sb = StringBuilder()
     sb.append("[")

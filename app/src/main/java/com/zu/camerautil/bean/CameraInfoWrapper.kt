@@ -99,42 +99,69 @@ open class CameraInfoWrapper(
     // 如果一个物理镜头属于某个逻辑镜头，那该值就是逻辑镜头ID
     var logicalID: String? = null
 
-    val fpsRange: ArrayList<Int> by lazy {
+    val fpsRanges: Array<Range<Int>> by lazy {
         val ranges = characteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)!!
-        val rangeSet = HashSet<Int>()
-        for (range in ranges) {
-            rangeSet.add(range.lower)
-            rangeSet.add(range.upper)
+        ranges.sortWith { o1, o2 ->
+            if (o1.lower != o2.lower) {
+                o1.lower - o2.lower
+            } else {
+                o1.upper - o2.upper
+            }
         }
-        val result = ArrayList<Int>().apply {
-            addAll(rangeSet)
-            sort()
-        }
+        ranges
+    }
+
+    val outputFormats by lazy {
+        val result = ArrayList<Int>()
+        val configurationMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!
+        result.addAll(configurationMap.outputFormats.asIterable())
         result
     }
 
-    val outputFormat = ArrayList<Int>()
-
-    val regularFpsSize = HashMap<Int, FpsSizeMap>()
-
-    val highSpeedFpsSize = HashMap<Int, FpsSizeMap>()
-
-    init {
+    val formatSizeMap by lazy {
         val configurationMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!
-        outputFormat.addAll(configurationMap.outputFormats.asIterable())
-
-
-
+        val map = HashMap<Int, Array<Size>>()
+        for (format in outputFormats) {
+            val sizes = configurationMap.getOutputSizes(format)
+            map[format] = sizes
+        }
+        map
     }
 
-    private fun queryHighSpeedInfo(format: Int) {
+    val highSpeedSizeFpsMap by lazy {
         val configurationMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!
-
-        val highSpeedMap = FpsSizeMap()
-        val highSpeedSizes = configurationMap.highSpeedVideoSizes
-        for (size in highSpeedSizes) {
-            val highSpeedFps = configurationMap.getHighSpeedVideoFpsRangesFor(size)
+        val map = HashMap<Size, Array<Range<Int>>>()
+        val sizes = configurationMap.highSpeedVideoSizes
+        for (size in sizes) {
+            val fpsRanges = configurationMap.getHighSpeedVideoFpsRangesFor(size)
+            fpsRanges.sortWith { o1, o2 ->
+                if (o1.lower != o2.lower) {
+                    o1.lower - o2.lower
+                } else {
+                    o1.upper - o2.upper
+                }
+            }
+            map[size] = fpsRanges
         }
+        map
+    }
+
+    val highSpeedFpsSizeMap by lazy {
+        val configurationMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!
+        val map = HashMap<Range<Int>, Array<Size>>()
+        val ranges = configurationMap.highSpeedVideoFpsRanges
+        for (range in ranges) {
+            val sizes = configurationMap.getHighSpeedVideoSizesFor(range)
+            sizes.sortWith { o1, o2 ->
+                if (o1.width != o2.width) {
+                    o1.width - o2.width
+                } else {
+                    o1.height - o2.height
+                }
+            }
+            map[range] = sizes
+        }
+        map
     }
 
 

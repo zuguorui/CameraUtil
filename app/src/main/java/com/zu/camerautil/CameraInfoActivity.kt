@@ -1,9 +1,12 @@
 package com.zu.camerautil
 
+import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCharacteristics
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Range
+import android.webkit.WebView
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.databinding.ActivityCameraInfoBinding
@@ -93,9 +96,9 @@ class CameraInfoActivity : AppCompatActivity() {
 
         val formatStr = kotlin.run {
             val sb = StringBuilder()
-            for (i in cameraInfo.outputFormat.indices) {
-                sb.append(getImageFormatName(cameraInfo.outputFormat[i]))
-                if (i < cameraInfo.outputFormat.size - 1) {
+            for (i in cameraInfo.outputFormats.indices) {
+                sb.append(getImageFormatName(cameraInfo.outputFormats[i]))
+                if (i < cameraInfo.outputFormats.size - 1) {
                     sb.append("\n")
                 }
             }
@@ -103,9 +106,68 @@ class CameraInfoActivity : AppCompatActivity() {
         }
         addItem("输出格式", formatStr)
 
-        val regularFPSStr = cameraInfo.fpsRange.toFormattedString()
+        val regularFPSStr = cameraInfo.fpsRanges.toFormattedString()
         addItem("支持的普通FPS", regularFPSStr)
 
+        val formatSizeStr = kotlin.run {
+            val mainFormat = arrayOf(ImageFormat.PRIVATE, ImageFormat.YUV_420_888)
+            val sb = StringBuilder()
+            val iterator = mainFormat.iterator()
+            while (iterator.hasNext()) {
+                val format = iterator.next()
+                val sizes = cameraInfo.formatSizeMap[format]
+                sb.append("${getImageFormatName(format)}:\n")
+
+                if (sizes != null) {
+                    for (i in sizes.indices) {
+                        val size = sizes[i]
+                        sb.append("$size, ${size.toRational()}")
+                        if (i < sizes.size - 1) {
+                            sb.append("\n")
+                        }
+                    }
+                } else {
+                    sb.append("不支持")
+                }
+
+                if (iterator.hasNext()) {
+                    sb.append("\n\n")
+                }
+            }
+            sb.toString()
+        }
+        addItem("关键格式及对应的输出尺寸", formatSizeStr)
+
+        val highSpeedFpsStr = kotlin.run {
+            val fpsRanges = ArrayList<Range<Int>>().apply {
+                addAll(cameraInfo.highSpeedFpsSizeMap.keys)
+                sortWith { o1 , o2 ->
+                    if (o1.lower != o2.lower) {
+                        o1.lower - o2.lower
+                    } else {
+                        o1.upper - o2.upper
+                    }
+                }
+            }
+            val sb = StringBuilder()
+            val iterator = fpsRanges.iterator()
+            while (iterator.hasNext()) {
+                val fps = iterator.next()
+                val sizes = cameraInfo.highSpeedFpsSizeMap[fps]!!
+                sb.append("$fps:\n")
+                for (i in sizes.indices) {
+                    sb.append("${sizes[i]}")
+                    if (i < sizes.size - 1) {
+                        sb.append("\n")
+                    }
+                }
+                if (iterator.hasNext()) {
+                    sb.append("\n\n")
+                }
+            }
+            sb.toString()
+        }
+        addItem("高速fps及尺寸", highSpeedFpsStr)
 
     }
 
@@ -118,5 +180,8 @@ class CameraInfoActivity : AppCompatActivity() {
         itemBinding.root.setBackgroundColor(getColor(color))
         binding.llItems.addView(itemBinding.root)
         itemIndex++
+
+        var webView = WebView(this)
+        webView.title
     }
 }
