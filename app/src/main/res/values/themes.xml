@@ -5,7 +5,9 @@
         <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
     </style>
 
-    <style name="Theme.CameraUtil" parent="Base.Theme.CameraUtil" />
+    <style name="Theme.CameraUtil" parent="Base.Theme.CameraUtil" >
+        <item name="android:orientation">vertical</item>
+    </style>
     <style name="CameraInfoTitleText">
         <item name="android:textColor">#FFFFFF</item>
         <item name="android:textSize">40sp</item>

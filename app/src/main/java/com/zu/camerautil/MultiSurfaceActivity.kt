@@ -8,6 +8,7 @@ import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
+import android.hardware.camera2.CaptureFailure
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.TotalCaptureResult
 import android.hardware.camera2.params.OutputConfiguration
@@ -32,6 +33,7 @@ import com.zu.camerautil.camera.selectCameraID
 import com.zu.camerautil.databinding.ActivityMultiSurfaceBinding
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
+import com.zu.camerautil.util.ImageConverter
 import com.zu.camerautil.view.CameraSpinnerAdapter
 import timber.log.Timber
 import java.util.concurrent.Executors
@@ -142,7 +144,15 @@ class MultiSurfaceActivity : AppCompatActivity() {
             request: CaptureRequest,
             result: TotalCaptureResult
         ) {
-            super.onCaptureCompleted(session, request, result)
+
+        }
+
+        override fun onCaptureFailed(
+            session: CameraCaptureSession,
+            request: CaptureRequest,
+            failure: CaptureFailure
+        ) {
+            Timber.d("onCaptureFailed: $failure")
         }
     }
 
@@ -172,6 +182,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
         binding.surfaceMain.surfaceStateListener = surfaceStateListener
         binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.surface1.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
+        binding.surface1.implementationType = Camera2PreviewView.ImplementationType.TEXTURE_VIEW
         binding.swSurface1.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 addSurface(binding.surface1.surface)
@@ -243,7 +254,8 @@ class MultiSurfaceActivity : AppCompatActivity() {
                         Timber.e("image 1 is null")
                         return@setOnImageAvailableListener
                     }
-                    val bitmap = convertYPlaneToBitmap(image)
+                    //val bitmap = convertYPlaneToBitmap(image)
+                    val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(image)
                     image.close()
                     runOnUiThread {
                         binding.iv1.setImageBitmap(bitmap)
@@ -260,7 +272,8 @@ class MultiSurfaceActivity : AppCompatActivity() {
                         Timber.e("image 2 is null")
                         return@setOnImageAvailableListener
                     }
-                    val bitmap = convertYPlaneToBitmap(image)
+                    //val bitmap = convertYPlaneToBitmap(image)
+                    val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(image)
                     image.close()
                     runOnUiThread {
                         binding.iv2.setImageBitmap(bitmap)
@@ -294,6 +307,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
         cameraManager.openCamera(finalID, object : CameraDevice.StateCallback() {
             override fun onOpened(camera: CameraDevice) {
                 this@MultiSurfaceActivity.camera = camera
+                checkSupport(cameraInfoMap[openCameraID]!!.characteristics)
                 createSession()
             }
 
@@ -340,6 +354,10 @@ class MultiSurfaceActivity : AppCompatActivity() {
 
         val target = getSessionSurfaceList()
 
+        for (surface in target) {
+            Timber.d("sessionSurface: $surface")
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             val info = cameraInfoMap[openCameraID]!!
             val outputConfigurations = ArrayList<OutputConfiguration>()
@@ -351,7 +369,13 @@ class MultiSurfaceActivity : AppCompatActivity() {
                 }
                 outputConfigurations.add(outputConfiguration)
             }
-            camera.createCaptureSession(SessionConfiguration(SessionConfiguration.SESSION_REGULAR, outputConfigurations, cameraExecutor, createSessionCallback))
+            val sessionConfiguration = SessionConfiguration(SessionConfiguration.SESSION_REGULAR, outputConfigurations, cameraExecutor, createSessionCallback)
+            if (Build.VERSION.SDK_INT >= 29) {
+                if (!camera.isSessionConfigurationSupported(sessionConfiguration)) {
+                    Timber.e("camera not support session configuration")
+                }
+            }
+            camera.createCaptureSession(sessionConfiguration)
         } else {
             camera.createCaptureSession(target, createSessionCallback, cameraHandler)
         }
@@ -440,7 +464,16 @@ class MultiSurfaceActivity : AppCompatActivity() {
         Timber.d("previewViewSize: $viewSize, ratio: ${viewSize.toRational()}")
         Timber.d("previewSize: $previewSize, ratio: ${previewSize.toRational()}")
         Timber.d("analysisSize: $imageReaderSize, ratio: ${imageReaderSize.toRational()}")
+    }
 
+    private fun checkSupport(characteristics: CameraCharacteristics) {
+        val target = getSessionSurfaceList()
+        val configurationMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!
+        for (surface in target) {
+            if (!configurationMap.isOutputSupportedFor(surface)) {
+                Timber.e("Not support for surface $surface")
+            }
+        }
     }
 
 }

@@ -1,3 +1,6 @@
+import com.android.build.api.dsl.AndroidSourceSet
+import org.jetbrains.kotlin.cli.jvm.main
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -13,8 +16,19 @@ android {
         targetSdk = 33
         versionCode = 1
         versionName = "1.0"
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        externalNativeBuild {
+            cmake {
+                arguments("-DANDROID_PLATFORM=26", "-DANDROID_ARM_NEON=ON", "-DANDROID_STL=c++_shared")
+                cppFlags("-std=c++17")
+            }
+            ndk {
+                abiFilters.run {
+                    add("armeabi-v7a")
+                    add("arm64-v8a")
+                }
+            }
+        }
     }
 
     buildTypes {
@@ -26,6 +40,14 @@ android {
             )
         }
     }
+
+    externalNativeBuild {
+        cmake {
+            path = File("./src/main/cpp/CMakeLists.txt")
+            version = "3.10.2"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
@@ -35,6 +57,12 @@ android {
     }
     buildFeatures {
         viewBinding = true
+    }
+
+    sourceSets {
+        get("main").jniLibs {
+            srcDir("jniLibs")
+        }
     }
 }
 
