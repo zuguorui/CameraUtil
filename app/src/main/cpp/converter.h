@@ -7,9 +7,11 @@
 
 #include "ImageProxy.h"
 #include <jni.h>
+#include "constants.h"
 
 
-jobject convert_YUV_420_888(JNIEnv *env, ImageProxy image);
+jobject convert_YUV_420_888(JNIEnv *env, ImageProxy &image, int rotation, int facing);
+jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy image);
 
 
 #endif //CAMERAUTIL_CONVERTER_H

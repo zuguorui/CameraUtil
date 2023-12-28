@@ -7,10 +7,13 @@
 
 #include <jni.h>
 #include <stdlib.h>
+#include "log.h"
 
 class ImageProxy {
 public:
     ImageProxy(JNIEnv *env, jobject image);
+    ImageProxy(ImageProxy &) = delete;
+    ImageProxy(ImageProxy &&) = delete;
     ~ImageProxy();
 
     int getPlaneCount();
@@ -21,7 +24,8 @@ public:
 
 private:
     struct PlaneProxy {
-        PlaneProxy(JNIEnv *env, jobject plane) {
+        PlaneProxy(JNIEnv *env, jobject plane, int index) {
+            this->index = index;
             this->plane = plane;
 
             jclass cls = env->FindClass("android/media/Image$Plane");
@@ -36,6 +40,10 @@ private:
             buffer = env->CallObjectMethod(plane, getBufferMethod);
         }
 
+        ~PlaneProxy() {
+            LOGD("ImageProxy", "Delete PlaneProxy, %d", index);
+        }
+        int index = -1;
         jobject plane;
         int rowStride;
         int pixelStride;

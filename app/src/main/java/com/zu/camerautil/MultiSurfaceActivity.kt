@@ -255,7 +255,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
                         return@setOnImageAvailableListener
                     }
                     //val bitmap = convertYPlaneToBitmap(image)
-                    val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(image)
+                    val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(image, binding.root.display.rotation, cameraInfoMap[openCameraID]!!.lensFacing)
                     image.close()
                     runOnUiThread {
                         binding.iv1.setImageBitmap(bitmap)
@@ -273,7 +273,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
                         return@setOnImageAvailableListener
                     }
                     //val bitmap = convertYPlaneToBitmap(image)
-                    val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(image)
+                    val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(image, binding.root.display.rotation, cameraInfoMap[openCameraID]!!.lensFacing)
                     image.close()
                     runOnUiThread {
                         binding.iv2.setImageBitmap(bitmap)
@@ -393,6 +393,10 @@ class MultiSurfaceActivity : AppCompatActivity() {
         captureRequestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
             set(CaptureRequest.CONTROL_AF_MODE,
                 CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+
+//            if (Build.VERSION.SDK_INT >= 31) {
+//                set(CaptureRequest.SCALER_ROTATE_AND_CROP, CaptureRequest.SCALER_ROTATE_AND_CROP_90)
+//            }
 
             getCaptureSurfaceList().forEach {
                 addTarget(it)

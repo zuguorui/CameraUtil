@@ -14,9 +14,9 @@ object ImageConverter {
         System.loadLibrary("native-lib")
     }
 
-    fun convertYUV_420_888_to_bitmap(image: Image): Bitmap {
-        return nYUV_420_888_to_bitmap(image)
+    fun convertYUV_420_888_to_bitmap(image: Image, rotation: Int, facing: Int): Bitmap {
+        return nYUV_420_888_to_bitmap(image, rotation, facing)
     }
 
-    external fun nYUV_420_888_to_bitmap(image: Image): Bitmap
+    external fun nYUV_420_888_to_bitmap(image: Image, rotation: Int, facing: Int): Bitmap
 }

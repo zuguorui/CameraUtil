@@ -4,6 +4,8 @@
 
 #include "ImageProxy.h"
 
+#define TAG "ImageProxy"
+
 ImageProxy::ImageProxy(JNIEnv *env, jobject image) {
     this->env = env;
     this->image = image;
@@ -13,13 +15,13 @@ ImageProxy::ImageProxy(JNIEnv *env, jobject image) {
 ImageProxy::~ImageProxy() {
 
     if (planes != nullptr) {
-        for (int i = 0; i < planeCount; i++) {
-            if (planes[i] != nullptr) {
-                delete planes[i];
-                planes[i] = nullptr;
-            }
-        }
-        free(planes);
+//        for (int i = 0; i < planeCount; i++) {
+//            if (planes[i] != nullptr) {
+//                delete planes[i];
+//                planes[i] = nullptr;
+//            }
+//        }
+        delete[] planes;
         planes = nullptr;
     }
 }
@@ -42,7 +44,7 @@ void ImageProxy::init() {
     planes = (PlaneProxy **) malloc(planeCount * sizeof(PlaneProxy *));
     for (int i = 0; i < planeCount; i++) {
         jobject planeObj = env->GetObjectArrayElement(planeObjArray, i);
-        PlaneProxy *proxy = new PlaneProxy(env, planeObj);
+        PlaneProxy *proxy = new PlaneProxy(env, planeObj, i);
         planes[i] = proxy;
     }
 }

@@ -1,0 +1,17 @@
+//
+// Created by 祖国瑞 on 2023/12/28.
+//
+
+#ifndef CAMERAUTIL_CONSTANTS_H
+#define CAMERAUTIL_CONSTANTS_H
+
+#define FACING_FRONT 0
+#define FACING_BACK 1
+
+#define ROTATION_0 0
+#define ROTATION_90 1
+#define ROTATION_180 2
+#define ROTATION_270 3
+
+
+#endif //CAMERAUTIL_CONSTANTS_H

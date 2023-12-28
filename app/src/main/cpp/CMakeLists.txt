@@ -13,7 +13,7 @@ cmake_minimum_required(VERSION 3.10.2)
 
 file(GLOB CPP_FILES "./*.cpp" )
 
-include_directories("./main/cpp/")
+include_directories("./")
 
 add_library( # Sets the name of the library.
         native-lib
@@ -42,6 +42,11 @@ find_library(
         mediandk
 )
 
+# glm
+set(BUILD_SHARED_LIBS ON)
+include_directories(./glm)
+
+
 # Specifies libraries CMake should link to your target library. You
 # can link multiple libraries, such as libraries you define in this
 # build script, prebuilt third-party libraries, or system libraries.
@@ -54,6 +59,7 @@ target_link_libraries( # Specifies the target library.
         # included in the NDK.
         ${log-lib}
         ${media-lib}
+        ${glm_shared}
         OpenSLES
         GLESv3
         EGL)
