@@ -40,43 +40,105 @@ inline void yuv2rgb(float y, float u, float v, float &r, float &g, float &b) {
     }
 }
 
-
+/**
+ * glm的矩阵是列序的，而不是数学中习惯的行序。
+ * 例如，一个数学中的矩阵如下：
+ * 1 2 3
+ * 4 5 6
+ * 7 8 9
+ * 在glm中初始化时就是：
+ * mat3x3(
+ * 1, 4, 7,
+ * 2, 5, 8,
+ * 3, 6, 9
+ * )。
+ * 或者更直观使用向量初始化矩阵：
+ * mat3x3(
+ * vec3(1, 4, 7),
+ * vec3(2, 5, 8),
+ * vec3(3, 6, 9)
+ * )
+ * */
 jobject convert_YUV_420_888(JNIEnv *env, ImageProxy &image, int rotation, int facing) {
+    // 计算相机坐标到Bitmap坐标的转换矩阵。相机输出图像方向是相对手机正向(rotation = 0)逆时针旋转90度。
     mat3x3 posMatrix;
     vec3 posInCamera, posInBitmap;
     int bitmapHeight, bitmapWidth;
     if (rotation == ROTATION_0) {
         bitmapWidth = image.getHeight();
         bitmapHeight = image.getWidth();
-
+        /*
+         * 手机正向
+         * bitmap方向相对相机顺时针旋转90度。
+         * 转换矩阵是
+         *  0 1  0
+         * -1 0 bw
+         *  0 0  1
+         * */
         posMatrix = mat3x3(
-                0, 1, 0,
-                -1, 0, bitmapWidth,
-                0, 0, 1
+                0, -1, 0,
+                1, 0, 0,
+                0, bitmapWidth, 1
                 );
     } else if (rotation == ROTATION_180) {
         bitmapWidth = image.getHeight();
         bitmapHeight = image.getWidth();
-
+        /*
+         * 手机上下颠倒，即顺时针旋转180度
+         * bitmap相对相机顺时针旋转270度
+         * 转换矩阵是
+         * 0 -1 bh
+         * 1  0  0
+         * 0  0  1
+         * */
         posMatrix = mat3x3(
-                0, -1, bitmapHeight,
-                1, 0, 0,
-                0, 0, 1
+                0, 1, 0,
+                -1, 0, 0,
+                bitmapHeight, 0, 1
         );
     } else if (rotation == ROTATION_90) {
         bitmapWidth = image.getWidth();
         bitmapHeight = image.getHeight();
+        /*
+         * 手机顺时针旋转90度
+         * bitmap方向与相机一致。转换矩阵是单位矩阵
+         * */
         posMatrix = mat3x3(1);
     } else {
         bitmapWidth = image.getWidth();
         bitmapHeight = image.getHeight();
 
+        /*
+         * 手机顺时针旋转270度
+         * bitmap方向相比相机顺时针旋转180度。
+         * 转换矩阵是：
+         * -1  0 bh
+         *  0 -1 bw
+         *  0  0  1
+         * */
         posMatrix = mat3x3(
-                -1, 0, bitmapHeight,
-                0, -1, bitmapWidth,
-                0, 0, 1
+                -1, 0, 0,
+                0, -1, 0,
+                bitmapHeight, bitmapWidth, 1
                 );
     }
+
+    mat3x3 facingMatrix(1);
+    if (facing == FACING_FRONT) {
+        /*
+         * 如果是前置，则camera输出图像左右颠倒。转换矩阵为
+         * 1  0  0
+         * 0 -1 bw
+         * 0  0  1
+         * */
+        facingMatrix = mat3x3(
+                1, 0, 0,
+                0, -1, 0,
+                0, image.getWidth(), 1
+                );
+    }
+
+    posMatrix = posMatrix * facingMatrix;
 
     jclass configCls = env->FindClass("android/graphics/Bitmap$Config");
     jfieldID argb8888FieldID = env->GetStaticFieldID(configCls, "ARGB_8888", "Landroid/graphics/Bitmap$Config;");
@@ -115,7 +177,7 @@ jobject convert_YUV_420_888(JNIEnv *env, ImageProxy &image, int rotation, int fa
             posInCamera.x = row;
             posInCamera.y = col;
             posInCamera.z = 1;
-            posInBitmap = posInCamera * posMatrix;
+            posInBitmap = posMatrix * posInCamera;
             bitmapBuffer[(int)(posInBitmap.x * bitmapWidth) + (int)posInBitmap.y] = colorInt;
         }
     }

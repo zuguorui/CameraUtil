@@ -255,7 +255,12 @@ class MultiSurfaceActivity : AppCompatActivity() {
                         return@setOnImageAvailableListener
                     }
                     //val bitmap = convertYPlaneToBitmap(image)
-                    val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(image, binding.root.display.rotation, cameraInfoMap[openCameraID]!!.lensFacing)
+                    val rotation = binding?.root?.display?.rotation ?: kotlin.run {
+                        image.close()
+                        return@setOnImageAvailableListener
+                    }
+                    Timber.d("imageReader1 get a bitmap")
+                    val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(image, rotation, cameraInfoMap[openCameraID]!!.lensFacing)
                     image.close()
                     runOnUiThread {
                         binding.iv1.setImageBitmap(bitmap)
@@ -273,7 +278,12 @@ class MultiSurfaceActivity : AppCompatActivity() {
                         return@setOnImageAvailableListener
                     }
                     //val bitmap = convertYPlaneToBitmap(image)
-                    val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(image, binding.root.display.rotation, cameraInfoMap[openCameraID]!!.lensFacing)
+                    val rotation = binding?.root?.display?.rotation ?: kotlin.run {
+                        image.close()
+                        return@setOnImageAvailableListener
+                    }
+                    Timber.d("imageReader2 get a bitmap")
+                    val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(image, rotation, cameraInfoMap[openCameraID]!!.lensFacing)
                     image.close()
                     runOnUiThread {
                         binding.iv2.setImageBitmap(bitmap)
