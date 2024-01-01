@@ -259,7 +259,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
                         image.close()
                         return@setOnImageAvailableListener
                     }
-                    Timber.d("imageReader1 get a bitmap")
+                    // Timber.d("imageReader1 get a bitmap")
                     val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(image, rotation, cameraInfoMap[openCameraID]!!.lensFacing)
                     image.close()
                     runOnUiThread {
@@ -282,7 +282,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
                         image.close()
                         return@setOnImageAvailableListener
                     }
-                    Timber.d("imageReader2 get a bitmap")
+                    // Timber.d("imageReader2 get a bitmap")
                     val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(image, rotation, cameraInfoMap[openCameraID]!!.lensFacing)
                     image.close()
                     runOnUiThread {
@@ -472,8 +472,8 @@ class MultiSurfaceActivity : AppCompatActivity() {
             SurfaceHolder::class.java)
 
         imageReaderSize = computeImageReaderSize(characteristics, previewSize, ImageFormat.YUV_420_888,
-            true, -1) ?: throw RuntimeException("No reader size")
-        //imageReaderSize = Size(320, 240)
+            true, 0) ?: throw RuntimeException("No reader size")
+
 
         Timber.d("previewViewSize: $viewSize, ratio: ${viewSize.toRational()}")
         Timber.d("previewSize: $previewSize, ratio: ${previewSize.toRational()}")

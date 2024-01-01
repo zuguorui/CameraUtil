@@ -44,6 +44,7 @@ find_library(
 
 # glm
 set(BUILD_SHARED_LIBS ON)
+add_definitions(-DGLM_FORCE_NEON)
 include_directories(./glm)
 
 
