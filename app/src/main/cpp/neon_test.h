@@ -15,6 +15,7 @@
  * 指令集：https://developer.arm.com/architectures/instruction-sets/intrinsics
  * RGB分离示例：https://developer.arm.com/documentation/102467/0201/Example---RGB-deinterleaving?lang=en
  * 指南：https://developer.arm.com/documentation/den0018/a/NEON-Intrinsics/Introduction
+ * 汇编：https://developer.arm.com/documentation/107829/0200/What-is-assembly-language-/How-assembly-code-works?lang=en
  * */
 
 void do_neon_test();

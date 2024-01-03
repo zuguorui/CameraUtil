@@ -314,6 +314,19 @@ jobject convert_YUV_420_888_f32(JNIEnv *env, ImageProxy &image, int rotation, in
     return bitmap;
 }
 
+const int NEON_BUFFER_SIZE = 8;
+
+std::int16_t yShortBuffer1[NEON_BUFFER_SIZE], yShortBuffer2[NEON_BUFFER_SIZE], uShortBuffer[NEON_BUFFER_SIZE], vShortBuffer[NEON_BUFFER_SIZE];
+
+
+/**
+ * 使用neon进行计算
+ * YUV到BT.601 RGB的int计算公式如下：
+ * R = [ ( 128*Y +               179*(V-128) ) >> 7 ]
+ * G = [ ( 128*Y -  44*(U-128) -  91*(V-128) ) >> 7 ]
+ * B = [ ( 128*Y + 227*(U-128)               ) >> 7 ]
+ * 有空再更新BT709的int计算公式
+ * */
 jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, int facing) {
 
     mat3x3 posMat;
@@ -351,16 +364,12 @@ jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, i
     image.getPlane(1, &uBuffer, uBufferLen, uRowStride, uPixelStride);
     image.getPlane(2, &vBuffer, vBufferLen, vRowStride, vPixelStride);
 
-    assert(yPixelStride == 1);
-    assert(uPixelStride == 2);
-    assert(vPixelStride == 2);
+//    assert(yPixelStride == 1);
+//    assert(uPixelStride == 2);
+//    assert(vPixelStride == 2);
 
-    long pixelCount = image.getWidth() * image.getHeight();
-
-    int ONCE_LOAD_COUNT = 128 / 8;
-
-    assert(image.getWidth() % 16 == 0);
-    assert(image.getHeight() % 2 == 0);
+//    assert(image.getWidth() % 16 == 0);
+//    assert(image.getHeight() % 2 == 0);
 
     /*
      * YUV420是4个Y共用一个UV，如下：
@@ -382,16 +391,37 @@ jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, i
      * 该算法一次使用128bit寄存器，这里假设了camera输出图像的宽是16的倍数，
      * 高度是2的倍数以达到最简单解法，也是最快性能。
      * */
-    for (int row = 0; row < image.getHeight(); row++) {
-        int processLoopCount = image.getWidth() / ONCE_LOAD_COUNT;
-        int processLoop = 0;
-        while (processLoop < processLoopCount) {
-            uint8x16x2_t y = vld2q_u8(yBuffer + processLoop * ONCE_LOAD_COUNT);
-            uint8x16x2_t u = vld2q_u8(uBuffer + processLoop * ONCE_LOAD_COUNT);
-            uint8x16x2_t v = vld2q_u8(vBuffer + processLoop * ONCE_LOAD_COUNT);
+    int row = 0;
+    std::int16_t* yShortBuffers[2] = {yShortBuffer1, yShortBuffer2};
+    while (row < image.getHeight()) {
+        int col = 0;
+        while (col < image.getWidth()) {
+            int i = 0;
+            int startCol = col;
+            while (i * 2 < NEON_BUFFER_SIZE && col < image.getWidth()) {
+                yShortBuffers[col % 2][i / 2] = (std::int16_t)yBuffer[row * yRowStride + col * yPixelStride] & 0x00FF;
+                uShortBuffer[i / 2] = (std::int16_t)uBuffer[row / 2 * uRowStride + col / 2 * uPixelStride] & 0x00FF;
+                vShortBuffer[i / 2] = (std::int16_t)vBuffer[row / 2 * vRowStride + col / 2 * vPixelStride] & 0x00FF;
+                col++;
+                i++;
+            }
+            int16x8_t uNeon = vld1q_s16(uShortBuffer);
+            int16x8_t vNeon = vld1q_s16(vShortBuffer);
+            int16x8_t _128 = vdupq_n_s16(128);
+            uNeon = vsubq_s16(uNeon, _128);
+            vNeon = vsubq_s16(vNeon, _128);
+            for (int j = 0; j < 2; j++) {
+                int16x8_t yNeon = vld1q_s16(yShortBuffers[i]);
+                yNeon = vmulq_n_s16(yNeon, 128);
+                int16x8_t rNeon = vshrq_n_s16(vaddq_s16(yNeon, vmulq_n_s16(vNeon, 179)), 7);
+                int16x8_t gNeon = vshrq_n_s16(vsubq_s16(vsubq_s16(yNeon, vmulq_n_s16(uNeon, 44)),
+                                                    vmulq_n_s16(vNeon, 91)), 7);
+                int16x8_t bNeon = vshrq_n_s16(vaddq_s16(yNeon, vmulq_n_s16(uNeon, 227)), 7);
+            }
 
 
         }
+        row += 2;
     }
 
     AndroidBitmap_unlockPixels(env, bitmap);
