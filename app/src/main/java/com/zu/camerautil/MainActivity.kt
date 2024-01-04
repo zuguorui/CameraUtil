@@ -6,6 +6,7 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import com.zu.camerautil.databinding.ActivityMainBinding
+import com.zu.camerautil.util.NeonTest
 
 class MainActivity : AppCompatActivity() {
 
@@ -35,6 +36,10 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnCrop.setOnClickListener {
             startActivity(CropActivity::class.java)
+        }
+
+        binding.btnNeonTest.setOnClickListener {
+            NeonTest.doNeonTest()
         }
     }
 

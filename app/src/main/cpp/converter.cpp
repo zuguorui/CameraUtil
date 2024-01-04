@@ -316,8 +316,8 @@ jobject convert_YUV_420_888_f32(JNIEnv *env, ImageProxy &image, int rotation, in
 
 const int NEON_BUFFER_SIZE = 8;
 
-std::int16_t yShortBuffer1[NEON_BUFFER_SIZE], yShortBuffer2[NEON_BUFFER_SIZE], uShortBuffer[NEON_BUFFER_SIZE], vShortBuffer[NEON_BUFFER_SIZE];
-
+// std::int16_t yShortBuffer1[NEON_BUFFER_SIZE], yShortBuffer2[NEON_BUFFER_SIZE], uShortBuffer[NEON_BUFFER_SIZE], vShortBuffer[NEON_BUFFER_SIZE];
+// uint8x8x2_t yNeonBuffer, uNeonBuffer, vNeonBuffer;
 
 /**
  * 使用neon进行计算
@@ -327,6 +327,21 @@ std::int16_t yShortBuffer1[NEON_BUFFER_SIZE], yShortBuffer2[NEON_BUFFER_SIZE], u
  * B = [ ( 128*Y + 227*(U-128)               ) >> 7 ]
  * 有空再更新BT709的int计算公式
  * */
+
+int16x8_t _128 = vdupq_n_s16(128);
+static int16x8_t _255 = vdupq_n_s16(255);
+std::int8_t rBuffer[8], gBuffer[8], bBuffer[8];
+
+inline int16x8_t clamp_s16x8(int16x8_t vec) {
+    uint16x8_t a1 = vdupq_n_u16(1);
+    uint16x8_t a = vandq_u16(vcgezq_s16(vec), a1);
+    int16x8_t b = vreinterpretq_s16_u16(a);
+    int16x8_t c = vmulq_n_s16(b, -1);
+    vec = vandq_s16(vec, c);
+    vec = vorrq_s16(vec, vshrq_n_s16(vsubq_s16(_255, vec), 15));
+    return vec;
+}
+
 jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, int facing) {
 
     mat3x3 posMat;
@@ -364,12 +379,12 @@ jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, i
     image.getPlane(1, &uBuffer, uBufferLen, uRowStride, uPixelStride);
     image.getPlane(2, &vBuffer, vBufferLen, vRowStride, vPixelStride);
 
-//    assert(yPixelStride == 1);
-//    assert(uPixelStride == 2);
-//    assert(vPixelStride == 2);
+    assert(yPixelStride == 1);
+    assert(uPixelStride == 2);
+    assert(vPixelStride == 2);
 
-//    assert(image.getWidth() % 16 == 0);
-//    assert(image.getHeight() % 2 == 0);
+    assert(image.getWidth() % 16 == 0);
+    assert(image.getHeight() % 2 == 0);
 
     /*
      * YUV420是4个Y共用一个UV，如下：
@@ -392,39 +407,61 @@ jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, i
      * 高度是2的倍数以达到最简单解法，也是最快性能。
      * */
     int row = 0;
-    std::int16_t* yShortBuffers[2] = {yShortBuffer1, yShortBuffer2};
     while (row < image.getHeight()) {
         int col = 0;
         while (col < image.getWidth()) {
-            int i = 0;
-            int startCol = col;
-            while (i * 2 < NEON_BUFFER_SIZE && col < image.getWidth()) {
-                yShortBuffers[col % 2][i / 2] = (std::int16_t)yBuffer[row * yRowStride + col * yPixelStride] & 0x00FF;
-                uShortBuffer[i / 2] = (std::int16_t)uBuffer[row / 2 * uRowStride + col / 2 * uPixelStride] & 0x00FF;
-                vShortBuffer[i / 2] = (std::int16_t)vBuffer[row / 2 * vRowStride + col / 2 * vPixelStride] & 0x00FF;
-                col++;
-                i++;
-            }
-            int16x8_t uNeon = vld1q_s16(uShortBuffer);
-            int16x8_t vNeon = vld1q_s16(vShortBuffer);
-            int16x8_t _128 = vdupq_n_s16(128);
-            uNeon = vsubq_s16(uNeon, _128);
-            vNeon = vsubq_s16(vNeon, _128);
-            for (int j = 0; j < 2; j++) {
-                int16x8_t yNeon = vld1q_s16(yShortBuffers[i]);
-                yNeon = vmulq_n_s16(yNeon, 128);
-                int16x8_t rNeon = vshrq_n_s16(vaddq_s16(yNeon, vmulq_n_s16(vNeon, 179)), 7);
-                int16x8_t gNeon = vshrq_n_s16(vsubq_s16(vsubq_s16(yNeon, vmulq_n_s16(uNeon, 44)),
-                                                    vmulq_n_s16(vNeon, 91)), 7);
-                int16x8_t bNeon = vshrq_n_s16(vaddq_s16(yNeon, vmulq_n_s16(uNeon, 227)), 7);
-            }
 
+            uint8x8x2_t yU8 = vld2_u8(yBuffer + row * yRowStride + col);
+            uint8x8x2_t uU8 = vld2_u8(uBuffer + row / 2 * uRowStride + col);
+            uint8x8x2_t vU8 = vld2_u8(vBuffer + row / 2 * vRowStride + col);
 
+            int16x8_t u = vreinterpretq_s16_u16(vmovl_u8(uU8.val[0]));
+            u = vsubq_s16(u, _128);
+            int16x8_t v = vreinterpretq_s16_u16(vmovl_u8(vU8.val[0]));
+            v = vsubq_s16(v, _128);
+
+            for (int i = 0; i < 2; i++) {
+                int16x8_t y = vreinterpretq_s16_u16(vmovl_u8(yU8.val[i]));
+                y = vmulq_n_s16(y, 128);
+                int16x8_t r = vshrq_n_s16(vaddq_s16(y, vmulq_n_s16(v, 179)), 7);
+                int16x8_t g = vshrq_n_s16(vsubq_s16(vsubq_s16(y, vmulq_n_s16(u, 44)), vmulq_n_s16(v, 91)), 7);
+                int16x8_t b = vshrq_n_s16(vaddq_s16(y, vmulq_n_s16(u, 227)), 7);
+
+//                r = clamp_s16x8(r);
+//                g = clamp_s16x8(g);
+//                b = clamp_s16x8(b);
+
+                int8x8_t rS8 = vmovn_s16(r);
+                int8x8_t gS8 = vmovn_s16(g);
+                int8x8_t bS8 = vmovn_s16(b);
+
+                vst1_s8(rBuffer, rS8);
+                vst1_s8(gBuffer, gS8);
+                vst1_s8(bBuffer, bS8);
+
+                for (int j = 0; j < 8; j++) {
+                    posInCamera.x = row;
+                    posInCamera.y = col + 2 * j + i;
+                    posInCamera.z = 1;
+
+                    posInBitmap = posMat * posInCamera;
+
+                    int ri = rBuffer[j] & 0x00FF;
+                    int gi = gBuffer[j] & 0x00FF;
+                    int bi = bBuffer[j] & 0x00FF;
+
+                    int colorInt = (0x00FF << 24) | bi << 16 | gi << 8 | ri;
+                    bitmapBuffer[(int)(posInBitmap.x * bitmapWidth) + (int)posInBitmap.y] = colorInt;
+                }
+            }
+            col += 16;
         }
-        row += 2;
+        row += 1;
     }
 
     AndroidBitmap_unlockPixels(env, bitmap);
     return bitmap;
 }
+
+
 
