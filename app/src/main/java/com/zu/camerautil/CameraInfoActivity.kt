@@ -1,18 +1,23 @@
 package com.zu.camerautil
 
 import android.graphics.ImageFormat
+import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCharacteristics
+import android.media.ImageReader
+import android.media.MediaCodec
+import android.media.MediaRecorder
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Range
+import android.view.SurfaceHolder
 import android.webkit.WebView
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.databinding.ActivityCameraInfoBinding
 import com.zu.camerautil.databinding.ItemCameraSubInfoBinding
 import com.zu.camerautil.util.getImageFormatName
-import java.lang.StringBuilder
+import kotlin.text.StringBuilder
 
 class CameraInfoActivity : AppCompatActivity() {
 
@@ -169,6 +174,32 @@ class CameraInfoActivity : AppCompatActivity() {
         }
         addItem("高速fps及尺寸", highSpeedFpsStr)
 
+        kotlin.run {
+            val classes = arrayOf(
+                ImageReader::class.java,
+                SurfaceHolder::class.java,
+                SurfaceTexture::class.java,
+                MediaCodec::class.java,
+                MediaRecorder::class.java)
+            val sb = StringBuilder()
+            for (i in classes.indices) {
+                val cls = classes[i]
+                val sizes = cameraInfo.classSizeMap[cls]
+
+                val sizesStr = sizes?.let {
+                    val sb = StringBuilder()
+                    for (i in it.indices) {
+                        sb.append(it[i])
+                        if (i < it.size - 1) {
+                            sb.append("\n")
+                        }
+                    }
+                    sb.toString()
+                } ?: "Null"
+
+                addItem("${cls.simpleName}支持的尺寸", sizesStr)
+            }
+        }
     }
 
     private var itemIndex = 0

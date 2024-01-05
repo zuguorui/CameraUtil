@@ -1,12 +1,18 @@
 package com.zu.camerautil.bean
 
 import android.graphics.Rect
+import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraMetadata
+import android.media.ImageReader
+import android.media.MediaCodec
+import android.media.MediaRecorder
 import android.os.Build
 import android.util.Range
 import android.util.Size
 import android.util.SizeF
+import android.view.SurfaceHolder
+import android.view.SurfaceView
 import kotlin.math.floor
 
 /**
@@ -161,6 +167,17 @@ open class CameraInfoWrapper(
             }
             map[range] = sizes
         }
+        map
+    }
+
+    val classSizeMap by lazy {
+        val configurationMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!
+        val map = HashMap<Class<out Any>, Array<Size>>()
+        map.put(ImageReader::class.java, configurationMap.getOutputSizes(ImageReader::class.java))
+        map.put(SurfaceHolder::class.java, configurationMap.getOutputSizes(SurfaceHolder::class.java))
+        map.put(SurfaceTexture::class.java, configurationMap.getOutputSizes(SurfaceTexture::class.java))
+        map.put(MediaRecorder::class.java, configurationMap.getOutputSizes(MediaRecorder::class.java))
+        map.put(MediaCodec::class.java, configurationMap.getOutputSizes(MediaCodec::class.java))
         map
     }
 

@@ -11,7 +11,11 @@ import com.zu.camerautil.util.NeonTest
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private val permissionList = listOf<String>(android.Manifest.permission.CAMERA)
+    private val permissionList = listOf<String>(
+        android.Manifest.permission.CAMERA,
+        android.Manifest.permission.READ_EXTERNAL_STORAGE,
+        android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+        android.Manifest.permission.RECORD_AUDIO)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,6 +40,10 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnCrop.setOnClickListener {
             startActivity(CropActivity::class.java)
+        }
+
+        binding.btnSystemRecorder.setOnClickListener {
+            startActivity(RecordActivity::class.java)
         }
 
         binding.btnNeonTest.setOnClickListener {
