@@ -330,16 +330,24 @@ const int NEON_BUFFER_SIZE = 8;
 
 int16x8_t _128 = vdupq_n_s16(128);
 static int16x8_t _255 = vdupq_n_s16(255);
-std::int8_t rBuffer[8], gBuffer[8], bBuffer[8];
+std::uint8_t rBuffer[8], gBuffer[8], bBuffer[8];
 
-inline int16x8_t clamp_s16x8(int16x8_t vec) {
-    uint16x8_t a1 = vdupq_n_u16(1);
-    uint16x8_t a = vandq_u16(vcgezq_s16(vec), a1);
+inline uint8x8_t clamp_s16x8(int16x8_t vec) {
+
+    // n &= -(n >= 0)
+    uint16x8_t a = vandq_u16(vcgezq_s16(vec), vdupq_n_u16(1));
     int16x8_t b = vreinterpretq_s16_u16(a);
     int16x8_t c = vmulq_n_s16(b, -1);
     vec = vandq_s16(vec, c);
+
+    // n | ((255 - n) >> 15)
     vec = vorrq_s16(vec, vshrq_n_s16(vsubq_s16(_255, vec), 15));
-    return vec;
+
+    // get the lower byte of int16
+    int8x8_t d = vmovn_s16(vec);
+    // e = (uint8_t)d
+    uint8x8_t e = vreinterpret_u8_s8(d);
+    return e;
 }
 
 jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, int facing) {
@@ -427,17 +435,13 @@ jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, i
                 int16x8_t g = vshrq_n_s16(vsubq_s16(vsubq_s16(y, vmulq_n_s16(u, 44)), vmulq_n_s16(v, 91)), 7);
                 int16x8_t b = vshrq_n_s16(vaddq_s16(y, vmulq_n_s16(u, 227)), 7);
 
-//                r = clamp_s16x8(r);
-//                g = clamp_s16x8(g);
-//                b = clamp_s16x8(b);
+                uint8x8_t rU = clamp_s16x8(r);
+                uint8x8_t gU = clamp_s16x8(g);
+                uint8x8_t bU = clamp_s16x8(b);
 
-                int8x8_t rS8 = vmovn_s16(r);
-                int8x8_t gS8 = vmovn_s16(g);
-                int8x8_t bS8 = vmovn_s16(b);
-
-                vst1_s8(rBuffer, rS8);
-                vst1_s8(gBuffer, gS8);
-                vst1_s8(bBuffer, bS8);
+                vst1_u8(rBuffer, rU);
+                vst1_u8(gBuffer, gU);
+                vst1_u8(bBuffer, bU);
 
                 for (int j = 0; j < 8; j++) {
                     posInCamera.x = row;
@@ -446,11 +450,11 @@ jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, i
 
                     posInBitmap = posMat * posInCamera;
 
-                    int ri = rBuffer[j] & 0x00FF;
-                    int gi = gBuffer[j] & 0x00FF;
-                    int bi = bBuffer[j] & 0x00FF;
+                    std::uint32_t ri = ((std::uint32_t)rBuffer[j]) & 0x00FF;
+                    std::uint32_t gi = ((std::uint32_t)gBuffer[j]) & 0x00FF;
+                    std::uint32_t bi = ((std::uint32_t)bBuffer[j]) & 0x00FF;
 
-                    int colorInt = (0x00FF << 24) | bi << 16 | gi << 8 | ri;
+                    std::int32_t colorInt = (0x00FF << 24) | ((bi & 0x00FF) << 16) | ((gi & 0x00FF) << 8) | (ri & 0x00FF);
                     bitmapBuffer[(int)(posInBitmap.x * bitmapWidth) + (int)posInBitmap.y] = colorInt;
                 }
             }
