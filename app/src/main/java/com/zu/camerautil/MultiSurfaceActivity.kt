@@ -184,19 +184,23 @@ class MultiSurfaceActivity : AppCompatActivity() {
         binding.surface1.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.surface1.implementationType = Camera2PreviewView.ImplementationType.TEXTURE_VIEW
         binding.swSurface1.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                addSurface(binding.surface1.surface)
-            } else {
-                removeSurface(binding.surface1.surface)
-            }
+//            if (isChecked) {
+//                addSurface(binding.surface1.surface)
+//            } else {
+//                removeSurface(binding.surface1.surface)
+//            }
+            closeSession()
+            createSession()
         }
 
         binding.swImageReader1.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                addSurface(imageReader1!!.surface)
-            } else {
-                removeSurface(imageReader1!!.surface)
-            }
+//            if (isChecked) {
+//                addSurface(imageReader1!!.surface)
+//            } else {
+//                removeSurface(imageReader1!!.surface)
+//            }
+            closeSession()
+            createSession()
         }
 
         binding.swImageReader2.setOnCheckedChangeListener { _, isChecked ->
@@ -205,6 +209,8 @@ class MultiSurfaceActivity : AppCompatActivity() {
 //            } else {
 //                removeSurface(imageReader2.surface)
 //            }
+            closeSession()
+            createSession()
         }
 
         binding.btnRestartCamera.setOnClickListener {
@@ -417,13 +423,14 @@ class MultiSurfaceActivity : AppCompatActivity() {
     }
 
     private fun getSessionSurfaceList(): ArrayList<Surface> {
-        val list = ArrayList<Surface>()
-        list.add(binding.surfaceMain.surface)
-        list.add(binding.surface1.surface)
-        list.add(imageReader1!!.surface)
-        //list.add(imageReader2!!.surface)
+//        val list = ArrayList<Surface>()
+//        list.add(binding.surfaceMain.surface)
+////        list.add(binding.surface1.surface)
+//        list.add(imageReader1!!.surface)
+////        list.add(imageReader2!!.surface)
+//        return list
 
-        return list
+        return getCaptureSurfaceList()
     }
 
     private fun getCaptureSurfaceList(): ArrayList<Surface> {
@@ -435,9 +442,10 @@ class MultiSurfaceActivity : AppCompatActivity() {
         if (binding.swImageReader1.isChecked) {
             list.add(imageReader1!!.surface)
         }
-//        if (binding.swImageReader2.isChecked) {
-//            list.add(imageReader2!!.surface)
-//        }
+
+        if (binding.swImageReader2.isChecked) {
+            list.add(imageReader2!!.surface)
+        }
 
         return list
     }
@@ -472,7 +480,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
             SurfaceHolder::class.java)
 
         imageReaderSize = computeImageReaderSize(characteristics, previewSize, ImageFormat.YUV_420_888,
-            true, 0) ?: throw RuntimeException("No reader size")
+            true, 1) ?: throw RuntimeException("No reader size")
 
 
         Timber.d("previewViewSize: $viewSize, ratio: ${viewSize.toRational()}")

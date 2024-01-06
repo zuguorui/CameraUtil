@@ -43,6 +43,12 @@
             <Button
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:id="@+id/btn_system_recorder"
+                android:layout_margin="10dp"
+                android:text="MediaRecorder录像"/>
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:id="@+id/btn_neon_test"
                 android:layout_margin="10dp"
                 android:text="Neon测试"/>

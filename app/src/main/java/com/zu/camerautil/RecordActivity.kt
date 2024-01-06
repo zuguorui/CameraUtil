@@ -1,6 +1,7 @@
 package com.zu.camerautil
 
 import android.annotation.SuppressLint
+import android.content.ContentValues
 import android.content.Context
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
@@ -12,29 +13,34 @@ import android.hardware.camera2.params.SessionConfiguration
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Environment
 import android.os.Handler
 import android.os.HandlerThread
+import android.provider.MediaStore
 import android.util.Size
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.View
 import android.widget.AdapterView
-import android.widget.AdapterView.OnItemSelectedListener
-import android.widget.SeekBar
-import android.widget.SeekBar.OnSeekBarChangeListener
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.camera.computePreviewSize
 import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.camera.selectCameraID
-import com.zu.camerautil.databinding.ActivityZoomBinding
+import com.zu.camerautil.databinding.ActivityRecordBinding
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
+import com.zu.camerautil.recorder.IRecorder
+import com.zu.camerautil.recorder.RecorderParams
+import com.zu.camerautil.recorder.SystemRecorder
 import com.zu.camerautil.view.CameraSpinnerAdapter
 import timber.log.Timber
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.concurrent.Executors
 
 @SuppressLint("MissingPermission")
-class ZoomActivity : AppCompatActivity() {
+class RecordActivity : AppCompatActivity() {
 
     // camera objects start
     private val cameraManager: CameraManager by lazy {
@@ -43,6 +49,12 @@ class ZoomActivity : AppCompatActivity() {
 
     private val cameraInfoMap: HashMap<String, CameraInfoWrapper> by lazy {
         queryCameraInfo(this)
+    }
+
+    private val cameraList: ArrayList<CameraInfoWrapper> by lazy {
+        ArrayList<CameraInfoWrapper>().apply {
+            addAll(cameraInfoMap.values)
+        }
     }
 
     private var surfaceCreated = false
@@ -84,28 +96,26 @@ class ZoomActivity : AppCompatActivity() {
 
         }
     }
+
+    private lateinit var adapter: CameraSpinnerAdapter
     // camera objects end
 
-    private lateinit var binding: ActivityZoomBinding
-    private lateinit var adapter: CameraSpinnerAdapter
-    private val cameraList: ArrayList<CameraInfoWrapper> by lazy {
-        ArrayList<CameraInfoWrapper>().apply {
-            addAll(cameraInfoMap.values)
+    private var recorder: IRecorder = SystemRecorder()
+    private var recording = false
+        set(value) {
+            field = value
+            binding.btnRecord.text = if (value) "停止录制" else "开始录制"
+            binding.spinnerCamera.isEnabled = !value
         }
-    }
+    private lateinit var binding: ActivityRecordBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityZoomBinding.inflate(layoutInflater)
+        binding = ActivityRecordBinding.inflate(layoutInflater)
         setContentView(binding.root)
         openedCameraID = null
         surfaceCreated = false
         initViews()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        Timber.d("onResume")
     }
 
     override fun onDestroy() {
@@ -114,14 +124,14 @@ class ZoomActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        binding.surfaceMain.implementationType = Camera2PreviewView.ImplementationType.TEXTURE_VIEW
+        binding.surfaceMain.implementationType = Camera2PreviewView.ImplementationType.SURFACE_VIEW
         binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.surfaceMain.surfaceStateListener = surfaceStateListener
 
         adapter = CameraSpinnerAdapter()
         adapter.setData(cameraList)
         binding.spinnerCamera.adapter = adapter
-        binding.spinnerCamera.onItemSelectedListener = object : OnItemSelectedListener {
+        binding.spinnerCamera.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(
                 parent: AdapterView<*>?,
                 view: View?,
@@ -137,25 +147,15 @@ class ZoomActivity : AppCompatActivity() {
             }
         }
 
-
-        binding.sb.setOnSeekBarChangeListener(object : OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                if (!fromUser) {
-                    return
-                }
-                val percent = progress * 1.0f / seekBar.max
-                setZoomPercent(percent)
+        binding.btnRecord.setOnClickListener {
+            if (!recording) {
+                startRecord()
+            } else {
+                stopRecord()
             }
+        }
 
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {
 
-            }
-
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {
-
-            }
-
-        })
     }
 
     @Synchronized
@@ -177,7 +177,7 @@ class ZoomActivity : AppCompatActivity() {
         Timber.d("openDevice $finalID")
         cameraManager.openCamera(finalID, object : CameraDevice.StateCallback() {
             override fun onOpened(camera: CameraDevice) {
-                this@ZoomActivity.camera = camera
+                this@RecordActivity.camera = camera
                 createSession()
             }
 
@@ -212,7 +212,7 @@ class ZoomActivity : AppCompatActivity() {
 
         val createSessionCallback = object : CameraCaptureSession.StateCallback() {
             override fun onConfigured(session: CameraCaptureSession) {
-                this@ZoomActivity.session = session
+                this@RecordActivity.session = session
                 startPreview()
             }
 
@@ -260,18 +260,18 @@ class ZoomActivity : AppCompatActivity() {
         }
 
         session.setRepeatingRequest(captureRequestBuilder!!.build(), captureCallback, cameraHandler)
-        runOnUiThread {
-            onCameraChanged()
-        }
-
     }
 
     private fun getSessionSurfaceList(): ArrayList<Surface> {
-        return arrayListOf(binding.surfaceMain.surface)
+        val list = arrayListOf(binding.surfaceMain.surface)
+        if (recorder.getSurface() != null) {
+            list.add(recorder.getSurface()!!)
+        }
+        return list
     }
 
     private fun getCaptureSurfaceList(): ArrayList<Surface> {
-        return arrayListOf(binding.surfaceMain.surface)
+        return getSessionSurfaceList()
     }
 
     private fun computeSize(characteristics: CameraCharacteristics) {
@@ -285,81 +285,100 @@ class ZoomActivity : AppCompatActivity() {
             SurfaceHolder::class.java
         )
 
-        //previewSize = Size(1280, 720)
+        Timber.d("previewSize = $previewSize")
     }
 
+    private var recordParams: RecorderParams? = null
 
-    private fun setZoomPercent(percent: Float) {
-        if (Build.VERSION.SDK_INT < 30) {
+    private fun prepareRecorder() {
+        val title = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis())) + ".mp4"
+
+        val dcim = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
+
+        val folder = File(dcim, "CameraUtil")
+        if (!folder.exists()) {
+            folder.mkdirs()
+        }
+        val path = "${folder.absolutePath}/$title"
+        val params = RecorderParams(
+            title,
+            previewSize,
+            30,
+            30,
+            44100,
+            File(path),
+            binding.root.display.rotation
+        )
+
+        if (!recorder.prepare(params)) {
+            Timber.e("recorder prepare failed")
             return
         }
-        val info = cameraInfoMap[openedCameraID] ?: return
-        val zoomRange = info.zoomRange ?: return
-
-        val zoom = (1 - percent) * zoomRange.lower + percent * zoomRange.upper
-        setZoom(zoom)
+        if (recording) {
+            recordParams = params
+        }
     }
 
-    private fun setZoom(zoom: Float) {
-        if (Build.VERSION.SDK_INT < 30) {
+    private fun releaseRecorder() {
+        recorder.release()
+        recording = false
+    }
+
+    private fun startRecord() {
+        val title = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis())) + ".mp4"
+
+        val dcim = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
+
+//        val folder = File(dcim, "CameraUtil")
+        val folder = filesDir
+        if (!folder.exists()) {
+            folder.mkdirs()
+        }
+        val path = "${folder.absolutePath}/$title"
+        val params = RecorderParams(
+            title,
+            previewSize,
+            30,
+            30,
+            44100,
+            File(path),
+            binding.root.display.rotation
+        )
+
+        if (!recorder.prepare(params)) {
+            Timber.e("recorder prepare failed")
             return
         }
-        val builder = captureRequestBuilder ?: return
-        val info = cameraInfoMap[openedCameraID] ?: return
-        val session = this@ZoomActivity.session ?: return
-        val zoomRange = info.zoomRange ?: return
-
-        val min = zoomRange.lower
-        val max = zoomRange.upper
-
-        val finalZoom = if (zoom < min) {
-            min
-        } else if (zoom > max) {
-            max
-        } else {
-            zoom
+        if (recording) {
+            recordParams = params
         }
-        binding.tvCurrent.text = String.format("%.2f", finalZoom)
-        builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, finalZoom)
-        session.setRepeatingRequest(builder.build(), captureCallback, cameraHandler)
+
+        closeSession()
+        recording = recorder.start()
+        createSession()
+
     }
 
-    private fun onCameraChanged() {
-        val info = cameraInfoMap[openedCameraID] ?: kotlin.run {
-            binding.sb.isEnabled = false
-            return
-        }
+    private fun stopRecord() {
+        closeSession()
+        recorder.stop()
+        recorder.release()
+        recording = false
+        createSession()
 
-        val zoomRange = info.zoomRange
-
-        val supportZoom = (Build.VERSION.SDK_INT >= 30 && zoomRange != null)
-        binding.sb.isEnabled = supportZoom
-        binding.sb.progress = computeProgress(1.0f)
-        binding.tvCurrent.text = if (supportZoom) "1.0" else "不支持"
-        binding.tvMin.text = if (supportZoom) String.format("%.2f", zoomRange!!.lower) else "Null"
-        binding.tvMax.text = if (supportZoom) String.format("%.2f", zoomRange!!.upper) else "Null"
-    }
-
-    private fun computeProgress(zoom: Float): Int {
-        val info = cameraInfoMap[openedCameraID] ?: kotlin.run {
-            return 0
-        }
-        val zoomRange = info.zoomRange ?: return 0
-
-        val percent = (zoom - zoomRange.lower) * 1.0f / (zoomRange.upper - zoomRange.lower).apply {
-            if (this < 0) {
-                0
-            } else if (this > 1) {
-                1
-            } else {
-                this
+        recordParams?.let { params ->
+            val contentValues = ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, params.title)
+                put(MediaStore.Video.Media.DATA, params.outputFile.absolutePath)
+                put(MediaStore.Video.Media.DATE_ADDED, System.currentTimeMillis())
+                put(MediaStore.Video.Media.WIDTH, previewSize.width)
+                put(MediaStore.Video.Media.HEIGHT, previewSize.height)
+                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
             }
+            contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, contentValues)
         }
 
-        val max = binding.sb.max
-        val min = if (Build.VERSION.SDK_INT >= 26) binding.sb.min else 0
-
-        return ((max - min) * percent + min).toInt()
     }
+
 
 }

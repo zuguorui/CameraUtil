@@ -138,11 +138,11 @@ fun selectCameraID(cameraInfoMap: HashMap<String, CameraInfoWrapper>, facing: In
 
 // 几种标准宽高比
 private val standardRatios = arrayListOf(
-    Rational(21, 9),
-    Rational(2, 1),
+    //Rational(21, 9),
+    //Rational(2, 1),
     Rational(16, 9),
     Rational(4, 3),
-    Rational(1, 1)
+    //Rational(1, 1)
 )
 
 fun translateViewSizeToSensorSize(viewSize: Size, rotation: Int): Size {
