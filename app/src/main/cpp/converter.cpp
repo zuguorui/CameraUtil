@@ -9,8 +9,8 @@
 #include "glm/vec3.hpp"
 #include <chrono>
 #include <algorithm>
+#include <stdlib.h>
 
-using namespace glm;
 using namespace std;
 
 #define TAG "convert.cpp"
@@ -58,23 +58,23 @@ inline void yuv2rgb_f32(float y, float u, float v, float &r, float &g, float &b)
     }
 }
 
-inline std::uint8_t clamp(std::int32_t n) {
+inline uint8_t clamp(int32_t n) {
     n &= -(n >= 0);
     return n | ((255 - n) >> 31);
 }
 
-inline void yuv2rgb_i32(std::int32_t y, std::int32_t u, std::int32_t v, std::int32_t &r, std::int32_t &g, std::int32_t &b) {
+inline void yuv2rgb_i32(int32_t y, int32_t u, int32_t v, int32_t &r, int32_t &g, int32_t &b) {
     y -= 16;
     u -= 128;
     v -= 128;
 
-    r = clamp((std::int32_t)(1.164 * y + 1.596 * v));
-    g = clamp((std::int32_t)(1.164 * y - 0.392 * u - 0.813 * v));
-    b = clamp((std::int32_t)(1.164 * y + 2.017 * u));
+    r = clamp((int32_t)(1.164 * y + 1.793 * v));
+    g = clamp((int32_t)(1.164 * y - 0.213 * u - 0.533 * v));
+    b = clamp((int32_t)(1.164 * y + 2.112 * u));
 }
 
 inline glm::mat3x3 getRotationMat(int bitmapWidth, int bitmapHeight, int rotation) {
-    mat3x3 mat;
+    glm::mat3x3 mat;
     if (rotation == ROTATION_0) {
         /*
          * 手机正向
@@ -84,7 +84,7 @@ inline glm::mat3x3 getRotationMat(int bitmapWidth, int bitmapHeight, int rotatio
          * -1 0 bw-1
          *  0 0  1
          * */
-        mat = mat3x3(
+        mat = glm::mat3x3(
         0, -1, 0,
                 1, 0, 0,
                 0, bitmapWidth - 1, 1
@@ -98,7 +98,7 @@ inline glm::mat3x3 getRotationMat(int bitmapWidth, int bitmapHeight, int rotatio
          * 1  0  0
          * 0  0  1
          * */
-        mat = mat3x3(
+        mat = glm::mat3x3(
                 0, 1, 0,
                 -1, 0, 0,
                 bitmapHeight - 1, 0, 1
@@ -108,7 +108,7 @@ inline glm::mat3x3 getRotationMat(int bitmapWidth, int bitmapHeight, int rotatio
          * 手机顺时针旋转90度
          * bitmap方向与相机一致。转换矩阵是单位矩阵
          * */
-        mat = mat3x3(1);
+        mat = glm::mat3x3(1);
     } else {
         /*
          * 手机顺时针旋转270度
@@ -118,7 +118,7 @@ inline glm::mat3x3 getRotationMat(int bitmapWidth, int bitmapHeight, int rotatio
          *  0 -1 bw-1
          *  0  0  1
          * */
-        mat = mat3x3(
+        mat = glm::mat3x3(
                 -1, 0, 0,
                 0, -1, 0,
                 bitmapHeight - 1, bitmapWidth - 1, 1
@@ -128,7 +128,7 @@ inline glm::mat3x3 getRotationMat(int bitmapWidth, int bitmapHeight, int rotatio
 }
 
 inline glm::mat3x3 getFacingMat(int imageWidth, int imageHeight, int facing) {
-    mat3x3 mat(1);
+    glm::mat3x3 mat(1);
     if (facing == FACING_FRONT) {
         /*
          * 如果是前置，则camera输出图像左右颠倒。转换矩阵为
@@ -136,7 +136,7 @@ inline glm::mat3x3 getFacingMat(int imageWidth, int imageHeight, int facing) {
          * 0 -1 bw
          * 0  0  1
          * */
-        mat = mat3x3(
+        mat = glm::mat3x3(
                 1, 0, 0,
                 0, -1, 0,
                 0, imageWidth - 1, 1);
@@ -169,8 +169,8 @@ const int DEBUG_LOOP = 20;
  * */
 jobject convert_YUV_420_888_i32(JNIEnv *env, ImageProxy &image, int rotation, int facing) {
     // 计算相机坐标到Bitmap坐标的转换矩阵。相机输出图像方向是相对手机正向(rotation = 0)逆时针旋转90度。
-    mat3x3 posMat;
-    vec3 posInCamera, posInBitmap;
+    glm::mat3x3 posMat;
+    glm::vec3 posInCamera, posInBitmap;
     int bitmapHeight, bitmapWidth;
     if (rotation == ROTATION_0 || rotation == ROTATION_180) {
         bitmapWidth = image.getHeight();
@@ -180,8 +180,8 @@ jobject convert_YUV_420_888_i32(JNIEnv *env, ImageProxy &image, int rotation, in
         bitmapHeight = image.getHeight();
     }
 
-    mat3x3 rotateMat = getRotationMat(bitmapWidth, bitmapHeight, rotation);
-    mat3x3 facingMat = getFacingMat(image.getWidth(), image.getHeight(), facing);
+    glm::mat3x3 rotateMat = getRotationMat(bitmapWidth, bitmapHeight, rotation);
+    glm::mat3x3 facingMat = getFacingMat(image.getWidth(), image.getHeight(), facing);
 
     posMat = rotateMat * facingMat;
 
@@ -204,7 +204,7 @@ jobject convert_YUV_420_888_i32(JNIEnv *env, ImageProxy &image, int rotation, in
     image.getPlane(1, &uBuffer, uBufferLen, uRowStride, uPixelStride);
     image.getPlane(2, &vBuffer, vBufferLen, vRowStride, vPixelStride);
 
-    std::int32_t y, u, v, r, g, b;
+    int32_t y, u, v, r, g, b;
 
     int32_t colorInt;
     chrono::time_point startTime = chrono::system_clock::now();
@@ -242,8 +242,8 @@ jobject convert_YUV_420_888_i32(JNIEnv *env, ImageProxy &image, int rotation, in
 
 jobject convert_YUV_420_888_f32(JNIEnv *env, ImageProxy &image, int rotation, int facing) {
     // 计算相机坐标到Bitmap坐标的转换矩阵。相机输出图像方向是相对手机正向(rotation = 0)逆时针旋转90度。
-    mat3x3 posMat;
-    vec3 posInCamera, posInBitmap;
+    glm::mat3x3 posMat;
+    glm::vec3 posInCamera, posInBitmap;
     int bitmapHeight, bitmapWidth;
     if (rotation == ROTATION_0 || rotation == ROTATION_180) {
         bitmapWidth = image.getHeight();
@@ -253,8 +253,8 @@ jobject convert_YUV_420_888_f32(JNIEnv *env, ImageProxy &image, int rotation, in
         bitmapHeight = image.getHeight();
     }
 
-    mat3x3 rotateMat = getRotationMat(bitmapWidth, bitmapHeight, rotation);
-    mat3x3 facingMat = getFacingMat(image.getWidth(), image.getHeight(), facing);
+    glm::mat3x3 rotateMat = getRotationMat(bitmapWidth, bitmapHeight, rotation);
+    glm::mat3x3 facingMat = getFacingMat(image.getWidth(), image.getHeight(), facing);
 
 
     posMat = rotateMat * facingMat;
@@ -316,7 +316,7 @@ jobject convert_YUV_420_888_f32(JNIEnv *env, ImageProxy &image, int rotation, in
 
 const int NEON_BUFFER_SIZE = 8;
 
-// std::int16_t yShortBuffer1[NEON_BUFFER_SIZE], yShortBuffer2[NEON_BUFFER_SIZE], uShortBuffer[NEON_BUFFER_SIZE], vShortBuffer[NEON_BUFFER_SIZE];
+// int16_t yShortBuffer1[NEON_BUFFER_SIZE], yShortBuffer2[NEON_BUFFER_SIZE], uShortBuffer[NEON_BUFFER_SIZE], vShortBuffer[NEON_BUFFER_SIZE];
 // uint8x8x2_t yNeonBuffer, uNeonBuffer, vNeonBuffer;
 
 /**
@@ -328,9 +328,10 @@ const int NEON_BUFFER_SIZE = 8;
  * 有空再更新BT709的int计算公式
  * */
 
-int16x8_t _128 = vdupq_n_s16(128);
-static int16x8_t _255 = vdupq_n_s16(255);
-std::uint8_t rBuffer[8], gBuffer[8], bBuffer[8];
+static int32x4_t _128 = vdupq_n_s32(128);
+static int32x4_t _255 = vdupq_n_s32(255);
+static int32x4_t _16 = vdupq_n_s32(16);
+int32_t rBuffer[8], gBuffer[8], bBuffer[8];
 
 inline uint8x8_t clamp_s16x8(int16x8_t vec) {
 
@@ -350,10 +351,23 @@ inline uint8x8_t clamp_s16x8(int16x8_t vec) {
     return e;
 }
 
+inline int32x4_t clamp_s32x4(int32x4_t vec) {
+    uint32x4_t a = vandq_s32(vcgezq_s32(vec), vdupq_n_u32(1));
+    int32x4_t b = vreinterpretq_s32_u32(a);
+    int32x4_t c = vmulq_n_s32(b, -1);
+
+    vec = vandq_s32(vec, c);
+
+    int32x4_t d = vsubq_s32(_255, vec);
+    int32x4_t e = vshrq_n_s32(d, 31);
+    vec = vorrq_s32(vec, e);
+    return vec;
+}
+
 jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, int facing) {
 
-    mat3x3 posMat;
-    vec3 posInCamera, posInBitmap;
+    glm::mat3x3 posMat;
+    glm::vec3 posInCamera, posInBitmap;
     int bitmapHeight, bitmapWidth;
     if (rotation == ROTATION_0 || rotation == ROTATION_180) {
         bitmapWidth = image.getHeight();
@@ -363,8 +377,8 @@ jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, i
         bitmapHeight = image.getHeight();
     }
 
-    mat3x3 rotateMat = getRotationMat(bitmapWidth, bitmapHeight, rotation);
-    mat3x3 facingMat = getFacingMat(image.getWidth(), image.getHeight(), facing);
+    glm::mat3x3 rotateMat = getRotationMat(bitmapWidth, bitmapHeight, rotation);
+    glm::mat3x3 facingMat = getFacingMat(image.getWidth(), image.getHeight(), facing);
 
     posMat = rotateMat * facingMat;
 
@@ -419,43 +433,106 @@ jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, i
         int col = 0;
         while (col < image.getWidth()) {
 
-            uint8x8x2_t yU8 = vld2_u8(yBuffer + row * yRowStride + col);
-            uint8x8x2_t uU8 = vld2_u8(uBuffer + row / 2 * uRowStride + col);
-            uint8x8x2_t vU8 = vld2_u8(vBuffer + row / 2 * vRowStride + col);
+            // 每次读16个像素
+            uint8x8x2_t yNeonU8_2 = vld2_u8(yBuffer + row * yRowStride + col);
+            uint8x8x2_t uNeonU8_2 = vld2_u8(uBuffer + row / 2 * uRowStride + col);
+            uint8x8x2_t vNeonU8_2 = vld2_u8(vBuffer + row / 2 * vRowStride + col);
 
-            int16x8_t u = vreinterpretq_s16_u16(vmovl_u8(uU8.val[0]));
-            u = vsubq_s16(u, _128);
-            int16x8_t v = vreinterpretq_s16_u16(vmovl_u8(vU8.val[0]));
-            v = vsubq_s16(v, _128);
+            int16x8x2_t yNeonS16_2;
+            // Y[even]
+            yNeonS16_2.val[0] = vreinterpretq_s16_u16(vmovl_u8(yNeonU8_2.val[0]));
+            // Y[odd]
+            yNeonS16_2.val[1] = vreinterpretq_s16_u16(vmovl_u8(yNeonU8_2.val[1]));
 
-            for (int i = 0; i < 2; i++) {
-                int16x8_t y = vreinterpretq_s16_u16(vmovl_u8(yU8.val[i]));
-                y = vmulq_n_s16(y, 128);
-                int16x8_t r = vshrq_n_s16(vaddq_s16(y, vmulq_n_s16(v, 179)), 7);
-                int16x8_t g = vshrq_n_s16(vsubq_s16(vsubq_s16(y, vmulq_n_s16(u, 44)), vmulq_n_s16(v, 91)), 7);
-                int16x8_t b = vshrq_n_s16(vaddq_s16(y, vmulq_n_s16(u, 227)), 7);
+            int32x4x4_t yNeonS32_4;
+            // Y[low, even]
+            yNeonS32_4.val[0] = vmovl_s16(vget_low_s16(yNeonS16_2.val[0]));
+            // Y[low, odd]
+            yNeonS32_4.val[1] = vmovl_s16(vget_low_s16(yNeonS16_2.val[1]));
+            // Y[high, even]
+            yNeonS32_4.val[2] = vmovl_s16(vget_high_s16(yNeonS16_2.val[0]));
+            // Y[high, odd]
+            yNeonS32_4.val[3] = vmovl_s16(vget_high_s16(yNeonS16_2.val[1]));
 
-                uint8x8_t rU = clamp_s16x8(r);
-                uint8x8_t gU = clamp_s16x8(g);
-                uint8x8_t bU = clamp_s16x8(b);
+            // convert UV from U8 to F32, and split to low 4 elements and high 4
+            uint8x8_t uNeonU8 = uNeonU8_2.val[0];
+            int16x8_t uNeonS16 = vreinterpretq_s16_u16(vmovl_u8(uNeonU8));
+            int32x4x2_t uNeonS32_2;
+            // U[low]
+            uNeonS32_2.val[0] = vmovl_s16(vget_low_s16(uNeonS16));
+            // U[high]
+            uNeonS32_2.val[1] = vmovl_s16(vget_high_s16(uNeonS16));
 
-                vst1_u8(rBuffer, rU);
-                vst1_u8(gBuffer, gU);
-                vst1_u8(bBuffer, bU);
 
-                for (int j = 0; j < 8; j++) {
-                    posInCamera.x = row;
-                    posInCamera.y = col + 2 * j + i;
-                    posInCamera.z = 1;
+            uint8x8_t vNeonU8 = vNeonU8_2.val[0];
+            int16x8_t vNeonS16 = vreinterpretq_s16_u16(vmovl_u8(vNeonU8));
+            int32x4x2_t vNeonS32_2;
+            // V[low]
+            vNeonS32_2.val[0] = vmovl_s16(vget_low_s16(vNeonS16));
+            // V[high]
+            vNeonS32_2.val[1] = vmovl_s16(vget_high_s16(vNeonS16));
 
-                    posInBitmap = posMat * posInCamera;
+            for (int lowHigh = 0; lowHigh < 2; lowHigh++) {
+                int32x4_t uNeonS32 = uNeonS32_2.val[lowHigh];
+                uNeonS32 = vsubq_s32(uNeonS32, _128);
+                float32x4_t uNeonF32 = vcvtq_f32_s32(uNeonS32);
 
-                    std::uint32_t ri = ((std::uint32_t)rBuffer[j]) & 0x00FF;
-                    std::uint32_t gi = ((std::uint32_t)gBuffer[j]) & 0x00FF;
-                    std::uint32_t bi = ((std::uint32_t)bBuffer[j]) & 0x00FF;
+                int32x4_t vNeonS32 = vNeonS32_2.val[lowHigh];
+                vNeonS32 = vsubq_s32(vNeonS32, _128);
+                float32x4_t vNeonF32 = vcvtq_f32_s32(vNeonS32);
 
-                    std::int32_t colorInt = (0x00FF << 24) | ((bi & 0x00FF) << 16) | ((gi & 0x00FF) << 8) | (ri & 0x00FF);
-                    bitmapBuffer[(int)(posInBitmap.x * bitmapWidth) + (int)posInBitmap.y] = colorInt;
+                for (int oddEven = 0; oddEven < 2; oddEven++) {
+                    int32x4_t yNeonS32 = yNeonS32_4.val[2 * lowHigh + oddEven];
+                    yNeonS32 = vsubq_s32(yNeonS32, _16);
+                    float32x4_t yNeonF32 = vcvtq_f32_s32(yNeonS32);
+
+                    float32x4_t rNeonF32 =
+                            vaddq_f32(
+                                    vmulq_n_f32(yNeonF32, 1.164f),
+                                    vmulq_n_f32(vNeonF32, 1.793f)
+                            );
+                    float32x4_t gNeonF32 =
+                            vsubq_f32(
+                                    vsubq_f32(
+                                            vmulq_n_f32(yNeonF32, 1.164f),
+                                            vmulq_n_f32(uNeonF32, 0.213f)
+                                    ),
+                                    vmulq_n_f32(vNeonF32, 0.533f)
+                            );
+
+                    float32x4_t bNeonF32 =
+                            vaddq_f32(
+                                    vmulq_n_f32(yNeonF32, 1.164f),
+                                    vmulq_n_f32(uNeonF32, 2.112f)
+                            );
+
+                    int32x4_t rNeonS32 = vcvtq_s32_f32(rNeonF32);
+                    int32x4_t gNeonS32 = vcvtq_s32_f32(gNeonF32);
+                    int32x4_t bNeonS32 = vcvtq_s32_f32(bNeonF32);
+
+                    rNeonS32 = clamp_s32x4(rNeonS32);
+                    gNeonS32 = clamp_s32x4(gNeonS32);
+                    bNeonS32 = clamp_s32x4(bNeonS32);
+
+                    vst1q_s32(rBuffer, rNeonS32);
+                    vst1q_s32(gBuffer, gNeonS32);
+                    vst1q_s32(bBuffer, bNeonS32);
+
+                    for (int i = 0; i < 4; i++) {
+                        uint32_t r = (uint32_t)rBuffer[i];
+                        uint32_t g = (uint32_t)gBuffer[i];
+                        uint32_t b = (uint32_t)bBuffer[i];
+
+                        uint32_t colorInt = (0x00FF << 24) | ((b & 0x00FF) << 16) | ((g & 0x00FF) << 8) | (r & 0x00FF);
+
+                        posInCamera.x = row;
+                        posInCamera.y = col + 2 * i + oddEven + 8 * lowHigh;
+                        posInCamera.z = 1;
+
+                        posInBitmap = posMat * posInCamera;
+
+                        bitmapBuffer[(int)(posInBitmap.x * bitmapWidth) + (int)posInBitmap.y] = colorInt;
+                    }
                 }
             }
             col += 16;
