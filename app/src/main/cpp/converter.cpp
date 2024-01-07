@@ -364,6 +364,49 @@ inline int32x4_t clamp_s32x4(int32x4_t vec) {
     return vec;
 }
 
+inline float32x4x4_t neon_load_YUV420_Y(uint8_t *buffer) {
+    uint8x8x2_t u8_2 = vld2_u8(buffer);
+    int16x8x2_t s16_2;
+    // Y[even]
+    s16_2.val[0] = vreinterpretq_s16_u16(vmovl_u8(u8_2.val[0]));
+    // Y[odd]
+    s16_2.val[1] = vreinterpretq_s16_u16(vmovl_u8(u8_2.val[1]));
+
+    int32x4x4_t s32_4;
+    // Y[low, even]
+    s32_4.val[0] = vmovl_s16(vget_low_s16(s16_2.val[0]));
+    // Y[low, odd]
+    s32_4.val[1] = vmovl_s16(vget_low_s16(s16_2.val[1]));
+    // Y[high, even]
+    s32_4.val[2] = vmovl_s16(vget_high_s16(s16_2.val[0]));
+    // Y[high, odd]
+    s32_4.val[3] = vmovl_s16(vget_high_s16(s16_2.val[1]));
+
+    float32x4x4_t f32_4;
+
+    f32_4.val[0] = vcvtq_f32_s32(s32_4.val[0]);
+    f32_4.val[1] = vcvtq_f32_s32(s32_4.val[1]);
+    f32_4.val[2] = vcvtq_f32_s32(s32_4.val[2]);
+    f32_4.val[3] = vcvtq_f32_s32(s32_4.val[3]);
+
+    return f32_4;
+}
+
+inline float32x4x2_t neon_load_YUV420_UV(uint8_t *buffer) {
+    uint8x8x2_t neonU8_2 = vld2_u8(buffer);
+    uint8x8_t neonU8 = neonU8_2.val[0];
+    int16x8_t neonS16 = vreinterpretq_s16_u16(vmovl_u8(neonU8));
+    int32x4x2_t neonS32_2;
+    // U[low]
+    neonS32_2.val[0] = vmovl_s16(vget_low_s16(neonS16));
+    // U[high]
+    neonS32_2.val[1] = vmovl_s16(vget_high_s16(neonS16));
+
+    float32x4x2_t neonF32_2;
+    neonF32_2.val[0] = vcvtq_f32_s32(neonS32_2.val[0]);
+    neonF32_2.val[1] = vcvtq_f32_s32(neonS32_2.val[1]);
+}
+
 jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, int facing) {
 
     glm::mat3x3 posMat;
@@ -432,27 +475,9 @@ jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, i
     while (row < image.getHeight()) {
         int col = 0;
         while (col < image.getWidth()) {
-
             // 每次读16个像素
-            uint8x8x2_t yNeonU8_2 = vld2_u8(yBuffer + row * yRowStride + col);
             uint8x8x2_t uNeonU8_2 = vld2_u8(uBuffer + row / 2 * uRowStride + col);
             uint8x8x2_t vNeonU8_2 = vld2_u8(vBuffer + row / 2 * vRowStride + col);
-
-            int16x8x2_t yNeonS16_2;
-            // Y[even]
-            yNeonS16_2.val[0] = vreinterpretq_s16_u16(vmovl_u8(yNeonU8_2.val[0]));
-            // Y[odd]
-            yNeonS16_2.val[1] = vreinterpretq_s16_u16(vmovl_u8(yNeonU8_2.val[1]));
-
-            int32x4x4_t yNeonS32_4;
-            // Y[low, even]
-            yNeonS32_4.val[0] = vmovl_s16(vget_low_s16(yNeonS16_2.val[0]));
-            // Y[low, odd]
-            yNeonS32_4.val[1] = vmovl_s16(vget_low_s16(yNeonS16_2.val[1]));
-            // Y[high, even]
-            yNeonS32_4.val[2] = vmovl_s16(vget_high_s16(yNeonS16_2.val[0]));
-            // Y[high, odd]
-            yNeonS32_4.val[3] = vmovl_s16(vget_high_s16(yNeonS16_2.val[1]));
 
             // convert UV from U8 to F32, and split to low 4 elements and high 4
             uint8x8_t uNeonU8 = uNeonU8_2.val[0];
@@ -472,72 +497,93 @@ jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, i
             // V[high]
             vNeonS32_2.val[1] = vmovl_s16(vget_high_s16(vNeonS16));
 
-            for (int lowHigh = 0; lowHigh < 2; lowHigh++) {
-                int32x4_t uNeonS32 = uNeonS32_2.val[lowHigh];
-                uNeonS32 = vsubq_s32(uNeonS32, _128);
-                float32x4_t uNeonF32 = vcvtq_f32_s32(uNeonS32);
 
-                int32x4_t vNeonS32 = vNeonS32_2.val[lowHigh];
-                vNeonS32 = vsubq_s32(vNeonS32, _128);
-                float32x4_t vNeonF32 = vcvtq_f32_s32(vNeonS32);
+            for (int lineOddEven = 0; lineOddEven < 2; lineOddEven++) {
+                uint8x8x2_t yNeonU8_2 = vld2_u8(yBuffer + (row + lineOddEven) * yRowStride + col);
+                int16x8x2_t yNeonS16_2;
+                // Y[even]
+                yNeonS16_2.val[0] = vreinterpretq_s16_u16(vmovl_u8(yNeonU8_2.val[0]));
+                // Y[odd]
+                yNeonS16_2.val[1] = vreinterpretq_s16_u16(vmovl_u8(yNeonU8_2.val[1]));
 
-                for (int oddEven = 0; oddEven < 2; oddEven++) {
-                    int32x4_t yNeonS32 = yNeonS32_4.val[2 * lowHigh + oddEven];
-                    yNeonS32 = vsubq_s32(yNeonS32, _16);
-                    float32x4_t yNeonF32 = vcvtq_f32_s32(yNeonS32);
+                int32x4x4_t yNeonS32_4;
+                // Y[low, even]
+                yNeonS32_4.val[0] = vmovl_s16(vget_low_s16(yNeonS16_2.val[0]));
+                // Y[low, odd]
+                yNeonS32_4.val[1] = vmovl_s16(vget_low_s16(yNeonS16_2.val[1]));
+                // Y[high, even]
+                yNeonS32_4.val[2] = vmovl_s16(vget_high_s16(yNeonS16_2.val[0]));
+                // Y[high, odd]
+                yNeonS32_4.val[3] = vmovl_s16(vget_high_s16(yNeonS16_2.val[1]));
 
-                    float32x4_t rNeonF32 =
-                            vaddq_f32(
-                                    vmulq_n_f32(yNeonF32, 1.164f),
-                                    vmulq_n_f32(vNeonF32, 1.793f)
-                            );
-                    float32x4_t gNeonF32 =
-                            vsubq_f32(
-                                    vsubq_f32(
-                                            vmulq_n_f32(yNeonF32, 1.164f),
-                                            vmulq_n_f32(uNeonF32, 0.213f)
-                                    ),
-                                    vmulq_n_f32(vNeonF32, 0.533f)
-                            );
+                for (int lowHigh = 0; lowHigh < 2; lowHigh++) {
+                    int32x4_t uNeonS32 = uNeonS32_2.val[lowHigh];
+                    uNeonS32 = vsubq_s32(uNeonS32, _128);
+                    float32x4_t uNeonF32 = vcvtq_f32_s32(uNeonS32);
 
-                    float32x4_t bNeonF32 =
-                            vaddq_f32(
-                                    vmulq_n_f32(yNeonF32, 1.164f),
-                                    vmulq_n_f32(uNeonF32, 2.112f)
-                            );
+                    int32x4_t vNeonS32 = vNeonS32_2.val[lowHigh];
+                    vNeonS32 = vsubq_s32(vNeonS32, _128);
+                    float32x4_t vNeonF32 = vcvtq_f32_s32(vNeonS32);
 
-                    int32x4_t rNeonS32 = vcvtq_s32_f32(rNeonF32);
-                    int32x4_t gNeonS32 = vcvtq_s32_f32(gNeonF32);
-                    int32x4_t bNeonS32 = vcvtq_s32_f32(bNeonF32);
+                    for (int oddEven = 0; oddEven < 2; oddEven++) {
+                        int32x4_t yNeonS32 = yNeonS32_4.val[2 * lowHigh + oddEven];
+                        yNeonS32 = vsubq_s32(yNeonS32, _16);
+                        float32x4_t yNeonF32 = vcvtq_f32_s32(yNeonS32);
 
-                    rNeonS32 = clamp_s32x4(rNeonS32);
-                    gNeonS32 = clamp_s32x4(gNeonS32);
-                    bNeonS32 = clamp_s32x4(bNeonS32);
+                        float32x4_t rNeonF32 =
+                                vaddq_f32(
+                                        vmulq_n_f32(yNeonF32, 1.164f),
+                                        vmulq_n_f32(vNeonF32, 1.793f)
+                                );
+                        float32x4_t gNeonF32 =
+                                vsubq_f32(
+                                        vsubq_f32(
+                                                vmulq_n_f32(yNeonF32, 1.164f),
+                                                vmulq_n_f32(uNeonF32, 0.213f)
+                                        ),
+                                        vmulq_n_f32(vNeonF32, 0.533f)
+                                );
 
-                    vst1q_s32(rBuffer, rNeonS32);
-                    vst1q_s32(gBuffer, gNeonS32);
-                    vst1q_s32(bBuffer, bNeonS32);
+                        float32x4_t bNeonF32 =
+                                vaddq_f32(
+                                        vmulq_n_f32(yNeonF32, 1.164f),
+                                        vmulq_n_f32(uNeonF32, 2.112f)
+                                );
 
-                    for (int i = 0; i < 4; i++) {
-                        uint32_t r = (uint32_t)rBuffer[i];
-                        uint32_t g = (uint32_t)gBuffer[i];
-                        uint32_t b = (uint32_t)bBuffer[i];
+                        int32x4_t rNeonS32 = vcvtq_s32_f32(rNeonF32);
+                        int32x4_t gNeonS32 = vcvtq_s32_f32(gNeonF32);
+                        int32x4_t bNeonS32 = vcvtq_s32_f32(bNeonF32);
 
-                        uint32_t colorInt = (0x00FF << 24) | ((b & 0x00FF) << 16) | ((g & 0x00FF) << 8) | (r & 0x00FF);
+                        rNeonS32 = clamp_s32x4(rNeonS32);
+                        gNeonS32 = clamp_s32x4(gNeonS32);
+                        bNeonS32 = clamp_s32x4(bNeonS32);
 
-                        posInCamera.x = row;
-                        posInCamera.y = col + 2 * i + oddEven + 8 * lowHigh;
-                        posInCamera.z = 1;
+                        vst1q_s32(rBuffer, rNeonS32);
+                        vst1q_s32(gBuffer, gNeonS32);
+                        vst1q_s32(bBuffer, bNeonS32);
 
-                        posInBitmap = posMat * posInCamera;
+                        for (int i = 0; i < 4; i++) {
+                            uint32_t r = (uint32_t)rBuffer[i];
+                            uint32_t g = (uint32_t)gBuffer[i];
+                            uint32_t b = (uint32_t)bBuffer[i];
 
-                        bitmapBuffer[(int)(posInBitmap.x * bitmapWidth) + (int)posInBitmap.y] = colorInt;
+                            uint32_t colorInt = (0x00FF << 24) | ((b & 0x00FF) << 16) | ((g & 0x00FF) << 8) | (r & 0x00FF);
+
+                            posInCamera.x = row + lineOddEven;
+                            posInCamera.y = col + 2 * i + oddEven + 8 * lowHigh;
+                            posInCamera.z = 1;
+
+                            posInBitmap = posMat * posInCamera;
+
+                            bitmapBuffer[(int)(posInBitmap.x * bitmapWidth) + (int)posInBitmap.y] = colorInt;
+                        }
                     }
                 }
+
             }
             col += 16;
         }
-        row += 1;
+        row += 2;
     }
 
     AndroidBitmap_unlockPixels(env, bitmap);
