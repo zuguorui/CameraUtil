@@ -361,6 +361,7 @@ inline int32x4_t clamp_s32x4(int32x4_t vec) {
     int32x4_t d = vsubq_s32(_255, vec);
     int32x4_t e = vshrq_n_s32(d, 31);
     vec = vorrq_s32(vec, e);
+    vec = vandq_s32(vec, vdupq_n_s32(0x00FF));
     return vec;
 }
 
