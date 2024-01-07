@@ -17,6 +17,7 @@ import android.os.Environment
 import android.os.Handler
 import android.os.HandlerThread
 import android.provider.MediaStore
+import android.util.Range
 import android.util.Size
 import android.view.Surface
 import android.view.SurfaceHolder
@@ -41,6 +42,8 @@ import java.util.concurrent.Executors
 
 @SuppressLint("MissingPermission")
 class RecordActivity : AppCompatActivity() {
+
+    private val fps = 120
 
     // camera objects start
     private val cameraManager: CameraManager by lazy {
@@ -173,7 +176,11 @@ class RecordActivity : AppCompatActivity() {
         binding.surfaceMain.previewSize = previewSize
 
         val info = cameraInfoMap[openedCameraID]!!
-        val finalID = info.logicalID ?: openedCameraID!!
+        val finalID = if (StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
+            info.logicalID ?: info.cameraID
+        } else {
+            info.cameraID
+        }
         Timber.d("openDevice $finalID")
         cameraManager.openCamera(finalID, object : CameraDevice.StateCallback() {
             override fun onOpened(camera: CameraDevice) {
@@ -229,7 +236,7 @@ class RecordActivity : AppCompatActivity() {
             val outputConfigurations = ArrayList<OutputConfiguration>()
             for (surface in target) {
                 val outputConfiguration = OutputConfiguration(surface)
-                if (info.logicalID != null) {
+                if (StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION && info.logicalID != null) {
                     Timber.w("camera${info.cameraID} belong to logical camera${info.logicalID}, set physical camera")
                     outputConfiguration.setPhysicalCameraId(info.cameraID)
                 }
@@ -257,6 +264,8 @@ class RecordActivity : AppCompatActivity() {
             getCaptureSurfaceList().forEach {
                 addTarget(it)
             }
+
+            set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range(fps, fps))
         }
 
         session.setRepeatingRequest(captureRequestBuilder!!.build(), captureCallback, cameraHandler)
@@ -329,8 +338,8 @@ class RecordActivity : AppCompatActivity() {
 
         val dcim = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
 
-//        val folder = File(dcim, "CameraUtil")
-        val folder = filesDir
+        val folder = File(dcim, "CameraUtil")
+//        val folder = filesDir
         if (!folder.exists()) {
             folder.mkdirs()
         }
@@ -338,8 +347,8 @@ class RecordActivity : AppCompatActivity() {
         val params = RecorderParams(
             title,
             previewSize,
-            30,
-            30,
+            fps,
+            fps,
             44100,
             File(path),
             binding.root.display.rotation

@@ -61,7 +61,6 @@ void stepByStep() {
     int16x8_t yNeonS16 = vreinterpretq_s16_u16(vmovl_u8(yNeonU8));
     yNeonS16 = vmulq_n_s16(yNeonS16, 128);
 
-
     int16_t y1 = (int16_t)y * 128;
 
     // u - 128

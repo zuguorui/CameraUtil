@@ -80,46 +80,6 @@ class MultiSurfaceActivity : AppCompatActivity() {
 
     private var imageReaderHandler = Handler(imageReaderThread.looper)
 
-
-    private val textureCallback = object : TextureView.SurfaceTextureListener {
-        override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
-            surfaceCreated = true
-            val cameraID = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
-            binding.spinnerCamera.setSelection(cameraList.indexOfFirst { info -> info.cameraID == cameraID })
-        }
-
-        override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
-            Timber.d("textureSizeChanged, width = $width, height = $height")
-        }
-
-        override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
-            Timber.d("textureDestroyed")
-            return true
-        }
-
-        override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
-            //Timber.d("textureUpdated")
-        }
-    }
-
-    private val surfaceCallback = object : SurfaceHolder.Callback {
-        override fun surfaceCreated(holder: SurfaceHolder) {
-            surfaceCreated = true
-            Timber.d("surfaceCreated: Thread = ${Thread.currentThread().name}")
-            val cameraID = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
-            binding.spinnerCamera.setSelection(cameraList.indexOfFirst { info -> info.cameraID == cameraID })
-        }
-
-        override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-            val surfaceSize = binding.surfaceMain.surfaceSize
-            Timber.d("surfaceChanged: surfaceSize = $surfaceSize, ratio = ${surfaceSize.toRational()}")
-        }
-
-        override fun surfaceDestroyed(holder: SurfaceHolder) {
-
-        }
-    }
-
     private val surfaceStateListener = object : PreviewViewImplementation.SurfaceStateListener {
         override fun onSurfaceCreated(surface: Surface) {
             surfaceCreated = true
@@ -318,7 +278,11 @@ class MultiSurfaceActivity : AppCompatActivity() {
         initImageReaders()
 
         val info = cameraInfoMap[openCameraID]!!
-        val finalID = info.logicalID ?: openCameraID!!
+        val finalID = if (StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
+            info.logicalID ?: info.cameraID
+        } else {
+            info.cameraID
+        }
         Timber.d("openDevice $finalID")
         cameraManager.openCamera(finalID, object : CameraDevice.StateCallback() {
             override fun onOpened(camera: CameraDevice) {
@@ -379,7 +343,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
             val outputConfigurations = ArrayList<OutputConfiguration>()
             for (surface in target) {
                 val outputConfiguration = OutputConfiguration(surface)
-                if (info.logicalID != null) {
+                if (StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION && info.logicalID != null) {
                     Timber.w("camera${info.cameraID} belong to logical camera${info.logicalID}, set physical camera")
                     outputConfiguration.setPhysicalCameraId(info.cameraID)
                 }
@@ -480,7 +444,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
             SurfaceHolder::class.java)
 
         imageReaderSize = computeImageReaderSize(characteristics, previewSize, ImageFormat.YUV_420_888,
-            true, 1) ?: throw RuntimeException("No reader size")
+            true, -1) ?: throw RuntimeException("No reader size")
 
 
         Timber.d("previewViewSize: $viewSize, ratio: ${viewSize.toRational()}")
