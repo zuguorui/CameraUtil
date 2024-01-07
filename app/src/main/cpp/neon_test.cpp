@@ -6,15 +6,17 @@
 #include "log.h"
 #include <stdlib.h>
 
+#define TAG "neon_test"
+
 using namespace std;
 
 
-/*
-inline std::uint8_t clamp(std::int32_t n) {
+
+inline uint8_t clamp(int32_t n) {
     n &= -(n >= 0);
     return n | ((255 - n) >> 31);
 }
- */
+
 inline uint8x8_t clamp_s16x8(int16x8_t vec) {
     static int16x8_t _255 = vdupq_n_s16(255);
 
@@ -34,28 +36,62 @@ inline uint8x8_t clamp_s16x8(int16x8_t vec) {
     return e;
 }
 
+
 void do_neon_test() {
+    static int16x8_t _128 = vdupq_n_s16(128);
+    static int16x8_t _255 = vdupq_n_s16(255);
+
+    uint8_t y = 255;
+    uint8_t u = 255;
+    uint8_t v = 255;
+
+    // Neon
+    uint8x8_t yNeonU8 = vdup_n_u8(y);
+    uint8x8_t uNeonU8 = vdup_n_u8(u);
+    uint8x8_t vNeonU8 = vdup_n_u8(v);
+
+    // y * 128
+    int16x8_t yNeonS16 = vreinterpretq_s16_u16(vmovl_u8(yNeonU8));
+    yNeonS16 = vmulq_n_s16(yNeonS16, 128);
+    // u - 128
+    int16x8_t uNeonS16 = vreinterpretq_s16_u16(vmovl_u8(uNeonU8));
+    uNeonS16 = vsubq_s16(uNeonS16, _128);
+    // v - 128
+    int16x8_t vNeonS16 = vreinterpretq_s16_u16(vmovl_u8(vNeonU8));
+    vNeonS16 = vsubq_s16(vNeonS16, _128);
+
+    int16x8_t rNeonS16 = vshrq_n_s16(vaddq_s16(yNeonS16, vmulq_n_s16(vNeonS16, 179)), 7);
+    int16x8_t gNeonS16 = vshrq_n_s16(vsubq_s16(vsubq_s16(yNeonS16, vmulq_n_s16(uNeonS16, 44)), vmulq_n_s16(vNeonS16, 91)), 7);
+    int16x8_t bNeonS16 = vshrq_n_s16(vaddq_s16(yNeonS16, vmulq_n_s16(uNeonS16, 227)), 7);
+
     uint8_t rBuffer[8], gBuffer[8], bBuffer[8];
 
-    int16x8_t ro = vdupq_n_s16(-10);
-    uint8x8_t r = clamp_s16x8(ro);
+    uint8x8_t rNeonU8 = clamp_s16x8(rNeonS16);
+    uint8x8_t gNeonU8 = clamp_s16x8(gNeonS16);
+    uint8x8_t bNeonU8 = clamp_s16x8(bNeonS16);
 
-    int16x8_t go = vdupq_n_s16(300);
-    uint8x8_t g = clamp_s16x8(go);
 
-    int16x8_t bo = vdupq_n_s16(255);
-    uint8x8_t b = clamp_s16x8(bo);
+    vst1_u8(rBuffer, rNeonU8);
+    vst1_u8(gBuffer, gNeonU8);
+    vst1_u8(bBuffer, bNeonU8);
 
-    vst1_u8(rBuffer, r);
-    vst1_u8(gBuffer, g);
-    vst1_u8(bBuffer, b);
+    uint32_t r1 = ((uint32_t)rBuffer[0]) & 0x00FF;
+    uint32_t g1 = ((uint32_t)gBuffer[0]) & 0x00FF;
+    uint32_t b1 = ((uint32_t)bBuffer[0]) & 0x00FF;
 
-    for (int j = 0; j < 8; j++) {
-        uint32_t ri = ((uint32_t)rBuffer[j]) & 0x00FF;
-        uint32_t gi = ((uint32_t)gBuffer[j]) & 0x00FF;
-        uint32_t bi = ((uint32_t)bBuffer[j]) & 0x00FF;
+    uint32_t colorInt1 = (0x00FF << 24) | ((b1 & 0x00FF) << 16) | ((g1 & 0x00FF) << 8) | (r1 & 0x00FF);
 
-        uint32_t colorInt = (0x00FF << 24) | ((bi & 0x00FF) << 16) | ((gi & 0x00FF) << 8) | (ri & 0x00FF);
-    }
 
+    // c++
+    int32_t rS32 = (128 * y + 179 * ((int32_t)v - 128)) >> 7;
+    int32_t gS32 = (128 * y - 44 * ((int32_t)u - 128) - 91 * ((int32_t)v - 128)) >> 7;
+    int32_t bS32 = (128 * y + 227 * ((int32_t)u - 128)) >> 7;
+
+    uint8_t r2 = clamp(rS32);
+    uint8_t g2 = clamp(gS32);
+    uint8_t b2 = clamp(bS32);
+
+    uint32_t colorInt2 = (0x00FF << 24) | ((b2 & 0x00FF) << 16) | ((g2 & 0x00FF) << 8) | (r2 & 0x00FF);
+
+    LOGD(TAG, "colorInt1 = 0x%x, colorInt2 = 0x%x, diff = %d", colorInt1, colorInt2, (int32_t)colorInt1 - (int32_t)colorInt2);
 }
