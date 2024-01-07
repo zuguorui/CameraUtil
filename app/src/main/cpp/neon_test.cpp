@@ -36,8 +36,84 @@ inline uint8x8_t clamp_s16x8(int16x8_t vec) {
     return e;
 }
 
+void shiftTest() {
+    int16_t a = 0xFF00;
+    int16_t b = a >> 8;
+
+    int16x8_t aNeon = vdupq_n_s16(a);
+    int16x8_t bNeon = vshrq_n_s16(aNeon, 8);
+}
+
+void stepByStep() {
+    static int16x8_t _128 = vdupq_n_s16(128);
+    static int16x8_t _255 = vdupq_n_s16(255);
+
+    uint8_t y = 255;
+    uint8_t u = 255;
+    uint8_t v = 255;
+
+    // Neon
+    uint8x8_t yNeonU8 = vdup_n_u8(y);
+    uint8x8_t uNeonU8 = vdup_n_u8(u);
+    uint8x8_t vNeonU8 = vdup_n_u8(v);
+
+    // y * 128
+    int16x8_t yNeonS16 = vreinterpretq_s16_u16(vmovl_u8(yNeonU8));
+    yNeonS16 = vmulq_n_s16(yNeonS16, 128);
+
+
+    int16_t y1 = (int16_t)y * 128;
+
+    // u - 128
+    int16x8_t uNeonS16 = vreinterpretq_s16_u16(vmovl_u8(uNeonU8));
+    uNeonS16 = vsubq_s16(uNeonS16, _128);
+
+    int16_t u1 = (int16_t)u - 128;
+
+    // v - 128
+    int16x8_t vNeonS16 = vreinterpretq_s16_u16(vmovl_u8(vNeonU8));
+    vNeonS16 = vsubq_s16(vNeonS16, _128);
+
+    int16_t v1 = (int16_t)v - 128;
+
+    int16x8_t rn1 = vmulq_n_s16(vNeonS16, 179); // v * 179
+    int16_t rc1 = v1 * 179;
+    int16x8_t rn2 = vaddq_s16(yNeonS16, rn1);
+    int16_t rc2 = y1 + rc1;
+    int16x8_t rn = vshrq_n_s16(rn2, 7);
+    int16_t rc = rc2 >> 7;
+
+    int16x8_t gn1 = vmulq_n_s16(uNeonS16, 44);
+    int16_t gc1 = u1 * 44;
+    int16x8_t gn2 = vmulq_n_s16(vNeonS16, 91);
+    int16_t gc2 = v1 * 91;
+    int16x8_t gn3 = vsubq_s16(yNeonS16, gn1);
+    int16_t gc3 = y1 - gc1;
+    int16x8_t gn4 = vsubq_s16(gn3, gn2);
+    int16_t gc4 = gc3 - gc2;
+    int16x8_t gn = vshrq_n_s16(gn4, 7);
+    int16_t gc = gc4 >> 7;
+
+    int16x8_t bn1 = vmulq_n_s16(uNeonS16, 227);
+    int16_t bc1 = u1 * 227;
+    int16x8_t bn2 = vaddq_s16(yNeonS16, bn1);
+    int16_t bc2 = y1 + bc1;
+    int16x8_t bn = vshrq_n_s16(bn2, 7);
+    int16_t bc = bc2 >> 7;
+
+    uint8x8_t rnu = clamp_s16x8(rn);
+    uint8x8_t gnu = clamp_s16x8(gn);
+    uint8x8_t bun = clamp_s16x8(bn);
+
+    uint8_t rcu = clamp(rc);
+    uint8_t gcu = clamp(gc);
+    uint8_t bcu = clamp(bc);
+
+}
 
 void do_neon_test() {
+    stepByStep();
+    shiftTest();
     static int16x8_t _128 = vdupq_n_s16(128);
     static int16x8_t _255 = vdupq_n_s16(255);
 
@@ -83,9 +159,9 @@ void do_neon_test() {
 
 
     // c++
-    int32_t rS32 = (128 * y + 179 * ((int32_t)v - 128)) >> 7;
-    int32_t gS32 = (128 * y - 44 * ((int32_t)u - 128) - 91 * ((int32_t)v - 128)) >> 7;
-    int32_t bS32 = (128 * y + 227 * ((int32_t)u - 128)) >> 7;
+    int16_t rS32 = (128 * y + 179 * ((int16_t)v - 128)) >> 7;
+    int16_t gS32 = (128 * y - 44 * ((int16_t)u - 128) - 91 * ((int16_t)v - 128)) >> 7;
+    int32_t bS32 = (128 * y + 227 * ((int16_t)u - 128)) >> 7;
 
     uint8_t r2 = clamp(rS32);
     uint8_t g2 = clamp(gS32);
