@@ -12,7 +12,6 @@ import android.util.Range
 import android.util.Size
 import android.util.SizeF
 import android.view.SurfaceHolder
-import android.view.SurfaceView
 import kotlin.math.floor
 
 /**
@@ -58,7 +57,7 @@ open class CameraInfoWrapper(
     // 曝光时间，纳秒
     val exposureRange: Range<Long>? = characteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
 
-    var isPresentByCameraManager = true
+    var isInCameraIdList = true
 
     //计算 水平 和 竖直 视野 角度。标准镜头 视角约50度左右
     //计算公式：根据 镜头物理尺寸：

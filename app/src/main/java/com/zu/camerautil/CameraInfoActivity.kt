@@ -62,7 +62,7 @@ class CameraInfoActivity : AppCompatActivity() {
             }
         }
 
-        addItem("通过cameraIdList呈现", "${cameraInfo.isPresentByCameraManager}")
+        addItem("通过cameraIdList呈现", "${cameraInfo.isInCameraIdList}")
 
         val physicalSizeStr = with(cameraInfo.physicalSize) {
             "${width}mm * ${height}mm"

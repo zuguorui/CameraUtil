@@ -9,7 +9,6 @@ import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.databinding.ItemCameraFullBinding
 import com.zu.camerautil.toFormattedString
 import com.zu.camerautil.toFormattedText
-import java.lang.StringBuilder
 
 class CameraRecyclerViewAdapter: RecyclerView.Adapter<CameraRecyclerViewAdapter.CameraHolder>() {
 
@@ -59,7 +58,7 @@ class CameraRecyclerViewAdapter: RecyclerView.Adapter<CameraRecyclerViewAdapter.
             else -> "未知"
         }
         binding.tvLogical.text = if (info.isLogical) "逻辑摄像头" else "物理摄像头"
-        binding.tvQueryFromIdList.text = if (info.isPresentByCameraManager) "是" else "否"
+        binding.tvQueryFromIdList.text = if (info.isInCameraIdList) "是" else "否"
         binding.tvFocal.text = info.focalArray.toFormattedText(2)
 
         if (info.isLogical) {

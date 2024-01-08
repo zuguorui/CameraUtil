@@ -166,7 +166,15 @@ class CropActivity : AppCompatActivity() {
         binding.surfaceMain.previewSize = previewSize
 
         val info = cameraInfoMap[openedCameraID]!!
-        val finalID = info.logicalID ?: openedCameraID!!
+        val finalID = if (info.isInCameraIdList) {
+            info.cameraID
+        } else {
+            if (StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
+                info.logicalID ?: info.cameraID
+            } else {
+                info.cameraID
+            }
+        }
         Timber.d("openDevice $finalID")
         cameraManager.openCamera(finalID, object : CameraDevice.StateCallback() {
             override fun onOpened(camera: CameraDevice) {
@@ -222,7 +230,7 @@ class CropActivity : AppCompatActivity() {
             val outputConfigurations = ArrayList<OutputConfiguration>()
             for (surface in target) {
                 val outputConfiguration = OutputConfiguration(surface)
-                if (info.logicalID != null) {
+                if (info.logicalID != null && !info.isInCameraIdList && StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
                     Timber.w("camera${info.cameraID} belong to logical camera${info.logicalID}, set physical camera")
                     outputConfiguration.setPhysicalCameraId(info.cameraID)
                 }

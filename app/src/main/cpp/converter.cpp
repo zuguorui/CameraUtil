@@ -473,6 +473,7 @@ jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, i
      * 该算法一次使用128bit寄存器，这里假设了camera输出图像的宽是16的倍数，
      * 高度是2的倍数以达到最简单解法，也是最快性能。
      * */
+    chrono::time_point startTime = chrono::system_clock::now();
     int row = 0;
     while (row < image.getHeight()) {
         int col = 0;
@@ -552,7 +553,17 @@ jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, i
         }
         row += 2;
     }
-
+    chrono::time_point endTime = chrono::system_clock::now();
+    chrono::duration oneImageTime = endTime - startTime;
+    long ms = chrono::duration_cast<chrono::milliseconds>(oneImageTime).count();
+    debugIndex++;
+    timeMS += ms;
+    if (debugIndex >= DEBUG_LOOP) {
+        long avg = timeMS / debugIndex;
+        LOGD(TAG, "convert neon, %d images avg cost %d ms", debugIndex, (int)avg);
+        debugIndex = 0;
+        timeMS = 0;
+    }
     AndroidBitmap_unlockPixels(env, bitmap);
     return bitmap;
 }

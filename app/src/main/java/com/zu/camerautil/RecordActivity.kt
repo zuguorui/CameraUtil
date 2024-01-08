@@ -1,6 +1,7 @@
 package com.zu.camerautil
 
 import android.annotation.SuppressLint
+import android.bluetooth.BluetoothGattCharacteristic
 import android.content.ContentValues
 import android.content.Context
 import android.hardware.camera2.CameraCaptureSession
@@ -176,10 +177,14 @@ class RecordActivity : AppCompatActivity() {
         binding.surfaceMain.previewSize = previewSize
 
         val info = cameraInfoMap[openedCameraID]!!
-        val finalID = if (StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
-            info.logicalID ?: info.cameraID
-        } else {
+        val finalID = if (info.isInCameraIdList) {
             info.cameraID
+        } else {
+            if (StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
+                info.logicalID ?: info.cameraID
+            } else {
+                info.cameraID
+            }
         }
         Timber.d("openDevice $finalID")
         cameraManager.openCamera(finalID, object : CameraDevice.StateCallback() {
@@ -236,7 +241,7 @@ class RecordActivity : AppCompatActivity() {
             val outputConfigurations = ArrayList<OutputConfiguration>()
             for (surface in target) {
                 val outputConfiguration = OutputConfiguration(surface)
-                if (StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION && info.logicalID != null) {
+                if (info.logicalID != null && !info.isInCameraIdList && StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
                     Timber.w("camera${info.cameraID} belong to logical camera${info.logicalID}, set physical camera")
                     outputConfiguration.setPhysicalCameraId(info.cameraID)
                 }
@@ -265,7 +270,7 @@ class RecordActivity : AppCompatActivity() {
                 addTarget(it)
             }
 
-            set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range(fps, fps))
+            //set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range(fps, fps))
         }
 
         session.setRepeatingRequest(captureRequestBuilder!!.build(), captureCallback, cameraHandler)
@@ -386,6 +391,7 @@ class RecordActivity : AppCompatActivity() {
             }
             contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, contentValues)
         }
+
 
     }
 

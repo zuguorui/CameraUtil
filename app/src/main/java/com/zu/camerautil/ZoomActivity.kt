@@ -114,7 +114,7 @@ class ZoomActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        binding.surfaceMain.implementationType = Camera2PreviewView.ImplementationType.TEXTURE_VIEW
+        binding.surfaceMain.implementationType = Camera2PreviewView.ImplementationType.SURFACE_VIEW
         binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.surfaceMain.surfaceStateListener = surfaceStateListener
 
@@ -173,7 +173,15 @@ class ZoomActivity : AppCompatActivity() {
         binding.surfaceMain.previewSize = previewSize
 
         val info = cameraInfoMap[openedCameraID]!!
-        val finalID = info.logicalID ?: openedCameraID!!
+        val finalID = if (info.isInCameraIdList) {
+            info.cameraID
+        } else {
+            if (StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
+                info.logicalID ?: info.cameraID
+            } else {
+                info.cameraID
+            }
+        }
         Timber.d("openDevice $finalID")
         cameraManager.openCamera(finalID, object : CameraDevice.StateCallback() {
             override fun onOpened(camera: CameraDevice) {
@@ -218,7 +226,7 @@ class ZoomActivity : AppCompatActivity() {
 
             override fun onConfigureFailed(session: CameraCaptureSession) {
                 val exception = RuntimeException("create session failed")
-                Timber.e("onConfigureFailed: ${exception.message}")
+                Timber.e("onConfigureFailed: ${exception.message}, session: $session")
             }
         }
 
@@ -229,7 +237,7 @@ class ZoomActivity : AppCompatActivity() {
             val outputConfigurations = ArrayList<OutputConfiguration>()
             for (surface in target) {
                 val outputConfiguration = OutputConfiguration(surface)
-                if (info.logicalID != null) {
+                if (info.logicalID != null && !info.isInCameraIdList && StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
                     Timber.w("camera${info.cameraID} belong to logical camera${info.logicalID}, set physical camera")
                     outputConfiguration.setPhysicalCameraId(info.cameraID)
                 }
@@ -284,6 +292,8 @@ class ZoomActivity : AppCompatActivity() {
             binding.root.display.rotation,
             SurfaceHolder::class.java
         )
+
+        Timber.d("previewSize: $previewSize")
 
         //previewSize = Size(1280, 720)
     }

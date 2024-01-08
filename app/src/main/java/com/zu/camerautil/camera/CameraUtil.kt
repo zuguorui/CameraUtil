@@ -2,21 +2,18 @@ package com.zu.camerautil.camera
 
 import android.content.Context
 import android.graphics.ImageFormat
-import android.hardware.Camera.CameraInfo
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.media.ImageReader
 import android.util.Rational
 import android.util.Size
 import android.view.Surface
-import com.zu.camerautil.MyApplication
 import com.zu.camerautil.area
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.toRational
 import timber.log.Timber
 import java.util.ArrayDeque
 import kotlin.math.abs
-import kotlin.math.log
 
 fun sortCamera(cameras: MutableList<CameraInfoWrapper>) {
     cameras.sortWith { o1, o2 ->
@@ -60,7 +57,7 @@ fun queryCameraInfo(context: Context): HashMap<String, CameraInfoWrapper> {
         }
         val characteristics = cameraManager.getCameraCharacteristics(id)
         val infoWrapper = CameraInfoWrapper(id, characteristics).apply {
-            isPresentByCameraManager = true
+            isInCameraIdList = true
         }
         cameraInfoMap.put(id, infoWrapper)
         if (infoWrapper.isLogical) {
@@ -79,7 +76,7 @@ fun queryCameraInfo(context: Context): HashMap<String, CameraInfoWrapper> {
                 it.logicalID = logicalID
             } ?: kotlin.run {
                 val infoWrapper = CameraInfoWrapper(physicalID, characteristics).apply {
-                    isPresentByCameraManager = false
+                    isInCameraIdList = false
                     this.logicalID = logicalID
                 }
                 cameraInfoMap[physicalID] = infoWrapper
@@ -138,11 +135,11 @@ fun selectCameraID(cameraInfoMap: HashMap<String, CameraInfoWrapper>, facing: In
 
 // 几种标准宽高比
 private val standardRatios = arrayListOf(
-    //Rational(21, 9),
-    //Rational(2, 1),
+    Rational(21, 9),
+    Rational(2, 1),
     Rational(16, 9),
     Rational(4, 3),
-    //Rational(1, 1)
+    Rational(1, 1)
 )
 
 fun translateViewSizeToSensorSize(viewSize: Size, rotation: Int): Size {

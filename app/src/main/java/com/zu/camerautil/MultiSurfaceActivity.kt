@@ -3,7 +3,6 @@ package com.zu.camerautil
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.ImageFormat
-import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
@@ -21,7 +20,6 @@ import android.os.HandlerThread
 import android.util.Size
 import android.view.Surface
 import android.view.SurfaceHolder
-import android.view.TextureView
 import android.view.View
 import android.widget.AdapterView
 import androidx.appcompat.app.AppCompatActivity
@@ -84,7 +82,8 @@ class MultiSurfaceActivity : AppCompatActivity() {
         override fun onSurfaceCreated(surface: Surface) {
             surfaceCreated = true
             Timber.d("surfaceCreated: Thread = ${Thread.currentThread().name}")
-            val cameraID = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
+            val cameraID =
+                selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
             binding.spinnerCamera.setSelection(cameraList.indexOfFirst { info -> info.cameraID == cameraID })
         }
 
@@ -214,8 +213,13 @@ class MultiSurfaceActivity : AppCompatActivity() {
         val imageReaderSize = imageReaderSize ?: return
         if (imageReader1?.width != imageReaderSize.width || imageReader1?.height != imageReaderSize.height) {
             imageReader1?.close()
-            imageReader1 = ImageReader.newInstance(imageReaderSize.width, imageReaderSize.height, imageReaderFormat, 2).apply {
-                setOnImageAvailableListener({reader ->
+            imageReader1 = ImageReader.newInstance(
+                imageReaderSize.width,
+                imageReaderSize.height,
+                imageReaderFormat,
+                2
+            ).apply {
+                setOnImageAvailableListener({ reader ->
                     val image = reader.acquireLatestImage() ?: kotlin.run {
                         Timber.e("image 1 is null")
                         return@setOnImageAvailableListener
@@ -226,7 +230,11 @@ class MultiSurfaceActivity : AppCompatActivity() {
                         return@setOnImageAvailableListener
                     }
                     // Timber.d("imageReader1 get a bitmap")
-                    val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(image, rotation, cameraInfoMap[openCameraID]!!.lensFacing)
+                    val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(
+                        image,
+                        rotation,
+                        cameraInfoMap[openCameraID]!!.lensFacing
+                    )
                     image.close()
                     runOnUiThread {
                         binding.iv1.setImageBitmap(bitmap)
@@ -237,8 +245,13 @@ class MultiSurfaceActivity : AppCompatActivity() {
 
         if (imageReader2?.width != imageReaderSize.width || imageReader2?.height != imageReaderSize.height) {
             imageReader2?.close()
-            imageReader2 = ImageReader.newInstance(imageReaderSize.width, imageReaderSize.height, imageReaderFormat, 2).apply {
-                setOnImageAvailableListener({reader ->
+            imageReader2 = ImageReader.newInstance(
+                imageReaderSize.width,
+                imageReaderSize.height,
+                imageReaderFormat,
+                2
+            ).apply {
+                setOnImageAvailableListener({ reader ->
                     val image = reader.acquireLatestImage() ?: kotlin.run {
                         Timber.e("image 2 is null")
                         return@setOnImageAvailableListener
@@ -249,7 +262,11 @@ class MultiSurfaceActivity : AppCompatActivity() {
                         return@setOnImageAvailableListener
                     }
                     // Timber.d("imageReader2 get a bitmap")
-                    val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(image, rotation, cameraInfoMap[openCameraID]!!.lensFacing)
+                    val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(
+                        image,
+                        rotation,
+                        cameraInfoMap[openCameraID]!!.lensFacing
+                    )
                     image.close()
                     runOnUiThread {
                         binding.iv2.setImageBitmap(bitmap)
@@ -278,10 +295,14 @@ class MultiSurfaceActivity : AppCompatActivity() {
         initImageReaders()
 
         val info = cameraInfoMap[openCameraID]!!
-        val finalID = if (StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
-            info.logicalID ?: info.cameraID
-        } else {
+        val finalID = if (info.isInCameraIdList) {
             info.cameraID
+        } else {
+            if (StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
+                info.logicalID ?: info.cameraID
+            } else {
+                info.cameraID
+            }
         }
         Timber.d("openDevice $finalID")
         cameraManager.openCamera(finalID, object : CameraDevice.StateCallback() {
@@ -343,13 +364,18 @@ class MultiSurfaceActivity : AppCompatActivity() {
             val outputConfigurations = ArrayList<OutputConfiguration>()
             for (surface in target) {
                 val outputConfiguration = OutputConfiguration(surface)
-                if (StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION && info.logicalID != null) {
+                if (info.logicalID != null && !info.isInCameraIdList && StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
                     Timber.w("camera${info.cameraID} belong to logical camera${info.logicalID}, set physical camera")
                     outputConfiguration.setPhysicalCameraId(info.cameraID)
                 }
                 outputConfigurations.add(outputConfiguration)
             }
-            val sessionConfiguration = SessionConfiguration(SessionConfiguration.SESSION_REGULAR, outputConfigurations, cameraExecutor, createSessionCallback)
+            val sessionConfiguration = SessionConfiguration(
+                SessionConfiguration.SESSION_REGULAR,
+                outputConfigurations,
+                cameraExecutor,
+                createSessionCallback
+            )
             if (Build.VERSION.SDK_INT >= 29) {
                 if (!camera.isSessionConfigurationSupported(sessionConfiguration)) {
                     Timber.e("camera not support session configuration")
@@ -371,8 +397,10 @@ class MultiSurfaceActivity : AppCompatActivity() {
         val camera = this.camera ?: return
 
         captureRequestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
-            set(CaptureRequest.CONTROL_AF_MODE,
-                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+            set(
+                CaptureRequest.CONTROL_AF_MODE,
+                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO
+            )
 
 //            if (Build.VERSION.SDK_INT >= 31) {
 //                set(CaptureRequest.SCALER_ROTATE_AND_CROP, CaptureRequest.SCALER_ROTATE_AND_CROP_90)
@@ -440,11 +468,15 @@ class MultiSurfaceActivity : AppCompatActivity() {
         val viewSize = with(binding.surfaceMain) {
             Size(width, height)
         }
-        previewSize = computePreviewSize(characteristics, viewSize, binding.root.display.rotation,
-            SurfaceHolder::class.java)
+        previewSize = computePreviewSize(
+            characteristics, viewSize, binding.root.display.rotation,
+            SurfaceHolder::class.java
+        )
 
-        imageReaderSize = computeImageReaderSize(characteristics, previewSize, ImageFormat.YUV_420_888,
-            true, -1) ?: throw RuntimeException("No reader size")
+        imageReaderSize = computeImageReaderSize(
+            characteristics, previewSize, ImageFormat.YUV_420_888,
+            true, -1
+        ) ?: throw RuntimeException("No reader size")
 
 
         Timber.d("previewViewSize: $viewSize, ratio: ${viewSize.toRational()}")
@@ -454,7 +486,8 @@ class MultiSurfaceActivity : AppCompatActivity() {
 
     private fun checkSupport(characteristics: CameraCharacteristics) {
         val target = getSessionSurfaceList()
-        val configurationMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!
+        val configurationMap =
+            characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!
         for (surface in target) {
             if (!configurationMap.isOutputSupportedFor(surface)) {
                 Timber.e("Not support for surface $surface")
