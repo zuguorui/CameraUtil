@@ -20,10 +20,6 @@ import kotlin.math.floor
  * @description
  */
 
-typealias FPSList = ArrayList<Int>
-typealias SizeList = ArrayList<Size>
-
-
 open class CameraInfoWrapper(
     val cameraID: String,
     val characteristics: CameraCharacteristics
