@@ -20,9 +20,13 @@ import android.util.Size
 import android.view.Surface
 import android.view.View
 import android.widget.AdapterView
+import android.widget.AdapterView.OnItemSelectedListener
+import android.widget.ArrayAdapter
 import android.widget.SeekBar
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.FPS
+import com.zu.camerautil.camera.BaseCameraLogic
+import com.zu.camerautil.camera.getWbModeName
 import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.camera.selectCameraID
 import com.zu.camerautil.databinding.ActivityWbBinding
@@ -35,48 +39,21 @@ import java.util.concurrent.Executors
 @SuppressLint("MissingPermission")
 class WbActivity : AppCompatActivity() {
 
-    // camera objects start
-    private val cameraManager: CameraManager by lazy {
-        ((getSystemService(Context.CAMERA_SERVICE)) as CameraManager)
-    }
-
     private val cameraInfoMap: HashMap<String, CameraInfoWrapper> by lazy {
         queryCameraInfo(this)
     }
 
-    private var surfaceCreated = false
+    private lateinit var cameraLogic: BaseCameraLogic
 
     private var openedCameraID: String? = null
-
     private var currentSize: Size? = null
     private var currentFps: FPS? = null
-
-    private var camera: CameraDevice? = null
-
-    private var session: CameraCaptureSession? = null
-    private var highSpeedSession: CameraConstrainedHighSpeedCaptureSession? = null
-
-    private var captureRequestBuilder: CaptureRequest.Builder? = null
-
-    private var cameraThread = HandlerThread("CameraThread").apply { start() }
-
-    private var cameraHandler = Handler(cameraThread.looper)
-
-    private var cameraExecutor = Executors.newSingleThreadExecutor()
-
-    private val captureCallback = object : CameraCaptureSession.CaptureCallback() {
-
-    }
 
 
     private val surfaceStateListener = object : PreviewViewImplementation.SurfaceStateListener {
         override fun onSurfaceCreated(surface: Surface) {
             Timber.d("surfaceCreated: Thread = ${Thread.currentThread().name}")
-            surfaceCreated = true
             binding.cameraSelector.setCameras(cameraInfoMap.values)
-//            currentSize = binding.cameraSelector.currentSize
-//            currentFps = binding.cameraSelector.currentFps
-
         }
 
         override fun onSurfaceSizeChanged(surface: Surface, width: Int, height: Int) {
@@ -88,17 +65,79 @@ class WbActivity : AppCompatActivity() {
 
         }
     }
-    // camera objects end
 
     private lateinit var binding: ActivityWbBinding
-
+    private lateinit var wbModeAdapter: ArrayAdapter<String>
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityWbBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        initCameraLogic()
         initViews()
+    }
+
+    override fun onDestroy() {
+        cameraLogic.closeDevice()
+        super.onDestroy()
+    }
+
+    private fun initCameraLogic() {
+        cameraLogic = BaseCameraLogic(this)
+        cameraLogic.configCallback = object : BaseCameraLogic.ConfigCallback {
+            override fun getFps(): FPS {
+                if (currentFps != binding.cameraSelector.currentFps) {
+                    currentFps = binding.cameraSelector.currentFps
+                }
+                return currentFps!!
+            }
+
+            override fun getSessionSurfaceList(): List<Surface> {
+                if (currentSize !=  binding.cameraSelector.currentSize) {
+                    currentSize = binding.cameraSelector.currentSize
+                    binding.surfaceMain.previewSize = currentSize!!
+                }
+                return arrayListOf(binding.surfaceMain.surface)
+            }
+
+            override fun getCaptureSurfaceList(): List<Surface> {
+                return getSessionSurfaceList()
+            }
+
+            override fun configBuilder(requestBuilder: CaptureRequest.Builder) {
+                if (binding.spWbMode.selectedItemPosition >= 0) {
+                    cameraLogic.currentCameraInfo?.awbModes?.get(binding.spWbMode.selectedItemPosition)?.let {
+                        requestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, it)
+                    }
+                }
+
+            }
+        }
+
+        cameraLogic.cameraStateCallback = object : CameraDevice.StateCallback() {
+            override fun onOpened(camera: CameraDevice) {
+                openedCameraID = camera.id
+            }
+
+            override fun onDisconnected(camera: CameraDevice) {
+                openedCameraID = null
+            }
+
+            override fun onError(camera: CameraDevice, error: Int) {
+                openedCameraID = null
+            }
+        }
+
+        cameraLogic.sessionStateCallback = object : CameraCaptureSession.StateCallback() {
+            override fun onConfigured(session: CameraCaptureSession) {
+                currentFps = binding.cameraSelector.currentFps
+            }
+
+            override fun onConfigureFailed(session: CameraCaptureSession) {
+
+            }
+        }
     }
 
     private fun initViews() {
@@ -107,180 +146,46 @@ class WbActivity : AppCompatActivity() {
         binding.surfaceMain.surfaceStateListener = surfaceStateListener
 
         binding.cameraSelector.onConfigChangedListener = {camera, fps, size ->
-//            if (camera.cameraID != openedCameraID) {
-//                closeDevice()
-//                openDevice(camera.cameraID)
-//            } else if (size != currentSize || fps != currentFps) {
-//                closeSession()
-//                createSession()
-//            }
-
+            if (camera.cameraID != openedCameraID) {
+                updateWbModes(camera)
+            }
             if (camera.cameraID != openedCameraID || size != currentSize || fps != currentFps) {
                 Timber.d("onConfigChanged: camera: ${camera.cameraID}, size: $size, fps: $fps")
-                closeDevice()
-                openDevice(camera.cameraID)
-            }
-        }
-    }
-
-
-    @Synchronized
-    private fun openDevice(cameraID: String) {
-        if (openedCameraID == cameraID) {
-            Timber.w("same cameraID, return")
-        }
-        if (camera != null) {
-            closeDevice()
-        }
-        openedCameraID = cameraID
-
-        // 获取最接近容器宽高比的Camera输出，并且设置给SurfaceView
-        binding.surfaceMain.previewSize = binding.cameraSelector.currentSize
-        currentSize = binding.cameraSelector.currentSize
-
-        val info = cameraInfoMap[openedCameraID]!!
-        val finalID = if (info.isInCameraIdList) {
-            info.cameraID
-        } else {
-            if (StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
-                info.logicalID ?: info.cameraID
-            } else {
-                info.cameraID
-            }
-        }
-        Timber.d("openDevice $finalID")
-        cameraManager.openCamera(finalID, object : CameraDevice.StateCallback() {
-            override fun onOpened(camera: CameraDevice) {
-                this@WbActivity.camera = camera
-                createSession()
-            }
-
-            override fun onDisconnected(camera: CameraDevice) {
-                Timber.e("open camera failed")
-            }
-
-            override fun onError(camera: CameraDevice, error: Int) {
-                val msg = when (error) {
-                    ERROR_CAMERA_DEVICE -> "Fatal (device)"
-                    ERROR_CAMERA_DISABLED -> "Device policy"
-                    ERROR_CAMERA_IN_USE -> "Camera in use"
-                    ERROR_CAMERA_SERVICE -> "Fatal (service)"
-                    ERROR_MAX_CAMERAS_IN_USE -> "Maximum cameras in use"
-                    else -> "Unknown"
-                }
-                val exc = RuntimeException("Camera $cameraID error: ($error) $msg")
-                Timber.e(exc.message, exc)
-            }
-        }, cameraHandler)
-    }
-
-    private fun closeDevice() {
-        closeSession()
-        camera?.close()
-        camera = null
-        openedCameraID = null
-    }
-
-    private fun createSession() {
-        val camera = this.camera ?: return
-
-        val createSessionCallback = object : CameraCaptureSession.StateCallback() {
-            override fun onConfigured(newSession: CameraCaptureSession) {
-                if (binding.cameraSelector.currentFps.type == FPS.Type.HIGH_SPEED) {
-                    highSpeedSession = newSession as CameraConstrainedHighSpeedCaptureSession
-                } else {
-                    session = newSession
-                }
-                startPreview()
-            }
-
-            override fun onConfigureFailed(session: CameraCaptureSession) {
-                val exception = RuntimeException("create session failed")
-                Timber.e("onConfigureFailed: ${exception.message}, session: $session")
+                cameraLogic.closeDevice()
+                cameraLogic.openDevice(camera)
             }
         }
 
-        currentFps = binding.cameraSelector.currentFps
-
-        val isHighSpeed = binding.cameraSelector.currentFps.type == FPS.Type.HIGH_SPEED
-
-        val target = getSessionSurfaceList()
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val info = cameraInfoMap[openedCameraID]!!
-            val outputConfigurations = ArrayList<OutputConfiguration>()
-            for (surface in target) {
-                val outputConfiguration = OutputConfiguration(surface)
-                if (!isHighSpeed && info.logicalID != null && !info.isInCameraIdList && StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
-                    Timber.w("camera${info.cameraID} belong to logical camera${info.logicalID}, set physical camera")
-                    outputConfiguration.setPhysicalCameraId(info.cameraID)
-                }
-                outputConfigurations.add(outputConfiguration)
-            }
-            val sessionType = if (isHighSpeed) {
-                SessionConfiguration.SESSION_HIGH_SPEED
-            } else {
-                SessionConfiguration.SESSION_REGULAR
+        wbModeAdapter = ArrayAdapter(this, R.layout.item_camera_simple,R.id.tv)
+        binding.spWbMode.adapter = wbModeAdapter
+        binding.spWbMode.onItemSelectedListener = object : OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>?,
+                view: View?,
+                position: Int,
+                id: Long
+            ) {
+                val mode = cameraLogic.currentCameraInfo?.awbModes?.get(position) ?: return
+                val isManual = mode == CameraCharacteristics.CONTROL_AWB_MODE_OFF
+                binding.tvInputWb.visibility = if (isManual) View.VISIBLE else View.VISIBLE
+                binding.sbKelvin.isEnabled = isManual
+                binding.sbGreenRed.isEnabled = isManual
+                cameraLogic.updateCaptureRequestParams()
             }
 
-            camera.createCaptureSession(SessionConfiguration(sessionType, outputConfigurations, cameraExecutor, createSessionCallback))
+            override fun onNothingSelected(parent: AdapterView<*>?) {
 
-        } else {
-            camera.createCaptureSession(target, createSessionCallback, cameraHandler)
-        }
-    }
-
-    private fun closeSession() {
-        stopPreview()
-        session?.close()
-        session = null
-        highSpeedSession?.close()
-        highSpeedSession = null
-    }
-
-    private fun startPreview() {
-
-        val camera = this.camera ?: return
-
-        val fps = binding.cameraSelector.currentFps.value
-        val isHighSpeed = binding.cameraSelector.currentFps.type == FPS.Type.HIGH_SPEED
-
-        captureRequestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
-            set(CaptureRequest.CONTROL_AF_MODE,
-                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
-            getCaptureSurfaceList().forEach {
-                addTarget(it)
-            }
-            set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range(fps, fps))
-        }
-        if (!isHighSpeed) {
-            session?.run {
-                setRepeatingRequest(captureRequestBuilder!!.build(), captureCallback, cameraHandler)
-            }
-        } else {
-            if (Build.VERSION.SDK_INT >= 28) {
-                highSpeedSession?.run {
-                    val highSpeedRequest = createHighSpeedRequestList(captureRequestBuilder!!.build())
-                    //setRepeatingBurstRequests(highSpeedRequest, cameraExecutor, captureCallback)
-                    setRepeatingBurst(highSpeedRequest, captureCallback, cameraHandler)
-                }
-            } else {
-                Timber.e("SDK ${Build.VERSION.SDK_INT} can't create high speed preview")
             }
         }
 
     }
 
-    private fun stopPreview() {
-        session?.stopRepeating()
-        highSpeedSession?.stopRepeating()
-    }
-
-    private fun getSessionSurfaceList(): ArrayList<Surface> {
-        return arrayListOf(binding.surfaceMain.surface)
-    }
-
-    private fun getCaptureSurfaceList(): ArrayList<Surface> {
-        return arrayListOf(binding.surfaceMain.surface)
+    private fun updateWbModes(cameraInfo: CameraInfoWrapper) {
+        val nameList = ArrayList<String>()
+        cameraInfo.awbModes?.forEach {
+            nameList.add(getWbModeName(it) ?: "$it")
+        }
+        wbModeAdapter.clear()
+        wbModeAdapter.addAll(nameList)
     }
 }

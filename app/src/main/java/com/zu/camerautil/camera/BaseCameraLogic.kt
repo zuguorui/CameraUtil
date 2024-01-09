@@ -8,6 +8,7 @@ import android.hardware.camera2.CameraConstrainedHighSpeedCaptureSession
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.params.OutputConfiguration
 import android.hardware.camera2.params.SessionConfiguration
 import android.os.Build
@@ -26,7 +27,7 @@ import java.util.concurrent.Executors
 /**
  * @author zuguorui
  * @date 2024/1/9
- * @description
+ * @description 相机基础逻辑类，负责相机的启动、关闭和配置逻辑。具体配置通过[ConfigCallback]由客户端传入
  */
 
 @SuppressLint("MissingPermission")
@@ -38,7 +39,23 @@ class BaseCameraLogic(val context: Context) {
     var captureCallback: CameraCaptureSession.CaptureCallback? = null
 
     private var internalCaptureCallback = object : CameraCaptureSession.CaptureCallback() {
+        override fun onCaptureStarted(
+            session: CameraCaptureSession,
+            request: CaptureRequest,
+            timestamp: Long,
+            frameNumber: Long
+        ) {
+            captureCallback?.onCaptureStarted(session, request, timestamp, frameNumber)
+        }
 
+
+        override fun onCaptureProgressed(
+            session: CameraCaptureSession,
+            request: CaptureRequest,
+            partialResult: CaptureResult
+        ) {
+            captureCallback?.onCaptureProgressed(session, request, partialResult)
+        }
     }
 
     private val cameraManager: CameraManager by lazy {
@@ -61,7 +78,10 @@ class BaseCameraLogic(val context: Context) {
 
     private var cameraExecutor = Executors.newSingleThreadExecutor()
 
-    private fun openDevice(cameraInfo: CameraInfoWrapper, size: Size, fps: FPS) {
+    /**
+     * 启动相机
+     * */
+    fun openDevice(cameraInfo: CameraInfoWrapper) {
         val configCallback = configCallback ?: return
 
         if (camera != null) {
@@ -107,14 +127,14 @@ class BaseCameraLogic(val context: Context) {
         }, cameraHandler)
     }
 
-    private fun closeDevice() {
+    fun closeDevice() {
         closeSession()
         camera?.close()
         camera = null
         currentCameraInfo = null
     }
 
-    private fun createSession() {
+    fun createSession() {
         val camera = this.camera ?: return
         val configCallback = configCallback ?: return
         currentFps = configCallback.getFps()
@@ -166,7 +186,7 @@ class BaseCameraLogic(val context: Context) {
         }
     }
 
-    private fun closeSession() {
+    fun closeSession() {
         stopPreview()
         session?.close()
         session = null
@@ -174,13 +194,16 @@ class BaseCameraLogic(val context: Context) {
         highSpeedSession = null
     }
 
-    private fun startPreview() {
+    fun startPreview() {
+        configRequestBuilder()
+        startRepeating()
+    }
 
+    private fun configRequestBuilder() {
         val camera = this.camera ?: return
         val configCallback = configCallback ?: return
 
-        val fps = currentFps!!.value
-        val isHighSpeed = currentFps!!.type == FPS.Type.HIGH_SPEED
+        val fps = currentFps?.value ?: return
 
         captureRequestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
             set(CaptureRequest.CONTROL_AF_MODE,
@@ -190,6 +213,16 @@ class BaseCameraLogic(val context: Context) {
             }
             set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range(fps, fps))
         }
+
+        // 给客户端有机会做自定义配置
+        configCallback?.configBuilder(captureRequestBuilder!!)
+    }
+
+    private fun startRepeating() {
+        val isHighSpeed = currentFps?.type?.let {
+            it == FPS.Type.HIGH_SPEED
+        } ?: return
+
         if (!isHighSpeed) {
             session?.run {
                 setRepeatingRequest(captureRequestBuilder!!.build(), internalCaptureCallback, cameraHandler)
@@ -205,17 +238,32 @@ class BaseCameraLogic(val context: Context) {
                 Timber.e("SDK ${Build.VERSION.SDK_INT} can't create high speed preview")
             }
         }
-
     }
 
-    private fun stopPreview() {
+    fun stopPreview() {
         session?.stopRepeating()
         highSpeedSession?.stopRepeating()
     }
 
+    /**
+     * 更新一些参数到session，并且不会重启相机和session。
+     * 调用该方法后，会通过[ConfigCallback.configBuilder]将[CaptureRequest.Builder]
+     * 传给客户端，由客户端进行自定义配置，然后更新到session。
+     * */
+    fun updateCaptureRequestParams() {
+        val builder = captureRequestBuilder ?: return
+        val configCallback = configCallback ?: return
+        configCallback.configBuilder(builder)
+        startRepeating()
+    }
+
+    /**
+     * 相机配置回调，在相应时刻，会向客户端请求配置。
+     * */
     interface ConfigCallback {
         fun getFps(): FPS
         fun getSessionSurfaceList(): List<Surface>
         fun getCaptureSurfaceList(): List<Surface>
+        fun configBuilder(requestBuilder: CaptureRequest.Builder)
     }
 }

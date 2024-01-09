@@ -53,6 +53,8 @@ open class CameraInfoWrapper(
     // 曝光时间，纳秒
     val exposureRange: Range<Long>? = characteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
 
+    val awbModes: IntArray? = characteristics.get(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES)
+
     var isInCameraIdList = true
 
     //计算 水平 和 竖直 视野 角度。标准镜头 视角约50度左右
