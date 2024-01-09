@@ -6,5 +6,5 @@ package com.zu.camerautil
  * @description
  */
 object StaticConfig {
-    val specifyCameraMethod = SpecifyCameraMethod.IN_CONFIGURATION
+    val specifyCameraMethod = SpecifyCameraMethod.DIRECTLY
 }
