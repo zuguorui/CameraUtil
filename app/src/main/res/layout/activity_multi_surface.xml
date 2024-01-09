@@ -7,22 +7,15 @@
     android:layout_height="match_parent"
     tools:context=".MultiSurfaceActivity"
     >
-    <Spinner
-        android:layout_width="wrap_content"
+    <com.zu.camerautil.view.CameraSelectorView
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:barrierDirection="top"
-        android:id="@+id/spinner_camera"
-        android:padding="5dp"
-        android:layout_marginHorizontal="5dp"
-        android:layout_marginVertical="10dp"
-        />
+        android:id="@+id/camera_selector"/>
     <GridLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        app:layout_constraintTop_toBottomOf="@id/spinner_camera"
+        app:layout_constraintTop_toBottomOf="@id/camera_selector"
         app:layout_constraintBottom_toTopOf="@id/ll_restart"
         android:columnCount="2"
         android:rowCount="2">

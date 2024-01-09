@@ -45,7 +45,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         app:layout_constraintRight_toLeftOf="@id/gl2"
-        app:layout_constraintBottom_toTopOf="@id/sb_kelvin"
+        app:layout_constraintBottom_toTopOf="@id/sb"
         android:layout_marginBottom="10dp"
         android:text="zoom:"
         android:textSize="15sp"
@@ -65,8 +65,8 @@
         android:layout_width="40dp"
         android:layout_height="wrap_content"
         android:gravity="center"
-        app:layout_constraintTop_toTopOf="@id/sb_kelvin"
-        app:layout_constraintBottom_toBottomOf="@id/sb_kelvin"
+        app:layout_constraintTop_toTopOf="@id/sb"
+        app:layout_constraintBottom_toBottomOf="@id/sb"
         app:layout_constraintLeft_toLeftOf="parent"
         android:textSize="15sp"
         android:id="@+id/tv_min"
@@ -76,8 +76,8 @@
         android:layout_width="40dp"
         android:layout_height="wrap_content"
         android:gravity="center"
-        app:layout_constraintTop_toTopOf="@id/sb_kelvin"
-        app:layout_constraintBottom_toBottomOf="@id/sb_kelvin"
+        app:layout_constraintTop_toTopOf="@id/sb"
+        app:layout_constraintBottom_toBottomOf="@id/sb"
         app:layout_constraintRight_toRightOf="parent"
         android:textSize="15sp"
         android:id="@+id/tv_max"
@@ -91,7 +91,7 @@
         app:layout_constraintLeft_toRightOf="@id/tv_min"
         app:layout_constraintRight_toLeftOf="@id/tv_max"
         android:max="100"
-        android:id="@+id/sb_kelvin"/>
+        android:id="@+id/sb"/>
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

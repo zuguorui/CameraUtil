@@ -24,6 +24,8 @@ import android.view.View
 import android.widget.AdapterView
 import androidx.appcompat.app.AppCompatActivity
 import com.zu.camerautil.bean.CameraInfoWrapper
+import com.zu.camerautil.bean.FPS
+import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.computeImageReaderSize
 import com.zu.camerautil.camera.computePreviewSize
 import com.zu.camerautil.camera.queryCameraInfo
@@ -41,26 +43,17 @@ class MultiSurfaceActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMultiSurfaceBinding
 
-    private val cameraManager: CameraManager by lazy {
-        ((getSystemService(Context.CAMERA_SERVICE)) as CameraManager)
-    }
-
     private val cameraInfoMap: HashMap<String, CameraInfoWrapper> by lazy {
         queryCameraInfo(this)
     }
 
-    private var surfaceCreated = false
-    private var openCameraID: String? = null
+    private lateinit var cameraLogic: BaseCameraLogic
 
-    private var camera: CameraDevice? = null
+    private var openedCameraID: String? = null
+    private var currentSize: Size? = null
+    private var currentFps: FPS? = null
 
-    private var session: CameraCaptureSession? = null
-
-    private var captureRequestBuilder: CaptureRequest.Builder? = null
-
-    private lateinit var previewSize: Size
-
-    private lateinit var imageReaderSize: Size
+    private var imageReaderSize: Size? = null
 
     private var imageReader1: ImageReader? = null
 
@@ -68,23 +61,14 @@ class MultiSurfaceActivity : AppCompatActivity() {
 
     private val imageReaderFormat = ImageFormat.YUV_420_888
 
-    private var cameraThread = HandlerThread("CameraThread").apply { start() }
-
-    private var cameraHandler = Handler(cameraThread.looper)
-
-    private var cameraExecutor = Executors.newSingleThreadExecutor()
-
     private var imageReaderThread = HandlerThread("ImageReaderThread").apply { start() }
 
     private var imageReaderHandler = Handler(imageReaderThread.looper)
 
     private val surfaceStateListener = object : PreviewViewImplementation.SurfaceStateListener {
         override fun onSurfaceCreated(surface: Surface) {
-            surfaceCreated = true
             Timber.d("surfaceCreated: Thread = ${Thread.currentThread().name}")
-            val cameraID =
-                selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
-            binding.spinnerCamera.setSelection(cameraList.indexOfFirst { info -> info.cameraID == cameraID })
+            binding.cameraSelector.setCameras(cameraInfoMap.values)
         }
 
         override fun onSurfaceSizeChanged(surface: Surface, width: Int, height: Int) {
@@ -97,44 +81,93 @@ class MultiSurfaceActivity : AppCompatActivity() {
         }
     }
 
-    private val captureCallback = object : CameraCaptureSession.CaptureCallback() {
-        override fun onCaptureCompleted(
-            session: CameraCaptureSession,
-            request: CaptureRequest,
-            result: TotalCaptureResult
-        ) {
-
-        }
-
-        override fun onCaptureFailed(
-            session: CameraCaptureSession,
-            request: CaptureRequest,
-            failure: CaptureFailure
-        ) {
-            Timber.d("onCaptureFailed: $failure")
-        }
-    }
-
-    private lateinit var adapter: CameraSpinnerAdapter
-    private val cameraList: ArrayList<CameraInfoWrapper> by lazy {
-        ArrayList<CameraInfoWrapper>().apply {
-            addAll(cameraInfoMap.values)
-        }
-    }
-
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMultiSurfaceBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        openCameraID = null
-        surfaceCreated = false
+        initCameraLogic()
         initViews()
     }
 
     override fun onDestroy() {
-        closeDevice()
+        cameraLogic.closeDevice()
         super.onDestroy()
+    }
+
+    private fun initCameraLogic() {
+        cameraLogic = BaseCameraLogic(this)
+        cameraLogic.configCallback = object : BaseCameraLogic.ConfigCallback {
+            override fun getFps(): FPS {
+                if (currentFps != binding.cameraSelector.currentFps) {
+                    currentFps = binding.cameraSelector.currentFps
+                }
+                return currentFps!!
+            }
+
+            override fun getSessionSurfaceList(): List<Surface> {
+                if (currentSize !=  binding.cameraSelector.currentSize) {
+                    currentSize = binding.cameraSelector.currentSize
+                    binding.surfaceMain.previewSize = currentSize!!
+                }
+
+                imageReaderSize = computeImageReaderSize(
+                    binding.cameraSelector.currentCamera.characteristics,
+                    currentSize!!,
+                    imageReaderFormat,
+                    true,
+                    1
+                )
+
+                initImageReaders()
+
+                val list = ArrayList<Surface>()
+                list.add(binding.surfaceMain.surface)
+                if (binding.swSurface1.isChecked) {
+                    list.add(binding.surface1.surface)
+                }
+                if (binding.swImageReader1.isChecked) {
+                    list.add(imageReader1!!.surface)
+                }
+
+                if (binding.swImageReader2.isChecked) {
+                    list.add(imageReader2!!.surface)
+                }
+
+                return list
+            }
+
+            override fun getCaptureSurfaceList(): List<Surface> {
+                return getSessionSurfaceList()
+            }
+
+            override fun configBuilder(requestBuilder: CaptureRequest.Builder) {
+
+            }
+        }
+
+        cameraLogic.cameraStateCallback = object : CameraDevice.StateCallback() {
+            override fun onOpened(camera: CameraDevice) {
+                openedCameraID = camera.id
+            }
+
+            override fun onDisconnected(camera: CameraDevice) {
+                openedCameraID = null
+            }
+
+            override fun onError(camera: CameraDevice, error: Int) {
+                openedCameraID = null
+            }
+        }
+
+        cameraLogic.sessionStateCallback = object : CameraCaptureSession.StateCallback() {
+            override fun onConfigured(session: CameraCaptureSession) {
+                currentFps = binding.cameraSelector.currentFps
+            }
+
+            override fun onConfigureFailed(session: CameraCaptureSession) {
+
+            }
+        }
     }
 
     private fun initViews() {
@@ -143,74 +176,41 @@ class MultiSurfaceActivity : AppCompatActivity() {
         binding.surface1.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.surface1.implementationType = Camera2PreviewView.ImplementationType.TEXTURE_VIEW
         binding.swSurface1.setOnCheckedChangeListener { _, isChecked ->
-//            if (isChecked) {
-//                addSurface(binding.surface1.surface)
-//            } else {
-//                removeSurface(binding.surface1.surface)
-//            }
-            closeSession()
-            createSession()
+            cameraLogic.closeSession()
+            cameraLogic.createSession()
         }
 
         binding.swImageReader1.setOnCheckedChangeListener { _, isChecked ->
-//            if (isChecked) {
-//                addSurface(imageReader1!!.surface)
-//            } else {
-//                removeSurface(imageReader1!!.surface)
-//            }
-            closeSession()
-            createSession()
+            cameraLogic.closeSession()
+            cameraLogic.createSession()
         }
 
         binding.swImageReader2.setOnCheckedChangeListener { _, isChecked ->
-//            if (isChecked) {
-//                addSurface(imageReader2.surface)
-//            } else {
-//                removeSurface(imageReader2.surface)
-//            }
-            closeSession()
-            createSession()
+            cameraLogic.closeSession()
+            cameraLogic.createSession()
         }
 
         binding.btnRestartCamera.setOnClickListener {
-            val cameraID = openCameraID
-            closeDevice()
-            if (cameraID != null) {
-                openDevice(cameraID!!)
-            }
-
+            cameraLogic.closeDevice()
+            cameraLogic.openDevice(binding.cameraSelector.currentCamera)
         }
 
         binding.btnRestartSession.setOnClickListener {
-            closeSession()
-            createSession()
+            cameraLogic.closeSession()
+            cameraLogic.createSession()
         }
 
-        adapter = CameraSpinnerAdapter()
-        adapter.setData(cameraList)
-        binding.spinnerCamera.adapter = adapter
-        binding.spinnerCamera.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>?,
-                view: View?,
-                position: Int,
-                id: Long
-            ) {
-                val cameraID = cameraList[position]!!.cameraID
-                if (surfaceCreated) {
-                    openDevice(cameraID!!)
-                }
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>) {
-                closeDevice()
-
+        binding.cameraSelector.onConfigChangedListener = {camera, fps, size ->
+            if (camera.cameraID != openedCameraID || size != currentSize || fps != currentFps) {
+                Timber.d("onConfigChanged: camera: ${camera.cameraID}, size: $size, fps: $fps")
+                cameraLogic.closeDevice()
+                cameraLogic.openDevice(camera)
             }
         }
     }
 
     private fun initImageReaders() {
-        val imageReaderSize = imageReaderSize ?: return
+        val imageReaderSize = imageReaderSize ?: Size(0, 0)
         if (imageReader1?.width != imageReaderSize.width || imageReader1?.height != imageReaderSize.height) {
             imageReader1?.close()
             imageReader1 = ImageReader.newInstance(
@@ -233,7 +233,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
                     val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(
                         image,
                         rotation,
-                        cameraInfoMap[openCameraID]!!.lensFacing
+                        binding.cameraSelector.currentCamera.lensFacing
                     )
                     image.close()
                     runOnUiThread {
@@ -265,232 +265,13 @@ class MultiSurfaceActivity : AppCompatActivity() {
                     val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(
                         image,
                         rotation,
-                        cameraInfoMap[openCameraID]!!.lensFacing
+                        binding.cameraSelector.currentCamera.lensFacing
                     )
                     image.close()
                     runOnUiThread {
                         binding.iv2.setImageBitmap(bitmap)
                     }
                 }, imageReaderHandler)
-            }
-        }
-    }
-
-
-    private fun openDevice(cameraID: String) {
-        if (openCameraID == cameraID) {
-            Timber.d("same cameraID, return")
-        }
-        if (camera != null) {
-            closeDevice()
-        }
-
-        openCameraID = cameraID
-
-        val characteristics = cameraInfoMap[cameraID]!!.characteristics
-        computeSizes(characteristics)
-        // 获取最接近容器宽高比的Camera输出，并且设置给SurfaceView
-        binding.surfaceMain.previewSize = previewSize
-        binding.surface1.previewSize = previewSize
-        initImageReaders()
-
-        val info = cameraInfoMap[openCameraID]!!
-        val finalID = if (info.isInCameraIdList) {
-            info.cameraID
-        } else {
-            if (StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
-                info.logicalID ?: info.cameraID
-            } else {
-                info.cameraID
-            }
-        }
-        Timber.d("openDevice $finalID")
-        cameraManager.openCamera(finalID, object : CameraDevice.StateCallback() {
-            override fun onOpened(camera: CameraDevice) {
-                this@MultiSurfaceActivity.camera = camera
-                checkSupport(cameraInfoMap[openCameraID]!!.characteristics)
-                createSession()
-            }
-
-            override fun onDisconnected(camera: CameraDevice) {
-                Timber.e("open camera failed")
-            }
-
-            override fun onError(camera: CameraDevice, error: Int) {
-                val msg = when (error) {
-                    ERROR_CAMERA_DEVICE -> "Fatal (device)"
-                    ERROR_CAMERA_DISABLED -> "Device policy"
-                    ERROR_CAMERA_IN_USE -> "Camera in use"
-                    ERROR_CAMERA_SERVICE -> "Fatal (service)"
-                    ERROR_MAX_CAMERAS_IN_USE -> "Maximum cameras in use"
-                    else -> "Unknown"
-                }
-                val exc = RuntimeException("Camera $cameraID error: ($error) $msg")
-                Timber.e(exc.message, exc)
-            }
-        }, cameraHandler)
-    }
-
-    private fun closeDevice() {
-        closeSession()
-        camera?.close()
-        camera = null
-        openCameraID = null
-    }
-
-    private fun createSession() {
-        val camera = this.camera ?: return
-
-        val createSessionCallback = object : CameraCaptureSession.StateCallback() {
-            override fun onConfigured(session: CameraCaptureSession) {
-                this@MultiSurfaceActivity.session = session
-                startPreview()
-            }
-
-            override fun onConfigureFailed(session: CameraCaptureSession) {
-                val exception = RuntimeException("create session failed")
-                Timber.e("onConfigureFailed: ${exception.message}")
-            }
-        }
-
-        val target = getSessionSurfaceList()
-
-        for (surface in target) {
-            Timber.d("sessionSurface: $surface")
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val info = cameraInfoMap[openCameraID]!!
-            val outputConfigurations = ArrayList<OutputConfiguration>()
-            for (surface in target) {
-                val outputConfiguration = OutputConfiguration(surface)
-                if (info.logicalID != null && !info.isInCameraIdList && StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
-                    Timber.w("camera${info.cameraID} belong to logical camera${info.logicalID}, set physical camera")
-                    outputConfiguration.setPhysicalCameraId(info.cameraID)
-                }
-                outputConfigurations.add(outputConfiguration)
-            }
-            val sessionConfiguration = SessionConfiguration(
-                SessionConfiguration.SESSION_REGULAR,
-                outputConfigurations,
-                cameraExecutor,
-                createSessionCallback
-            )
-            if (Build.VERSION.SDK_INT >= 29) {
-                if (!camera.isSessionConfigurationSupported(sessionConfiguration)) {
-                    Timber.e("camera not support session configuration")
-                }
-            }
-            camera.createCaptureSession(sessionConfiguration)
-        } else {
-            camera.createCaptureSession(target, createSessionCallback, cameraHandler)
-        }
-    }
-
-    private fun closeSession() {
-        session?.close()
-        session = null
-    }
-
-    private fun startPreview() {
-        val session = this.session ?: return
-        val camera = this.camera ?: return
-
-        captureRequestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
-            set(
-                CaptureRequest.CONTROL_AF_MODE,
-                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO
-            )
-
-//            if (Build.VERSION.SDK_INT >= 31) {
-//                set(CaptureRequest.SCALER_ROTATE_AND_CROP, CaptureRequest.SCALER_ROTATE_AND_CROP_90)
-//            }
-
-            getCaptureSurfaceList().forEach {
-                addTarget(it)
-            }
-        }
-
-        session.setRepeatingRequest(captureRequestBuilder!!.build(), captureCallback, cameraHandler)
-    }
-
-    private fun getSessionSurfaceList(): ArrayList<Surface> {
-//        val list = ArrayList<Surface>()
-//        list.add(binding.surfaceMain.surface)
-////        list.add(binding.surface1.surface)
-//        list.add(imageReader1!!.surface)
-////        list.add(imageReader2!!.surface)
-//        return list
-
-        return getCaptureSurfaceList()
-    }
-
-    private fun getCaptureSurfaceList(): ArrayList<Surface> {
-        val list = ArrayList<Surface>()
-        list.add(binding.surfaceMain.surface)
-        if (binding.swSurface1.isChecked) {
-            list.add(binding.surface1.surface)
-        }
-        if (binding.swImageReader1.isChecked) {
-            list.add(imageReader1!!.surface)
-        }
-
-        if (binding.swImageReader2.isChecked) {
-            list.add(imageReader2!!.surface)
-        }
-
-        return list
-    }
-
-    private fun addSurface(surface: Surface) {
-        val builder = captureRequestBuilder ?: return
-        val session = this.session ?: return
-        builder.addTarget(surface)
-        session.setRepeatingRequest(builder.build(), captureCallback, cameraHandler)
-    }
-
-    private fun removeSurface(surface: Surface) {
-        val builder = captureRequestBuilder ?: return
-        val session = this.session ?: return
-        builder.removeTarget(surface)
-        session.setRepeatingRequest(builder.build(), captureCallback, cameraHandler)
-    }
-
-    /**
-     * 根据当前选中的镜头，查询其支持的分辨率。
-     * 使宽高比与view宽高比接近
-     * 使预览分辨率与预览窗口大小接近
-     * 使分析图片的分辨率最小以达到最快速度
-     * 要同时查询支持Surface的分辨率及ImageReader的分辨率，两者宽高比要一致才行，否则分析会失败。
-     *
-     * */
-    private fun computeSizes(characteristics: CameraCharacteristics) {
-        val viewSize = with(binding.surfaceMain) {
-            Size(width, height)
-        }
-        previewSize = computePreviewSize(
-            characteristics, viewSize, binding.root.display.rotation,
-            SurfaceHolder::class.java
-        )
-
-        imageReaderSize = computeImageReaderSize(
-            characteristics, previewSize, ImageFormat.YUV_420_888,
-            true, -1
-        ) ?: throw RuntimeException("No reader size")
-
-
-        Timber.d("previewViewSize: $viewSize, ratio: ${viewSize.toRational()}")
-        Timber.d("previewSize: $previewSize, ratio: ${previewSize.toRational()}")
-        Timber.d("analysisSize: $imageReaderSize, ratio: ${imageReaderSize.toRational()}")
-    }
-
-    private fun checkSupport(characteristics: CameraCharacteristics) {
-        val target = getSessionSurfaceList()
-        val configurationMap =
-            characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!
-        for (surface in target) {
-            if (!configurationMap.isOutputSupportedFor(surface)) {
-                Timber.e("Not support for surface $surface")
             }
         }
     }
