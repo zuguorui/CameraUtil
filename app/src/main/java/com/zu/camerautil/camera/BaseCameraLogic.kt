@@ -231,8 +231,8 @@ class BaseCameraLogic(val context: Context) {
             if (Build.VERSION.SDK_INT >= 28) {
                 highSpeedSession?.run {
                     val highSpeedRequest = createHighSpeedRequestList(captureRequestBuilder!!.build())
-                    //setRepeatingBurstRequests(highSpeedRequest, cameraExecutor, captureCallback)
-                    setRepeatingBurst(highSpeedRequest, internalCaptureCallback, cameraHandler)
+                    setRepeatingBurstRequests(highSpeedRequest, cameraExecutor, internalCaptureCallback)
+                    //setRepeatingBurst(highSpeedRequest, internalCaptureCallback, cameraHandler)
                 }
             } else {
                 Timber.e("SDK ${Build.VERSION.SDK_INT} can't create high speed preview")

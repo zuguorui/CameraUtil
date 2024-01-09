@@ -13,6 +13,7 @@ import android.widget.AdapterView.OnItemSelectedListener
 import android.widget.ArrayAdapter
 import android.widget.FrameLayout
 import android.widget.Spinner
+import androidx.core.view.children
 import com.zu.camerautil.R
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.FPS
@@ -347,6 +348,13 @@ class CameraSelectorView: FrameLayout {
         }
         currentFps = fps
         fpsSpinner.setSelection(fpsList.indexOf(fps))
+    }
+
+    fun setEnable(enable: Boolean) {
+        this.isEnabled = enable
+        for (view in children) {
+            view.isEnabled = enable
+        }
     }
 
     companion object {

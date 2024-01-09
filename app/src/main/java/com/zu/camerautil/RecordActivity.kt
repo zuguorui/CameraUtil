@@ -25,6 +25,8 @@ import android.view.SurfaceHolder
 import android.view.View
 import android.widget.AdapterView
 import com.zu.camerautil.bean.CameraInfoWrapper
+import com.zu.camerautil.bean.FPS
+import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.computePreviewSize
 import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.camera.selectCameraID
@@ -44,51 +46,24 @@ import java.util.concurrent.Executors
 @SuppressLint("MissingPermission")
 class RecordActivity : AppCompatActivity() {
 
-    private val fps = 120
-
     // camera objects start
-    private val cameraManager: CameraManager by lazy {
-        ((getSystemService(Context.CAMERA_SERVICE)) as CameraManager)
-    }
 
     private val cameraInfoMap: HashMap<String, CameraInfoWrapper> by lazy {
         queryCameraInfo(this)
     }
 
-    private val cameraList: ArrayList<CameraInfoWrapper> by lazy {
-        ArrayList<CameraInfoWrapper>().apply {
-            addAll(cameraInfoMap.values)
-        }
-    }
+    private lateinit var cameraLogic: BaseCameraLogic
 
-    private var surfaceCreated = false
     private var openedCameraID: String? = null
+    private var currentSize: Size? = null
+    private var currentFps: FPS? = null
 
-    private var camera: CameraDevice? = null
-
-    private var session: CameraCaptureSession? = null
-
-    private var captureRequestBuilder: CaptureRequest.Builder? = null
-
-    private lateinit var previewSize: Size
-
-    private var cameraThread = HandlerThread("CameraThread").apply { start() }
-
-    private var cameraHandler = Handler(cameraThread.looper)
-
-    private var cameraExecutor = Executors.newSingleThreadExecutor()
-
-    private val captureCallback = object : CameraCaptureSession.CaptureCallback() {
-
-    }
 
 
     private val surfaceStateListener = object : PreviewViewImplementation.SurfaceStateListener {
         override fun onSurfaceCreated(surface: Surface) {
             Timber.d("surfaceCreated: Thread = ${Thread.currentThread().name}")
-            surfaceCreated = true
-            val cameraID = selectCameraID(cameraInfoMap, CameraCharacteristics.LENS_FACING_BACK, true)
-            binding.spinnerCamera.setSelection(cameraList.indexOfFirst { info -> info.cameraID == cameraID })
+            binding.cameraSelector.setCameras(cameraInfoMap.values)
         }
 
         override fun onSurfaceSizeChanged(surface: Surface, width: Int, height: Int) {
@@ -100,8 +75,6 @@ class RecordActivity : AppCompatActivity() {
 
         }
     }
-
-    private lateinit var adapter: CameraSpinnerAdapter
     // camera objects end
 
     private var recorder: IRecorder = SystemRecorder()
@@ -109,7 +82,7 @@ class RecordActivity : AppCompatActivity() {
         set(value) {
             field = value
             binding.btnRecord.text = if (value) "停止录制" else "开始录制"
-            binding.spinnerCamera.isEnabled = !value
+            binding.cameraSelector.setEnable(!value)
         }
     private lateinit var binding: ActivityRecordBinding
 
@@ -117,39 +90,74 @@ class RecordActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityRecordBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        openedCameraID = null
-        surfaceCreated = false
+        initCameraLogic()
         initViews()
     }
 
     override fun onDestroy() {
-        closeDevice()
+        cameraLogic.closeDevice()
         super.onDestroy()
+    }
+
+    private fun initCameraLogic() {
+        cameraLogic = BaseCameraLogic(this)
+        cameraLogic.configCallback = object : BaseCameraLogic.ConfigCallback {
+            override fun getFps(): FPS {
+                if (currentFps != binding.cameraSelector.currentFps) {
+                    currentFps = binding.cameraSelector.currentFps
+                }
+                return currentFps!!
+            }
+
+            override fun getSessionSurfaceList(): List<Surface> {
+                if (currentSize !=  binding.cameraSelector.currentSize) {
+                    currentSize = binding.cameraSelector.currentSize
+                    binding.surfaceMain.previewSize = currentSize!!
+                }
+                var surfaceList = arrayListOf(binding.surfaceMain.surface)
+                if (recording) {
+                    surfaceList.add(recorder.getSurface()!!)
+                }
+                return surfaceList
+            }
+
+            override fun getCaptureSurfaceList(): List<Surface> {
+                return getSessionSurfaceList()
+            }
+
+            override fun configBuilder(requestBuilder: CaptureRequest.Builder) {
+            }
+        }
+
+        cameraLogic.cameraStateCallback = object : CameraDevice.StateCallback() {
+            override fun onOpened(camera: CameraDevice) {
+                openedCameraID = camera.id
+            }
+
+            override fun onDisconnected(camera: CameraDevice) {
+                openedCameraID = null
+            }
+
+            override fun onError(camera: CameraDevice, error: Int) {
+                openedCameraID = null
+            }
+        }
+
+        cameraLogic.sessionStateCallback = object : CameraCaptureSession.StateCallback() {
+            override fun onConfigured(session: CameraCaptureSession) {
+                currentFps = binding.cameraSelector.currentFps
+            }
+
+            override fun onConfigureFailed(session: CameraCaptureSession) {
+
+            }
+        }
     }
 
     private fun initViews() {
         binding.surfaceMain.implementationType = Camera2PreviewView.ImplementationType.SURFACE_VIEW
         binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.surfaceMain.surfaceStateListener = surfaceStateListener
-
-        adapter = CameraSpinnerAdapter()
-        adapter.setData(cameraList)
-        binding.spinnerCamera.adapter = adapter
-        binding.spinnerCamera.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>?,
-                view: View?,
-                position: Int,
-                id: Long
-            ) {
-                val cameraID = cameraList[position]!!.cameraID
-                openDevice(cameraID!!)
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>) {
-                closeDevice()
-            }
-        }
 
         binding.btnRecord.setOnClickListener {
             if (!recording) {
@@ -159,152 +167,23 @@ class RecordActivity : AppCompatActivity() {
             }
         }
 
+        binding.cameraSelector.onConfigChangedListener = {camera, fps, size ->
 
-    }
-
-    @Synchronized
-    private fun openDevice(cameraID: String) {
-        if (openedCameraID == cameraID) {
-            Timber.w("same cameraID, return")
-        }
-        if (camera != null) {
-            closeDevice()
-        }
-        openedCameraID = cameraID
-        val characteristics = cameraInfoMap[cameraID]!!.characteristics
-        computeSize(characteristics)
-        // 获取最接近容器宽高比的Camera输出，并且设置给SurfaceView
-        binding.surfaceMain.previewSize = previewSize
-
-        val info = cameraInfoMap[openedCameraID]!!
-        val finalID = if (info.isInCameraIdList) {
-            info.cameraID
-        } else {
-            if (StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
-                info.logicalID ?: info.cameraID
-            } else {
-                info.cameraID
-            }
-        }
-        Timber.d("openDevice $finalID")
-        cameraManager.openCamera(finalID, object : CameraDevice.StateCallback() {
-            override fun onOpened(camera: CameraDevice) {
-                this@RecordActivity.camera = camera
-                createSession()
-            }
-
-            override fun onDisconnected(camera: CameraDevice) {
-                Timber.e("open camera failed")
-            }
-
-            override fun onError(camera: CameraDevice, error: Int) {
-                val msg = when (error) {
-                    ERROR_CAMERA_DEVICE -> "Fatal (device)"
-                    ERROR_CAMERA_DISABLED -> "Device policy"
-                    ERROR_CAMERA_IN_USE -> "Camera in use"
-                    ERROR_CAMERA_SERVICE -> "Fatal (service)"
-                    ERROR_MAX_CAMERAS_IN_USE -> "Maximum cameras in use"
-                    else -> "Unknown"
-                }
-                val exc = RuntimeException("Camera $cameraID error: ($error) $msg")
-                Timber.e(exc.message, exc)
-            }
-        }, cameraHandler)
-    }
-
-    private fun closeDevice() {
-        closeSession()
-        camera?.close()
-        camera = null
-        openedCameraID = null
-    }
-
-    private fun createSession() {
-        val camera = this.camera ?: return
-
-        val createSessionCallback = object : CameraCaptureSession.StateCallback() {
-            override fun onConfigured(session: CameraCaptureSession) {
-                this@RecordActivity.session = session
-                startPreview()
-            }
-
-            override fun onConfigureFailed(session: CameraCaptureSession) {
-                val exception = RuntimeException("create session failed")
-                Timber.e("onConfigureFailed: ${exception.message}")
+            if (camera.cameraID != openedCameraID || size != currentSize || fps != currentFps) {
+                Timber.d("onConfigChanged: camera: ${camera.cameraID}, size: $size, fps: $fps")
+                cameraLogic.closeDevice()
+                cameraLogic.openDevice(camera)
             }
         }
 
-        val target = getSessionSurfaceList()
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val info = cameraInfoMap[openedCameraID]!!
-            val outputConfigurations = ArrayList<OutputConfiguration>()
-            for (surface in target) {
-                val outputConfiguration = OutputConfiguration(surface)
-                if (info.logicalID != null && !info.isInCameraIdList && StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
-                    Timber.w("camera${info.cameraID} belong to logical camera${info.logicalID}, set physical camera")
-                    outputConfiguration.setPhysicalCameraId(info.cameraID)
-                }
-                outputConfigurations.add(outputConfiguration)
-            }
-            camera.createCaptureSession(SessionConfiguration(SessionConfiguration.SESSION_REGULAR, outputConfigurations, cameraExecutor, createSessionCallback))
-        } else {
-            camera.createCaptureSession(target, createSessionCallback, cameraHandler)
-        }
-    }
-
-    private fun closeSession() {
-        session?.close()
-        session = null
-    }
-
-    private fun startPreview() {
-        val session = this.session ?: return
-        val camera = this.camera ?: return
-
-        captureRequestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
-            set(CaptureRequest.CONTROL_AF_MODE,
-                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
-
-            getCaptureSurfaceList().forEach {
-                addTarget(it)
-            }
-
-            //set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range(fps, fps))
-        }
-
-        session.setRepeatingRequest(captureRequestBuilder!!.build(), captureCallback, cameraHandler)
-    }
-
-    private fun getSessionSurfaceList(): ArrayList<Surface> {
-        val list = arrayListOf(binding.surfaceMain.surface)
-        if (recorder.getSurface() != null) {
-            list.add(recorder.getSurface()!!)
-        }
-        return list
-    }
-
-    private fun getCaptureSurfaceList(): ArrayList<Surface> {
-        return getSessionSurfaceList()
-    }
-
-    private fun computeSize(characteristics: CameraCharacteristics) {
-        val viewSize = with(binding.surfaceMain) {
-            Size(width, height)
-        }
-        previewSize = computePreviewSize(
-            characteristics,
-            viewSize,
-            binding.root.display.rotation,
-            SurfaceHolder::class.java
-        )
-
-        Timber.d("previewSize = $previewSize")
     }
 
     private var recordParams: RecorderParams? = null
 
     private fun prepareRecorder() {
+        val currentSize = currentSize ?: return
+        val currentFps = currentFps ?: return
+
         val title = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis())) + ".mp4"
 
         val dcim = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
@@ -316,9 +195,9 @@ class RecordActivity : AppCompatActivity() {
         val path = "${folder.absolutePath}/$title"
         val params = RecorderParams(
             title,
-            previewSize,
-            30,
-            30,
+            currentSize,
+            currentFps.value,
+            currentFps.value,
             44100,
             File(path),
             binding.root.display.rotation
@@ -339,8 +218,10 @@ class RecordActivity : AppCompatActivity() {
     }
 
     private fun startRecord() {
-        val title = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis())) + ".mp4"
+        val currentSize = currentSize ?: return
+        val currentFps = currentFps ?: return
 
+        val title = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis())) + ".mp4"
         val dcim = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
 
         val folder = File(dcim, "CameraUtil")
@@ -351,9 +232,9 @@ class RecordActivity : AppCompatActivity() {
         val path = "${folder.absolutePath}/$title"
         val params = RecorderParams(
             title,
-            previewSize,
-            fps,
-            fps,
+            currentSize,
+            currentFps.value,
+            currentFps.value,
             44100,
             File(path),
             binding.root.display.rotation
@@ -363,36 +244,35 @@ class RecordActivity : AppCompatActivity() {
             Timber.e("recorder prepare failed")
             return
         }
+
+
+        cameraLogic.closeSession()
+        recording = recorder.start()
         if (recording) {
             recordParams = params
         }
-
-        closeSession()
-        recording = recorder.start()
-        createSession()
+        cameraLogic.createSession()
 
     }
 
     private fun stopRecord() {
-        closeSession()
+        cameraLogic.closeSession()
         recorder.stop()
         recorder.release()
         recording = false
-        createSession()
+        cameraLogic.createSession()
 
         recordParams?.let { params ->
             val contentValues = ContentValues().apply {
                 put(MediaStore.Video.Media.DISPLAY_NAME, params.title)
                 put(MediaStore.Video.Media.DATA, params.outputFile.absolutePath)
                 put(MediaStore.Video.Media.DATE_ADDED, System.currentTimeMillis())
-                put(MediaStore.Video.Media.WIDTH, previewSize.width)
-                put(MediaStore.Video.Media.HEIGHT, previewSize.height)
+                put(MediaStore.Video.Media.WIDTH, params.resolution.width)
+                put(MediaStore.Video.Media.HEIGHT, params.resolution.height)
                 put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
             }
             contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, contentValues)
         }
-
-
     }
 
 
