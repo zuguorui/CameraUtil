@@ -1,42 +1,27 @@
 package com.zu.camerautil
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCaptureSession
-import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
-import android.hardware.camera2.CameraManager
-import android.hardware.camera2.CaptureFailure
 import android.hardware.camera2.CaptureRequest
-import android.hardware.camera2.TotalCaptureResult
-import android.hardware.camera2.params.OutputConfiguration
-import android.hardware.camera2.params.SessionConfiguration
 import android.media.ImageReader
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Size
 import android.view.Surface
-import android.view.SurfaceHolder
-import android.view.View
-import android.widget.AdapterView
 import androidx.appcompat.app.AppCompatActivity
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.computeImageReaderSize
-import com.zu.camerautil.camera.computePreviewSize
 import com.zu.camerautil.camera.queryCameraInfo
-import com.zu.camerautil.camera.selectCameraID
 import com.zu.camerautil.databinding.ActivityMultiSurfaceBinding
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
 import com.zu.camerautil.util.ImageConverter
-import com.zu.camerautil.view.CameraSpinnerAdapter
 import timber.log.Timber
-import java.util.concurrent.Executors
 
 @SuppressLint("MissingPermission")
 class MultiSurfaceActivity : AppCompatActivity() {
@@ -71,7 +56,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
             binding.cameraSelector.setCameras(cameraInfoMap.values)
         }
 
-        override fun onSurfaceSizeChanged(surface: Surface, width: Int, height: Int) {
+        override fun onSurfaceSizeChanged(surface: Surface, surfaceWidth: Int, surfaceHeight: Int) {
             val surfaceSize = binding.surfaceMain.surfaceSize
             Timber.d("surfaceChanged: surfaceSize = $surfaceSize, ratio = ${surfaceSize.toRational()}")
         }

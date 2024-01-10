@@ -2,7 +2,6 @@ package com.zu.camerautil.camera
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.hardware.Camera.CameraInfo
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraConstrainedHighSpeedCaptureSession
 import android.hardware.camera2.CameraDevice
@@ -15,10 +14,9 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Range
-import android.util.Size
 import android.view.Surface
-import com.zu.camerautil.SpecifyCameraMethod
-import com.zu.camerautil.StaticConfig
+import com.zu.camerautil.OpenCameraMethod
+import com.zu.camerautil.Settings
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.FPS
 import timber.log.Timber
@@ -91,7 +89,7 @@ class BaseCameraLogic(val context: Context) {
         val finalID = if (cameraInfo.isInCameraIdList) {
             cameraInfo.cameraID
         } else {
-            if (StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
+            if (Settings.openCameraMethod == OpenCameraMethod.IN_CONFIGURATION) {
                 cameraInfo.logicalID ?: cameraInfo.cameraID
             } else {
                 cameraInfo.cameraID
@@ -168,7 +166,7 @@ class BaseCameraLogic(val context: Context) {
             val outputConfigurations = ArrayList<OutputConfiguration>()
             for (surface in target) {
                 val outputConfiguration = OutputConfiguration(surface)
-                if (!isHighSpeed && info.logicalID != null && !info.isInCameraIdList && StaticConfig.specifyCameraMethod == SpecifyCameraMethod.IN_CONFIGURATION) {
+                if (!isHighSpeed && info.logicalID != null && !info.isInCameraIdList && Settings.openCameraMethod == OpenCameraMethod.IN_CONFIGURATION) {
                     Timber.w("camera${info.cameraID} belong to logical camera${info.logicalID}, set physical camera")
                     outputConfiguration.setPhysicalCameraId(info.cameraID)
                 }

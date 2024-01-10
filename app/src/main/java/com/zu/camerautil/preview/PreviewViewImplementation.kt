@@ -33,6 +33,8 @@ abstract class PreviewViewImplementation(val context: Context) {
 
     abstract val surfaceSize: Size
 
+    abstract val viewSize: Size
+
     private var surfaceRect = Rect()
 
     open fun measure(parentMeasuredWidth: Int, parentMeasuredHeight: Int) {
@@ -132,7 +134,7 @@ abstract class PreviewViewImplementation(val context: Context) {
 
     interface SurfaceStateListener {
         fun onSurfaceCreated(surface: Surface)
-        fun onSurfaceSizeChanged(surface: Surface, width: Int, height: Int)
+        fun onSurfaceSizeChanged(surface: Surface, surfaceWidth: Int, surfaceHeight: Int)
         fun onSurfaceDestroyed(surface: Surface)
     }
 }

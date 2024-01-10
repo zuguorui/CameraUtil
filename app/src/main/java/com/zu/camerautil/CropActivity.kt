@@ -46,7 +46,7 @@ class CropActivity : AppCompatActivity() {
             binding.cameraSelector.setCameras(cameraInfoMap.values)
         }
 
-        override fun onSurfaceSizeChanged(surface: Surface, width: Int, height: Int) {
+        override fun onSurfaceSizeChanged(surface: Surface, surfaceWidth: Int, surfaceHeight: Int) {
             val surfaceSize = binding.surfaceMain.surfaceSize
             Timber.d("surfaceChanged: surfaceSize = $surfaceSize, ratio = ${surfaceSize.toRational()}")
         }

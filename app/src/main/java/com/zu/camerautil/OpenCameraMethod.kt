@@ -11,7 +11,7 @@ package com.zu.camerautil
  * 来指定该物理摄像头。
  * 2. 直接在openDevice时指定该物理摄像头即可。不需要在createSession的OutputConfiguration中再指定摄像头
  * */
-enum class SpecifyCameraMethod {
+enum class OpenCameraMethod {
     // 方式2
     DIRECTLY,
     // 方式1

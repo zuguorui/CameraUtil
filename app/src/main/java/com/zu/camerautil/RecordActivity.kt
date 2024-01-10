@@ -1,47 +1,30 @@
 package com.zu.camerautil
 
 import android.annotation.SuppressLint
-import android.bluetooth.BluetoothGattCharacteristic
 import android.content.ContentValues
-import android.content.Context
 import android.hardware.camera2.CameraCaptureSession
-import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
-import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
-import android.hardware.camera2.params.OutputConfiguration
-import android.hardware.camera2.params.SessionConfiguration
-import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Environment
-import android.os.Handler
-import android.os.HandlerThread
 import android.provider.MediaStore
-import android.util.Range
 import android.util.Size
 import android.view.Surface
-import android.view.SurfaceHolder
-import android.view.View
-import android.widget.AdapterView
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
-import com.zu.camerautil.camera.computePreviewSize
 import com.zu.camerautil.camera.queryCameraInfo
-import com.zu.camerautil.camera.selectCameraID
 import com.zu.camerautil.databinding.ActivityRecordBinding
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
 import com.zu.camerautil.recorder.IRecorder
 import com.zu.camerautil.recorder.RecorderParams
 import com.zu.camerautil.recorder.SystemRecorder
-import com.zu.camerautil.view.CameraSpinnerAdapter
 import timber.log.Timber
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.concurrent.Executors
 
 @SuppressLint("MissingPermission")
 class RecordActivity : AppCompatActivity() {
@@ -66,7 +49,7 @@ class RecordActivity : AppCompatActivity() {
             binding.cameraSelector.setCameras(cameraInfoMap.values)
         }
 
-        override fun onSurfaceSizeChanged(surface: Surface, width: Int, height: Int) {
+        override fun onSurfaceSizeChanged(surface: Surface, surfaceWidth: Int, surfaceHeight: Int) {
             val surfaceSize = binding.surfaceMain.surfaceSize
             Timber.d("surfaceChanged: surfaceSize = $surfaceSize, ratio = ${surfaceSize.toRational()}")
         }

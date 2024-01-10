@@ -53,6 +53,10 @@ class MainActivity : AppCompatActivity() {
         binding.btnNeonTest.setOnClickListener {
             NeonTest.doNeonTest()
         }
+
+        binding.btnSetting.setOnClickListener {
+            startActivity(SettingActivity::class.java)
+        }
     }
 
     private fun <T> startActivity(target: Class<T>) {

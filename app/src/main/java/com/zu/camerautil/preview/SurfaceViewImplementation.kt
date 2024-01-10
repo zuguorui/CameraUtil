@@ -31,6 +31,9 @@ class SurfaceViewImplementation: PreviewViewImplementation {
             Size(this.width(), this.height())
         }
 
+    override val viewSize: Size
+        get() = Size(surfaceView.width, surfaceView.height)
+
     override var previewSize: Size? = null
         set(value) {
             field = value

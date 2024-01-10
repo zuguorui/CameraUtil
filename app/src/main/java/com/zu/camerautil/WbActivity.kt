@@ -1,40 +1,27 @@
 package com.zu.camerautil
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraConstrainedHighSpeedCaptureSession
 import android.hardware.camera2.CameraDevice
-import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
-import android.hardware.camera2.params.OutputConfiguration
-import android.hardware.camera2.params.SessionConfiguration
-import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.os.Handler
-import android.os.HandlerThread
-import android.util.Range
 import android.util.Size
 import android.view.Surface
 import android.view.View
 import android.widget.AdapterView
 import android.widget.AdapterView.OnItemSelectedListener
 import android.widget.ArrayAdapter
-import android.widget.SeekBar
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.getWbModeName
 import com.zu.camerautil.camera.queryCameraInfo
-import com.zu.camerautil.camera.selectCameraID
 import com.zu.camerautil.databinding.ActivityWbBinding
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
-import com.zu.camerautil.view.CameraSpinnerAdapter
 import timber.log.Timber
-import java.util.concurrent.Executors
 
 @SuppressLint("MissingPermission")
 class WbActivity : AppCompatActivity() {
@@ -56,8 +43,8 @@ class WbActivity : AppCompatActivity() {
             binding.cameraSelector.setCameras(cameraInfoMap.values)
         }
 
-        override fun onSurfaceSizeChanged(surface: Surface, width: Int, height: Int) {
-            val surfaceSize = binding.surfaceMain.surfaceSize
+        override fun onSurfaceSizeChanged(surface: Surface, surfaceWidth: Int, surfaceHeight: Int) {
+            val surfaceSize = Size(surfaceWidth, surfaceHeight)
             Timber.d("surfaceChanged: surfaceSize = $surfaceSize, ratio = ${surfaceSize.toRational()}")
         }
 
@@ -94,10 +81,12 @@ class WbActivity : AppCompatActivity() {
             }
 
             override fun getSessionSurfaceList(): List<Surface> {
+                Timber.d("getSessionSurfaceList")
                 return arrayListOf(binding.surfaceMain.surface)
             }
 
             override fun getCaptureSurfaceList(): List<Surface> {
+                Timber.d("getCaptureSurfaceList")
                 return getSessionSurfaceList()
             }
 
@@ -137,7 +126,7 @@ class WbActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        binding.surfaceMain.implementationType = Camera2PreviewView.ImplementationType.TEXTURE_VIEW
+        binding.surfaceMain.implementationType = Camera2PreviewView.ImplementationType.SURFACE_VIEW
         binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.surfaceMain.surfaceStateListener = surfaceStateListener
 
@@ -145,12 +134,11 @@ class WbActivity : AppCompatActivity() {
             if (camera.cameraID != openedCameraID) {
                 updateWbModes(camera)
             }
-//            if (currentSize !=  binding.cameraSelector.currentSize) {
-//                currentSize = binding.cameraSelector.currentSize
-//                binding.surfaceMain.previewSize = currentSize!!
-//            }
-            currentSize = binding.cameraSelector.currentSize
-            binding.surfaceMain.previewSize = currentSize!!
+            if (currentSize !=  binding.cameraSelector.currentSize) {
+                currentSize = binding.cameraSelector.currentSize
+                binding.surfaceMain.previewSize = currentSize!!
+            }
+
             if (camera.cameraID != openedCameraID || size != currentSize || fps != currentFps) {
                 Timber.d("onConfigChanged: camera: ${camera.cameraID}, size: $size, fps: $fps")
                 // 注意这里回调本来就是在主线程内，但是为什么还要post呢？
@@ -162,10 +150,6 @@ class WbActivity : AppCompatActivity() {
                     cameraLogic.closeDevice()
                     cameraLogic.openDevice(camera)
                 }
-//                binding.root.postDelayed({
-//                    cameraLogic.closeDevice()
-//                    cameraLogic.openDevice(camera)
-//                }, 2000)
             }
         }
 

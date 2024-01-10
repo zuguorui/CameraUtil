@@ -19,7 +19,8 @@ class TextureViewImplementation: PreviewViewImplementation {
         set(value) {
             field = value
             value?.let {
-                surfaceTexture.setDefaultBufferSize(value.width, value.height)
+                innerSurfaceSize = Size(it.width, it.height)
+                surfaceTexture.setDefaultBufferSize(it.width, it.height)
             }
             Timber.d("previewSize: $value, ${value?.toRational()}")
             parent?.requestLayout()
@@ -28,6 +29,8 @@ class TextureViewImplementation: PreviewViewImplementation {
     override val surfaceSize: Size
         get() = innerSurfaceSize
 
+    override val viewSize: Size
+        get() = Size(textureView.width, textureView.height)
 
     override val surface: Surface
         get() = innerSurface
@@ -50,9 +53,11 @@ class TextureViewImplementation: PreviewViewImplementation {
                 width: Int,
                 height: Int
             ) {
-                innerSurfaceSize = Size(width, height)
-                Timber.d("onSurfaceTextureAvailable: size = $innerSurfaceSize, ratio = ${innerSurfaceSize.toRational()}, previewSize = $previewSize, ratio = ${previewSize?.toRational()}")
+                val paramSize = Size(width, height)
+                Timber.d("onSurfaceTextureAvailable: paramSize = $paramSize, viewSize = $viewSize , previewSize = $previewSize")
                 surfaceTexture = pSurfaceTexture
+                innerSurfaceSize = previewSize ?: viewSize
+                surfaceTexture.setDefaultBufferSize(innerSurfaceSize.width, innerSurfaceSize.height)
                 innerSurface = Surface(surfaceTexture)
                 surfaceStateListener?.onSurfaceCreated(innerSurface)
             }
@@ -62,9 +67,11 @@ class TextureViewImplementation: PreviewViewImplementation {
                 width: Int,
                 height: Int
             ) {
-                innerSurfaceSize = Size(width, height)
-                Timber.d("onSurfaceTextureSizeChanged, size = $innerSurfaceSize, ratio = ${innerSurfaceSize.toRational()}, previewSize = $previewSize, ratio = ${previewSize?.toRational()}")
-                surfaceStateListener?.onSurfaceSizeChanged(innerSurface, width, height)
+                val paramSize = Size(width, height)
+                Timber.d("onSurfaceTextureSizeChanged, paramSize = $paramSize, viewSize = $viewSize, previewSize = $previewSize}")
+                innerSurfaceSize = previewSize ?: viewSize
+                surfaceTexture.setDefaultBufferSize(innerSurfaceSize.width, innerSurfaceSize.height)
+                surfaceStateListener?.onSurfaceSizeChanged(innerSurface, innerSurfaceSize.width, innerSurfaceSize.height)
             }
 
             override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
