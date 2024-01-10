@@ -94,10 +94,6 @@ class WbActivity : AppCompatActivity() {
             }
 
             override fun getSessionSurfaceList(): List<Surface> {
-                if (currentSize !=  binding.cameraSelector.currentSize) {
-                    currentSize = binding.cameraSelector.currentSize
-                    binding.surfaceMain.previewSize = currentSize!!
-                }
                 return arrayListOf(binding.surfaceMain.surface)
             }
 
@@ -141,7 +137,7 @@ class WbActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        binding.surfaceMain.implementationType = Camera2PreviewView.ImplementationType.SURFACE_VIEW
+        binding.surfaceMain.implementationType = Camera2PreviewView.ImplementationType.TEXTURE_VIEW
         binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.surfaceMain.surfaceStateListener = surfaceStateListener
 
@@ -149,10 +145,27 @@ class WbActivity : AppCompatActivity() {
             if (camera.cameraID != openedCameraID) {
                 updateWbModes(camera)
             }
+//            if (currentSize !=  binding.cameraSelector.currentSize) {
+//                currentSize = binding.cameraSelector.currentSize
+//                binding.surfaceMain.previewSize = currentSize!!
+//            }
+            currentSize = binding.cameraSelector.currentSize
+            binding.surfaceMain.previewSize = currentSize!!
             if (camera.cameraID != openedCameraID || size != currentSize || fps != currentFps) {
                 Timber.d("onConfigChanged: camera: ${camera.cameraID}, size: $size, fps: $fps")
-                cameraLogic.closeDevice()
-                cameraLogic.openDevice(camera)
+                // 注意这里回调本来就是在主线程内，但是为什么还要post呢？
+                // 因为上面PreviewView设置分辨率后，会调用一次requestLayout或者postInvalidate进行重新布局。
+                // 但是重新布局并不会立刻进行而是排进主线程队列里。如果这里直接打开相机，就会导致相机输出时PreviewView
+                // 并没有被设置为正确的布局，所以这里把打开相机也post到主线程的队列里并且保证它在重布局PreviewView
+                // 的后面
+                binding.root.post {
+                    cameraLogic.closeDevice()
+                    cameraLogic.openDevice(camera)
+                }
+//                binding.root.postDelayed({
+//                    cameraLogic.closeDevice()
+//                    cameraLogic.openDevice(camera)
+//                }, 2000)
             }
         }
 

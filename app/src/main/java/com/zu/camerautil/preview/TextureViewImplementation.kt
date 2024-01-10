@@ -21,6 +21,7 @@ class TextureViewImplementation: PreviewViewImplementation {
             value?.let {
                 surfaceTexture.setDefaultBufferSize(value.width, value.height)
             }
+            Timber.d("previewSize: $value, ${value?.toRational()}")
             parent?.requestLayout()
         }
 
@@ -45,16 +46,15 @@ class TextureViewImplementation: PreviewViewImplementation {
         )
         textureView.surfaceTextureListener = object : SurfaceTextureListener {
             override fun onSurfaceTextureAvailable(
-                surface: SurfaceTexture,
+                pSurfaceTexture: SurfaceTexture,
                 width: Int,
                 height: Int
             ) {
                 innerSurfaceSize = Size(width, height)
                 Timber.d("onSurfaceTextureAvailable: size = $innerSurfaceSize, ratio = ${innerSurfaceSize.toRational()}, previewSize = $previewSize, ratio = ${previewSize?.toRational()}")
-                surfaceTexture = surface
-                surfaceTexture.setDefaultBufferSize(width, height)
-                innerSurface = Surface(surface)
-                surfaceStateListener?.onSurfaceCreated(this@TextureViewImplementation.surface)
+                surfaceTexture = pSurfaceTexture
+                innerSurface = Surface(surfaceTexture)
+                surfaceStateListener?.onSurfaceCreated(innerSurface)
             }
 
             override fun onSurfaceTextureSizeChanged(
@@ -64,7 +64,7 @@ class TextureViewImplementation: PreviewViewImplementation {
             ) {
                 innerSurfaceSize = Size(width, height)
                 Timber.d("onSurfaceTextureSizeChanged, size = $innerSurfaceSize, ratio = ${innerSurfaceSize.toRational()}, previewSize = $previewSize, ratio = ${previewSize?.toRational()}")
-                surfaceStateListener?.onSurfaceSizeChanged(this@TextureViewImplementation.surface, width, height)
+                surfaceStateListener?.onSurfaceSizeChanged(innerSurface, width, height)
             }
 
             override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
@@ -80,12 +80,14 @@ class TextureViewImplementation: PreviewViewImplementation {
     }
 
     override fun onMeasure(bound: Rect) {
+        Timber.d("onMeasure, bound = $bound")
         var widthSpec = View.MeasureSpec.makeMeasureSpec(bound.width(), View.MeasureSpec.EXACTLY)
         var heightSpec = View.MeasureSpec.makeMeasureSpec(bound.height(), View.MeasureSpec.EXACTLY)
         textureView.measure(widthSpec, heightSpec)
     }
 
     override fun onLayout(bound: Rect) {
+        Timber.d("onLayout, bound = $bound")
         textureView.layout(bound.left, bound.top, bound.right, bound.bottom)
     }
 

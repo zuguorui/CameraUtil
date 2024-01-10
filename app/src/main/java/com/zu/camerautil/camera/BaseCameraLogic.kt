@@ -147,6 +147,7 @@ class BaseCameraLogic(val context: Context) {
                 } else {
                     session = newSession
                 }
+                Timber.w("sessionConfigured")
                 startPreview()
             }
 
@@ -222,7 +223,7 @@ class BaseCameraLogic(val context: Context) {
         val isHighSpeed = currentFps?.type?.let {
             it == FPS.Type.HIGH_SPEED
         } ?: return
-
+        Timber.w("startRepeating, isHighSpeed = $isHighSpeed")
         if (!isHighSpeed) {
             session?.run {
                 setRepeatingRequest(captureRequestBuilder!!.build(), internalCaptureCallback, cameraHandler)
