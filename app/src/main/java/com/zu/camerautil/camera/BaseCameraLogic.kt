@@ -19,8 +19,15 @@ import com.zu.camerautil.OpenCameraMethod
 import com.zu.camerautil.Settings
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.FPS
+import com.zu.camerautil.util.waitCallbackResult
+import kotlinx.coroutines.CompletableDeferred
 import timber.log.Timber
+import java.util.concurrent.Callable
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.FutureTask
+import kotlin.coroutines.resume
 
 /**
  * @author zuguorui
@@ -29,14 +36,14 @@ import java.util.concurrent.Executors
  */
 
 @SuppressLint("MissingPermission")
-class BaseCameraLogic(val context: Context) {
+open class BaseCameraLogic(val context: Context) {
 
     var configCallback: ConfigCallback? = null
     var cameraStateCallback: CameraDevice.StateCallback? = null
     var sessionStateCallback: CameraCaptureSession.StateCallback? = null
     var captureCallback: CameraCaptureSession.CaptureCallback? = null
 
-    private var internalCaptureCallback = object : CameraCaptureSession.CaptureCallback() {
+    protected var internalCaptureCallback = object : CameraCaptureSession.CaptureCallback() {
         override fun onCaptureStarted(
             session: CameraCaptureSession,
             request: CaptureRequest,
@@ -56,30 +63,30 @@ class BaseCameraLogic(val context: Context) {
         }
     }
 
-    private val cameraManager: CameraManager by lazy {
+    protected val cameraManager: CameraManager by lazy {
         ((context.getSystemService(Context.CAMERA_SERVICE)) as CameraManager)
     }
 
     var currentCameraInfo: CameraInfoWrapper? = null
     var currentFps: FPS? = null
 
-    private var camera: CameraDevice? = null
+    protected var camera: CameraDevice? = null
 
-    private var session: CameraCaptureSession? = null
-    private var highSpeedSession: CameraConstrainedHighSpeedCaptureSession? = null
+    protected var session: CameraCaptureSession? = null
+    protected var highSpeedSession: CameraConstrainedHighSpeedCaptureSession? = null
 
-    private var captureRequestBuilder: CaptureRequest.Builder? = null
+    protected var captureRequestBuilder: CaptureRequest.Builder? = null
 
-    private var cameraThread = HandlerThread("CameraThread").apply { start() }
+    protected var cameraThread = HandlerThread("CameraThread").apply { start() }
 
-    private var cameraHandler = Handler(cameraThread.looper)
+    protected var cameraHandler = Handler(cameraThread.looper)
 
-    private var cameraExecutor = Executors.newSingleThreadExecutor()
+    protected var cameraExecutor = Executors.newSingleThreadExecutor()
 
     /**
      * 启动相机
      * */
-    fun openDevice(cameraInfo: CameraInfoWrapper) {
+    open fun openCamera(cameraInfo: CameraInfoWrapper) {
         val configCallback = configCallback ?: return
 
         if (camera != null) {
@@ -125,14 +132,14 @@ class BaseCameraLogic(val context: Context) {
         }, cameraHandler)
     }
 
-    fun closeDevice() {
+    open fun closeDevice() {
         closeSession()
         camera?.close()
         camera = null
         currentCameraInfo = null
     }
 
-    fun createSession() {
+    open fun createSession() {
         val camera = this.camera ?: return
         val configCallback = configCallback ?: return
         currentFps = configCallback.getFps()
@@ -185,7 +192,7 @@ class BaseCameraLogic(val context: Context) {
         }
     }
 
-    fun closeSession() {
+    open fun closeSession() {
         stopPreview()
         session?.close()
         session = null
@@ -193,7 +200,7 @@ class BaseCameraLogic(val context: Context) {
         highSpeedSession = null
     }
 
-    fun startPreview() {
+    open fun startPreview() {
         configRequestBuilder()
         startRepeating()
     }
@@ -239,9 +246,61 @@ class BaseCameraLogic(val context: Context) {
         }
     }
 
-    fun stopPreview() {
+    open fun stopPreview() {
         session?.stopRepeating()
         highSpeedSession?.stopRepeating()
+    }
+
+    private fun openCameraInner(cameraInfo: CameraInfoWrapper): Boolean {
+        val configCallback = configCallback ?: return false
+        if (camera != null) {
+            closeDevice()
+        }
+        val finalID = if (cameraInfo.isInCameraIdList) {
+            cameraInfo.cameraID
+        } else {
+            if (Settings.openCameraMethod == OpenCameraMethod.IN_CONFIGURATION) {
+                cameraInfo.logicalID ?: cameraInfo.cameraID
+            } else {
+                cameraInfo.cameraID
+            }
+        }
+        Timber.d("openDevice $finalID")
+
+        val cameraResult = waitCallbackResult<Boolean> {
+            cameraManager.openCamera(finalID, object : CameraDevice.StateCallback() {
+                override fun onOpened(pCamera: CameraDevice) {
+                    cameraStateCallback?.onOpened(pCamera)
+                    currentCameraInfo = cameraInfo
+                    camera = pCamera
+                    it.resume(true)
+                }
+
+                override fun onDisconnected(camera: CameraDevice) {
+                    cameraStateCallback?.onDisconnected(camera)
+                    Timber.e("camera ${camera.id} disconnected")
+                    camera.close()
+                    // it.resume(false)
+                }
+
+                override fun onError(camera: CameraDevice, error: Int) {
+                    cameraStateCallback?.onError(camera, error)
+                    val msg = when (error) {
+                        ERROR_CAMERA_DEVICE -> "Fatal (device)"
+                        ERROR_CAMERA_DISABLED -> "Device policy"
+                        ERROR_CAMERA_IN_USE -> "Camera in use"
+                        ERROR_CAMERA_SERVICE -> "Fatal (service)"
+                        ERROR_MAX_CAMERAS_IN_USE -> "Maximum cameras in use"
+                        else -> "Unknown"
+                    }
+                    val exc = RuntimeException("Camera ${cameraInfo.cameraID} error: ($error) $msg")
+                    Timber.e(exc.message, exc)
+                    it.resume(false)
+                }
+            }, cameraHandler)
+        }
+
+        return cameraResult
     }
 
     /**

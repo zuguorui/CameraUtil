@@ -160,7 +160,7 @@ class RecordActivity : AppCompatActivity() {
                 // 的后面
                 binding.root.post {
                     cameraLogic.closeDevice()
-                    cameraLogic.openDevice(camera)
+                    cameraLogic.openCamera(camera)
                 }
             }
         }

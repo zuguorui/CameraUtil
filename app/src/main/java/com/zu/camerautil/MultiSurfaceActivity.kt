@@ -173,7 +173,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
 
         binding.btnRestartCamera.setOnClickListener {
             cameraLogic.closeDevice()
-            cameraLogic.openDevice(binding.cameraSelector.currentCamera)
+            cameraLogic.openCamera(binding.cameraSelector.currentCamera)
         }
 
         binding.btnRestartSession.setOnClickListener {
@@ -195,7 +195,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
                 // 的后面
                 binding.root.post {
                     cameraLogic.closeDevice()
-                    cameraLogic.openDevice(camera)
+                    cameraLogic.openCamera(camera)
                 }
             }
         }

@@ -10,6 +10,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.single
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import timber.log.Timber
+import kotlin.coroutines.suspendCoroutine
 
 /**
  * @author zuguorui
@@ -41,12 +44,11 @@ object Settings {
         }
 
     init {
-        Timber.d("init")
+        Timber.d("init start")
         // 阻塞加载配置
         runBlocking {
             Timber.d("init, runBlocking start")
             MyApplication.context.setting.data.first().let { preference ->
-                Timber.d("init, collect")
                 openCameraMethod = preference[OPEN_CAMERA_METHOD_KEY]?.let{ name ->
                     Timber.d("read openCameraMethod = $name")
                     OpenCameraMethod.valueOf(name)
@@ -54,6 +56,7 @@ object Settings {
             }
             Timber.d("init, runBlocking end")
         }
+        Timber.d("init end")
     }
 
     private fun <T> saveData(key: Preferences.Key<T>, value: T) {
@@ -66,5 +69,6 @@ object Settings {
         }
         Timber.d("saveData end")
     }
+
 
 }

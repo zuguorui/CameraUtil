@@ -4,6 +4,8 @@ import android.graphics.Rect
 import android.util.Rational
 import android.util.Size
 import java.lang.StringBuilder
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantLock
 import kotlin.reflect.typeOf
 
 inline fun <reified T> ArrayList<T>.copyToArray(): Array<T> {
@@ -63,4 +65,21 @@ fun <T> Collection<T>.toFormattedString(): String {
     sb.append("]")
     return sb.toString()
 }
+
+fun <T> lockBlock(lock: ReentrantLock, block: () -> T): T {
+    lock.lock()
+    val t = block()
+    lock.unlock()
+    return t
+}
+
+suspend fun <T> suspendLockBlock(lock: ReentrantLock, block: suspend () -> T): T {
+    lock.lock()
+    val t = block()
+    lock.unlock()
+    return t
+}
+
+
+
 

@@ -16,6 +16,7 @@ import android.widget.ArrayAdapter
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
+import com.zu.camerautil.camera.CoroutineCameraLogic
 import com.zu.camerautil.camera.getWbModeName
 import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.databinding.ActivityWbBinding
@@ -30,7 +31,7 @@ class WbActivity : AppCompatActivity() {
         queryCameraInfo(this)
     }
 
-    private lateinit var cameraLogic: BaseCameraLogic
+    private lateinit var cameraLogic: CoroutineCameraLogic
 
     private var openedCameraID: String? = null
     private var currentSize: Size? = null
@@ -71,7 +72,7 @@ class WbActivity : AppCompatActivity() {
     }
 
     private fun initCameraLogic() {
-        cameraLogic = BaseCameraLogic(this)
+        cameraLogic = CoroutineCameraLogic(this)
         cameraLogic.configCallback = object : BaseCameraLogic.ConfigCallback {
             override fun getFps(): FPS {
                 if (currentFps != binding.cameraSelector.currentFps) {
@@ -126,7 +127,7 @@ class WbActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        binding.surfaceMain.implementationType = Camera2PreviewView.ImplementationType.SURFACE_VIEW
+        binding.surfaceMain.implementationType = Camera2PreviewView.ImplementationType.TEXTURE_VIEW
         binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.surfaceMain.surfaceStateListener = surfaceStateListener
 
@@ -148,7 +149,7 @@ class WbActivity : AppCompatActivity() {
                 // 的后面
                 binding.root.post {
                     cameraLogic.closeDevice()
-                    cameraLogic.openDevice(camera)
+                    cameraLogic.openCamera(camera)
                 }
             }
         }
