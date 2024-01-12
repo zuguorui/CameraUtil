@@ -67,7 +67,7 @@ class CropActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        cameraLogic.closeDevice()
+        cameraLogic.closeCamera()
         super.onDestroy()
     }
 
@@ -159,7 +159,7 @@ class CropActivity : AppCompatActivity() {
                 // 并没有被设置为正确的布局，所以这里把打开相机也post到主线程的队列里并且保证它在重布局PreviewView
                 // 的后面
                 binding.root.post {
-                    cameraLogic.closeDevice()
+                    cameraLogic.closeCamera()
                     cameraLogic.openCamera(camera)
                 }
             }

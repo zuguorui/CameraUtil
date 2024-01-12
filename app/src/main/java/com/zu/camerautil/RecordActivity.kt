@@ -14,6 +14,7 @@ import android.view.Surface
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
+import com.zu.camerautil.camera.CoroutineCameraLogic
 import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.databinding.ActivityRecordBinding
 import com.zu.camerautil.preview.Camera2PreviewView
@@ -78,7 +79,7 @@ class RecordActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        cameraLogic.closeDevice()
+        cameraLogic.closeCamera()
         super.onDestroy()
     }
 
@@ -94,9 +95,9 @@ class RecordActivity : AppCompatActivity() {
 
             override fun getSessionSurfaceList(): List<Surface> {
                 var surfaceList = arrayListOf(binding.surfaceMain.surface)
-                if (recording) {
-                    surfaceList.add(recorder.getSurface()!!)
-                }
+//                if (recording) {
+//                    surfaceList.add(recorder.getSurface()!!)
+//                }
                 return surfaceList
             }
 
@@ -159,7 +160,7 @@ class RecordActivity : AppCompatActivity() {
                 // 并没有被设置为正确的布局，所以这里把打开相机也post到主线程的队列里并且保证它在重布局PreviewView
                 // 的后面
                 binding.root.post {
-                    cameraLogic.closeDevice()
+                    cameraLogic.closeCamera()
                     cameraLogic.openCamera(camera)
                 }
             }

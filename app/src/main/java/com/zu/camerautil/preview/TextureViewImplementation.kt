@@ -20,7 +20,9 @@ class TextureViewImplementation: PreviewViewImplementation {
             field = value
             value?.let {
                 innerSurfaceSize = Size(it.width, it.height)
-                surfaceTexture.setDefaultBufferSize(it.width, it.height)
+                if (this::surfaceTexture.isInitialized) {
+                    surfaceTexture.setDefaultBufferSize(it.width, it.height)
+                }
             }
             Timber.d("previewSize: $value, ${value?.toRational()}")
             parent?.requestLayout()

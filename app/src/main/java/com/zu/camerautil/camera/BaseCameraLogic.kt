@@ -20,14 +20,8 @@ import com.zu.camerautil.Settings
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.util.waitCallbackResult
-import kotlinx.coroutines.CompletableDeferred
 import timber.log.Timber
-import java.util.concurrent.Callable
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
-import java.util.concurrent.Future
-import java.util.concurrent.FutureTask
-import kotlin.coroutines.resume
 
 /**
  * @author zuguorui
@@ -87,10 +81,11 @@ open class BaseCameraLogic(val context: Context) {
      * 启动相机
      * */
     open fun openCamera(cameraInfo: CameraInfoWrapper) {
+        Timber.d("openCamera ${cameraInfo.cameraID}")
         val configCallback = configCallback ?: return
 
         if (camera != null) {
-            closeDevice()
+            closeCamera()
         }
 
         val finalID = if (cameraInfo.isInCameraIdList) {
@@ -105,6 +100,7 @@ open class BaseCameraLogic(val context: Context) {
         Timber.d("openDevice $finalID")
         cameraManager.openCamera(finalID, object : CameraDevice.StateCallback() {
             override fun onOpened(pCamera: CameraDevice) {
+                Timber.d("camera ${pCamera.id} onOpened")
                 cameraStateCallback?.onOpened(pCamera)
                 camera = pCamera
                 currentCameraInfo = cameraInfo
@@ -113,11 +109,12 @@ open class BaseCameraLogic(val context: Context) {
 
             override fun onDisconnected(camera: CameraDevice) {
                 cameraStateCallback?.onDisconnected(camera)
-                Timber.e("camera disconnected")
+                Timber.e("camera ${camera.id} disconnected")
             }
 
-            override fun onError(camera: CameraDevice, error: Int) {
-                cameraStateCallback?.onError(camera, error)
+            override fun onError(pCamera: CameraDevice, error: Int) {
+                Timber.e("camera ${pCamera.id} onError")
+                cameraStateCallback?.onError(pCamera, error)
                 val msg = when (error) {
                     ERROR_CAMERA_DEVICE -> "Fatal (device)"
                     ERROR_CAMERA_DISABLED -> "Device policy"
@@ -128,11 +125,15 @@ open class BaseCameraLogic(val context: Context) {
                 }
                 val exc = RuntimeException("Camera ${cameraInfo.cameraID} error: ($error) $msg")
                 Timber.e(exc.message, exc)
+                camera = null
+                session = null
+                highSpeedSession = null
             }
         }, cameraHandler)
     }
 
-    open fun closeDevice() {
+    open fun closeCamera() {
+        Timber.d("closeCamera ${camera?.id}")
         closeSession()
         camera?.close()
         camera = null
@@ -140,18 +141,20 @@ open class BaseCameraLogic(val context: Context) {
     }
 
     open fun createSession() {
+        Timber.d("createSession ${camera?.id}")
         val camera = this.camera ?: return
         val configCallback = configCallback ?: return
         currentFps = configCallback.getFps()
+        val isHighSpeed = currentFps!!.type == FPS.Type.HIGH_SPEED
 
         val createSessionCallback = object : CameraCaptureSession.StateCallback() {
             override fun onConfigured(newSession: CameraCaptureSession) {
-                sessionStateCallback?.onConfigured(newSession)
-                if (currentFps!!.type == FPS.Type.HIGH_SPEED) {
+                if (isHighSpeed) {
                     highSpeedSession = newSession as CameraConstrainedHighSpeedCaptureSession
                 } else {
                     session = newSession
                 }
+                sessionStateCallback?.onConfigured(newSession)
                 Timber.w("sessionConfigured")
                 startPreview()
             }
@@ -163,8 +166,6 @@ open class BaseCameraLogic(val context: Context) {
             }
         }
 
-
-        val isHighSpeed = currentFps!!.type == FPS.Type.HIGH_SPEED
 
         val target = configCallback.getSessionSurfaceList()
 
@@ -193,6 +194,7 @@ open class BaseCameraLogic(val context: Context) {
     }
 
     open fun closeSession() {
+        Timber.d("closeSession ${camera?.id}")
         stopPreview()
         session?.close()
         session = null
@@ -201,6 +203,7 @@ open class BaseCameraLogic(val context: Context) {
     }
 
     open fun startPreview() {
+        Timber.d("startPreview ${camera?.id}")
         configRequestBuilder()
         startRepeating()
     }
@@ -237,8 +240,8 @@ open class BaseCameraLogic(val context: Context) {
             if (Build.VERSION.SDK_INT >= 28) {
                 highSpeedSession?.run {
                     val highSpeedRequest = createHighSpeedRequestList(captureRequestBuilder!!.build())
-                    setRepeatingBurstRequests(highSpeedRequest, cameraExecutor, internalCaptureCallback)
-                    //setRepeatingBurst(highSpeedRequest, internalCaptureCallback, cameraHandler)
+                    //setRepeatingBurstRequests(highSpeedRequest, cameraExecutor, internalCaptureCallback)
+                    setRepeatingBurst(highSpeedRequest, internalCaptureCallback, cameraHandler)
                 }
             } else {
                 Timber.e("SDK ${Build.VERSION.SDK_INT} can't create high speed preview")
@@ -247,14 +250,17 @@ open class BaseCameraLogic(val context: Context) {
     }
 
     open fun stopPreview() {
+        Timber.d("stopPreview ${camera?.id}")
         session?.stopRepeating()
+        session = null
         highSpeedSession?.stopRepeating()
+        highSpeedSession = null
     }
 
     private fun openCameraInner(cameraInfo: CameraInfoWrapper): Boolean {
         val configCallback = configCallback ?: return false
         if (camera != null) {
-            closeDevice()
+            closeCamera()
         }
         val finalID = if (cameraInfo.isInCameraIdList) {
             cameraInfo.cameraID

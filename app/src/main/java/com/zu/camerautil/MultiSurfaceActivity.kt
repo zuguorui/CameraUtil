@@ -75,7 +75,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        cameraLogic.closeDevice()
+        cameraLogic.closeCamera()
         super.onDestroy()
     }
 
@@ -153,6 +153,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
 
     private fun initViews() {
         binding.surfaceMain.surfaceStateListener = surfaceStateListener
+        binding.surfaceMain.implementationType = Camera2PreviewView.ImplementationType.SURFACE_VIEW
         binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.surface1.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.surface1.implementationType = Camera2PreviewView.ImplementationType.TEXTURE_VIEW
@@ -172,7 +173,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
         }
 
         binding.btnRestartCamera.setOnClickListener {
-            cameraLogic.closeDevice()
+            cameraLogic.closeCamera()
             cameraLogic.openCamera(binding.cameraSelector.currentCamera)
         }
 
@@ -185,6 +186,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
             if (currentSize !=  binding.cameraSelector.currentSize) {
                 currentSize = binding.cameraSelector.currentSize
                 binding.surfaceMain.previewSize = currentSize!!
+                binding.surface1.previewSize = currentSize!!
             }
             if (camera.cameraID != openedCameraID || size != currentSize || fps != currentFps) {
                 Timber.d("onConfigChanged: camera: ${camera.cameraID}, size: $size, fps: $fps")
@@ -194,7 +196,7 @@ class MultiSurfaceActivity : AppCompatActivity() {
                 // 并没有被设置为正确的布局，所以这里把打开相机也post到主线程的队列里并且保证它在重布局PreviewView
                 // 的后面
                 binding.root.post {
-                    cameraLogic.closeDevice()
+                    cameraLogic.closeCamera()
                     cameraLogic.openCamera(camera)
                 }
             }

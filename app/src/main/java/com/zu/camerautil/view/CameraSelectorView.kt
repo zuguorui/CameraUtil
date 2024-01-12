@@ -209,12 +209,14 @@ class CameraSelectorView: FrameLayout {
         cameraList.addAll(cameraMap.values)
         cameraAdapter.clearData()
         cameraAdapter.setData(cameraList)
+
         val cameraID = selectCameraID(cameraMap, CameraCharacteristics.LENS_FACING_BACK, true)
         updateCamera(cameraMap[cameraID]!!)
     }
 
     private fun updateCamera(camera: CameraInfoWrapper) {
         currentCamera = camera
+        cameraSpinner.setSelection(cameraList.indexOf(currentCamera))
         updateSizeByCamera()
     }
 
@@ -300,7 +302,7 @@ class CameraSelectorView: FrameLayout {
 
         sizeAdapter.clear()
         sizeAdapter.addAll(sizeList)
-
+        sizeSpinner.setSelection(sizeList.indexOf(currentSize))
         updateFpsBySize()
     }
 
@@ -312,15 +314,15 @@ class CameraSelectorView: FrameLayout {
 
         if (this::currentFps.isInitialized) {
             if (!fpsList.contains(currentFps)) {
-                currentFps = fpsList[0]
+                currentFps = fpsList.first()
             }
         } else {
-            currentFps = fpsList[0]
+            currentFps = fpsList.first()
         }
 
         fpsAdapter.clear()
         fpsAdapter.addAll(fpsList)
-
+        fpsSpinner.setSelection(fpsList.indexOf(currentFps))
         notifyConfigChanged()
     }
 
@@ -330,23 +332,23 @@ class CameraSelectorView: FrameLayout {
     }
 
     fun setCamera(camera: CameraInfoWrapper) {
-        updateCamera(camera)
+        if (!cameraList.contains(camera)) {
+            return
+        }
+        cameraSpinner.setSelection(cameraList.indexOf(camera))
     }
 
     fun setSize(size: Size) {
         if (!sizeList.contains(size)) {
             return
         }
-        currentSize = size
         sizeSpinner.setSelection(sizeList.indexOf(currentSize))
-        updateFpsBySize()
     }
 
     fun setFps(fps: FPS) {
         if (!fpsList.contains(fps)) {
             return
         }
-        currentFps = fps
         fpsSpinner.setSelection(fpsList.indexOf(fps))
     }
 

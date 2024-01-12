@@ -13,9 +13,9 @@ import com.zu.camerautil.Settings
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.FPS
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.newSingleThreadContext
 import timber.log.Timber
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.coroutines.resume
@@ -31,12 +31,14 @@ import kotlin.coroutines.suspendCoroutine
 @SuppressLint("MissingPermission")
 class CoroutineCameraLogic(context: Context): BaseCameraLogic(context) {
 
-    private var cameraScope = CoroutineScope(Job() + Dispatchers.IO)
+    // 单独为相机操作开启一个线程，避免线程竞争。
+    private var cameraScope = CoroutineScope(Job() + newSingleThreadContext("camera_thread"))
 
     private var lock = ReentrantLock(true)
 
     override fun openCamera(cameraInfo: CameraInfoWrapper) {
         cameraScope.launch {
+            Timber.d("openCamera ${cameraInfo.cameraID}")
             if (!openCameraInner(cameraInfo)) {
                 Timber.e("openDevice failed")
                 lock.unlock()
@@ -46,8 +48,16 @@ class CoroutineCameraLogic(context: Context): BaseCameraLogic(context) {
         }
     }
 
+    override fun closeCamera() {
+        cameraScope.launch {
+            Timber.d("closeCamera ${camera?.id}")
+            super.closeCamera()
+        }
+    }
+
     override fun createSession() {
         cameraScope.launch {
+            Timber.d("createSession ${camera?.id}")
             if (!createSessionInner()) {
                 Timber.e("createSession failed")
                 return@launch
@@ -56,11 +66,32 @@ class CoroutineCameraLogic(context: Context): BaseCameraLogic(context) {
         }
     }
 
+    override fun closeSession() {
+        cameraScope.launch {
+            Timber.d("closeSession ${camera?.id}")
+            super.closeSession()
+        }
+    }
+
+    override fun startPreview() {
+        cameraScope.launch {
+            Timber.d("startPreview ${camera?.id}")
+            super.startPreview()
+        }
+    }
+
+    override fun stopPreview() {
+        cameraScope.launch {
+            Timber.d("stopPreview ${camera?.id}")
+            super.stopPreview()
+        }
+    }
+
 
     private suspend fun openCameraInner(cameraInfo: CameraInfoWrapper): Boolean {
         val configCallback = configCallback ?: return false
         if (camera != null) {
-            closeDevice()
+            closeCamera()
         }
         val finalID = if (cameraInfo.isInCameraIdList) {
             cameraInfo.cameraID
