@@ -1,6 +1,7 @@
 package com.zu.camerautil.util
 
 import java.util.concurrent.Future
+import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
@@ -18,30 +19,28 @@ fun <T> waitCallbackResult(block: (receiver: CallbackResultReceiver<T>) -> Any):
 }
 
 class CallbackResultReceiver<T> {
-    private var isCompleted = false
-
     private var result: T? = null
 
-    private val lock = ReentrantLock()
-    private val condition: Condition = lock.newCondition()
+    private val semaphore = Semaphore(1, true).apply {
+        acquire()
+    }
 
     fun resume(t: T) {
         result = t
-        isCompleted = true
-        condition.signalAll()
+        semaphore.release()
     }
 
     fun get(): T {
-        if (!isCompleted) {
-            condition.await()
-        }
-        return result!!
+        semaphore.acquire()
+        val ret = result
+        semaphore.release()
+        return ret!!
     }
 
-    fun get(timeout: Long): T {
-        if (!isCompleted) {
-            condition.await(timeout, TimeUnit.MILLISECONDS)
-        }
-        return result!!
+    fun get(timeout: Long): T? {
+        semaphore.tryAcquire(timeout, TimeUnit.MILLISECONDS)
+        val ret = result
+        semaphore.release()
+        return ret
     }
 }

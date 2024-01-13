@@ -8,6 +8,11 @@ import android.view.Surface
  * @description
  */
 interface IRecorder {
+
+    val isReady: Boolean
+
+    val isRecording: Boolean
+
     fun prepare(params: RecorderParams): Boolean
     fun getSurface(): Surface?
     fun start(): Boolean

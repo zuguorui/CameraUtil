@@ -20,6 +20,8 @@ class SettingActivity : AppCompatActivity() {
             OpenCameraMethod.IN_CONFIGURATION -> binding.rbOpenCameraInConfig.isChecked = true
             else -> binding.rbOpenCameraDirectly.isChecked = true
         }
+
+        binding.cbHighSpeedPreviewExtraSurface.isChecked = Settings.highSpeedPreviewExtraSurface
     }
 
     private fun initViews() {
@@ -28,6 +30,9 @@ class SettingActivity : AppCompatActivity() {
                 R.id.rb_open_camera_in_config -> OpenCameraMethod.IN_CONFIGURATION
                 else -> OpenCameraMethod.DIRECTLY
             }
+        }
+        binding.cbHighSpeedPreviewExtraSurface.setOnCheckedChangeListener { _, isChecked ->
+            Settings.highSpeedPreviewExtraSurface = isChecked
         }
     }
 }

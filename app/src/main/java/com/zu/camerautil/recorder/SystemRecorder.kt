@@ -1,7 +1,5 @@
 package com.zu.camerautil.recorder
 
-import android.content.Context
-import android.media.MediaCodec
 import android.media.MediaRecorder
 import android.media.MediaRecorder.AudioEncoder
 import android.media.MediaRecorder.AudioSource
@@ -17,8 +15,14 @@ import android.view.Surface
  */
 class SystemRecorder: IRecorder {
 
-    private var mediaRecorder: MediaRecorder? = null
+    override val isReady: Boolean
+        get() = mediaRecorder?.surface != null
+    override val isRecording: Boolean
+        get() = _isRecording
 
+    private var _isRecording = false
+
+    private var mediaRecorder: MediaRecorder? = null
 
     override fun prepare(params: RecorderParams): Boolean {
         if (mediaRecorder != null) {
@@ -26,18 +30,18 @@ class SystemRecorder: IRecorder {
         }
         mediaRecorder = MediaRecorder()
         mediaRecorder?.apply {
-//            setAudioSource(AudioSource.MIC)
+            setAudioSource(AudioSource.MIC)
             setVideoSource(VideoSource.SURFACE)
             setOutputFormat(OutputFormat.MPEG_4)
 
-//            setAudioSamplingRate(params.sampleRate)
-//            setAudioChannels(2)
-//            setAudioEncoder(AudioEncoder.AAC)
+            setAudioSamplingRate(params.sampleRate)
+            setAudioChannels(2)
+            setAudioEncoder(AudioEncoder.AAC)
 
-//            setVideoFrameRate(params.fps)
-//            if (params.fps != params.captureFps) {
-//                setCaptureRate(params.captureFps.toDouble())
-//            }
+            setVideoFrameRate(params.outputFps)
+            if (params.outputFps != params.inputFps) {
+                setCaptureRate(params.inputFps.toDouble())
+            }
 
             setVideoEncoder(VideoEncoder.HEVC)
 
@@ -58,16 +62,22 @@ class SystemRecorder: IRecorder {
     override fun start(): Boolean {
         mediaRecorder?.let {
             it.start()
+            _isRecording = true
             return true
-        } ?: return false
+        } ?: kotlin.run {
+            _isRecording = false
+            return false
+        }
     }
 
     override fun stop() {
         mediaRecorder?.stop()
+        _isRecording = false
     }
 
     override fun release() {
         mediaRecorder?.release()
         mediaRecorder = null
+        _isRecording = false
     }
 }

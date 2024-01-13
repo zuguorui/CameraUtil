@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CaptureRequest
+import android.media.MediaCodec
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Environment
@@ -12,6 +13,7 @@ import android.provider.MediaStore
 import android.util.Size
 import android.view.Surface
 import com.zu.camerautil.bean.CameraInfoWrapper
+import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.CoroutineCameraLogic
@@ -42,7 +44,7 @@ class RecordActivity : AppCompatActivity() {
     private var currentSize: Size? = null
     private var currentFps: FPS? = null
 
-
+    private var recordParams: RecorderParams? = null
 
     private val surfaceStateListener = object : PreviewViewImplementation.SurfaceStateListener {
         override fun onSurfaceCreated(surface: Surface) {
@@ -51,7 +53,7 @@ class RecordActivity : AppCompatActivity() {
         }
 
         override fun onSurfaceSizeChanged(surface: Surface, surfaceWidth: Int, surfaceHeight: Int) {
-            val surfaceSize = binding.surfaceMain.surfaceSize
+            val surfaceSize = Size(surfaceWidth, surfaceHeight)
             Timber.d("surfaceChanged: surfaceSize = $surfaceSize, ratio = ${surfaceSize.toRational()}")
         }
 
@@ -80,6 +82,7 @@ class RecordActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         cameraLogic.closeCamera()
+        recorder.release()
         super.onDestroy()
     }
 
@@ -87,17 +90,26 @@ class RecordActivity : AppCompatActivity() {
         cameraLogic = BaseCameraLogic(this)
         cameraLogic.configCallback = object : BaseCameraLogic.ConfigCallback {
             override fun getFps(): FPS {
-                if (currentFps != binding.cameraSelector.currentFps) {
-                    currentFps = binding.cameraSelector.currentFps
-                }
                 return currentFps!!
+            }
+
+            override fun getSize(): Size {
+                return currentSize!!
+            }
+
+            override fun getUsage(): CameraUsage {
+                return if (recording) {
+                    CameraUsage.RECORD
+                } else {
+                    CameraUsage.PREVIEW
+                }
             }
 
             override fun getSessionSurfaceList(): List<Surface> {
                 var surfaceList = arrayListOf(binding.surfaceMain.surface)
-//                if (recording) {
-//                    surfaceList.add(recorder.getSurface()!!)
-//                }
+                if (recorder.isReady) {
+                    surfaceList.add(recorder.getSurface()!!)
+                }
                 return surfaceList
             }
 
@@ -148,12 +160,32 @@ class RecordActivity : AppCompatActivity() {
         }
 
         binding.cameraSelector.onConfigChangedListener = {camera, fps, size ->
-            if (currentSize !=  binding.cameraSelector.currentSize) {
-                currentSize = binding.cameraSelector.currentSize
-                binding.surfaceMain.previewSize = currentSize!!
+            var reopenCamera = false
+            var recreateRecorder = false
+
+            if (camera.cameraID != openedCameraID) {
+                reopenCamera = true
             }
-            if (camera.cameraID != openedCameraID || size != currentSize || fps != currentFps) {
-                Timber.d("onConfigChanged: camera: ${camera.cameraID}, size: $size, fps: $fps")
+
+            if (size != currentSize) {
+                currentSize = size
+                binding.surfaceMain.previewSize = size
+                reopenCamera = true
+                recreateRecorder = true
+            }
+
+            if (fps != currentFps) {
+                currentFps = fps
+                reopenCamera = true
+                recreateRecorder = true
+            }
+
+            if (recreateRecorder) {
+                releaseRecorder()
+                prepareRecorder(size, fps)
+            }
+
+            if (reopenCamera) {
                 // 注意这里回调本来就是在主线程内，但是为什么还要post呢？
                 // 因为上面PreviewView设置分辨率后，会调用一次requestLayout或者postInvalidate进行重新布局。
                 // 但是重新布局并不会立刻进行而是排进主线程队列里。如果这里直接打开相机，就会导致相机输出时PreviewView
@@ -168,14 +200,8 @@ class RecordActivity : AppCompatActivity() {
 
     }
 
-    private var recordParams: RecorderParams? = null
-
-    private fun prepareRecorder() {
-        val currentSize = currentSize ?: return
-        val currentFps = currentFps ?: return
-
+    private fun prepareRecorder(size: Size, fps: FPS) {
         val title = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis())) + ".mp4"
-
         val dcim = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
 
         val folder = File(dcim, "CameraUtil")
@@ -185,9 +211,9 @@ class RecordActivity : AppCompatActivity() {
         val path = "${folder.absolutePath}/$title"
         val params = RecorderParams(
             title,
-            currentSize,
-            currentFps.value,
-            currentFps.value,
+            size,
+            fps.value,
+            fps.value,
             44100,
             File(path),
             binding.root.display.rotation
@@ -197,62 +223,29 @@ class RecordActivity : AppCompatActivity() {
             Timber.e("recorder prepare failed")
             return
         }
-        if (recording) {
-            recordParams = params
-        }
+        recordParams = params
     }
 
     private fun releaseRecorder() {
         recorder.release()
-        recording = false
     }
 
     private fun startRecord() {
-        val currentSize = currentSize ?: return
-        val currentFps = currentFps ?: return
-
-        val title = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis())) + ".mp4"
-        val dcim = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-
-        val folder = File(dcim, "CameraUtil")
-//        val folder = filesDir
-        if (!folder.exists()) {
-            folder.mkdirs()
-        }
-        val path = "${folder.absolutePath}/$title"
-        val params = RecorderParams(
-            title,
-            currentSize,
-            currentFps.value,
-            currentFps.value,
-            44100,
-            File(path),
-            binding.root.display.rotation
-        )
-
-        if (!recorder.prepare(params)) {
-            Timber.e("recorder prepare failed")
-            return
-        }
-
-
         cameraLogic.closeSession()
         recording = recorder.start()
-        if (recording) {
-            recordParams = params
-        }
         cameraLogic.createSession()
 
     }
 
     private fun stopRecord() {
+        val previousParams = recordParams
         cameraLogic.closeSession()
         recorder.stop()
         recorder.release()
+        prepareRecorder(currentSize!!, currentFps!!)
         recording = false
         cameraLogic.createSession()
-
-        recordParams?.let { params ->
+        previousParams?.let { params ->
             val contentValues = ContentValues().apply {
                 put(MediaStore.Video.Media.DISPLAY_NAME, params.title)
                 put(MediaStore.Video.Media.DATA, params.outputFile.absolutePath)

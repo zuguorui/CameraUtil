@@ -3,6 +3,7 @@ package com.zu.camerautil
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -10,16 +11,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.single
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import timber.log.Timber
-import kotlin.coroutines.suspendCoroutine
 
 /**
  * @author zuguorui
@@ -29,9 +24,9 @@ import kotlin.coroutines.suspendCoroutine
 
 val Context.setting: DataStore<Preferences> by preferencesDataStore(name = "setting")
 
-private val OPEN_CAMERA_METHOD_KEY = stringPreferencesKey("specify_camera_method")
+private val KEY_OPEN_CAMERA_METHOD = stringPreferencesKey("specify_camera_method")
+private val KEY_HIGH_SPEED_PREVIEW_EXTRA_SURFACE = booleanPreferencesKey("high_speed_preview_extra_surface")
 
-private val ioScope = CoroutineScope(Job() + Dispatchers.IO)
 object Settings {
     var openCameraMethod = OpenCameraMethod.DIRECTLY
         set(value) {
@@ -39,7 +34,16 @@ object Settings {
             Timber.d("openCameraMethod, field = $field, value = $value")
             field = value
             if (diff) {
-                saveData(OPEN_CAMERA_METHOD_KEY, value.name)
+                saveData(KEY_OPEN_CAMERA_METHOD, value.name)
+            }
+        }
+
+    var highSpeedPreviewExtraSurface: Boolean = true
+        set(value) {
+            val diff = field != value
+            field = value
+            if (diff) {
+                saveData(KEY_HIGH_SPEED_PREVIEW_EXTRA_SURFACE, value)
             }
         }
 
@@ -49,10 +53,14 @@ object Settings {
         runBlocking {
             Timber.d("init, runBlocking start")
             MyApplication.context.setting.data.first().let { preference ->
-                openCameraMethod = preference[OPEN_CAMERA_METHOD_KEY]?.let{ name ->
+                openCameraMethod = preference[KEY_OPEN_CAMERA_METHOD]?.let{ name ->
                     Timber.d("read openCameraMethod = $name")
                     OpenCameraMethod.valueOf(name)
                 } ?: OpenCameraMethod.DIRECTLY
+
+                highSpeedPreviewExtraSurface = preference[KEY_HIGH_SPEED_PREVIEW_EXTRA_SURFACE]?.let {
+                    it
+                } ?: true
             }
             Timber.d("init, runBlocking end")
         }
@@ -61,7 +69,7 @@ object Settings {
 
     private fun <T> saveData(key: Preferences.Key<T>, value: T) {
         Timber.d("saveData start")
-        ioScope.launch {
+        GlobalScope.launch {
             MyApplication.context.setting.edit {
                 Timber.d("saveData, key = ${key.name}, value = $value")
                 it[key] = value

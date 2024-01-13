@@ -11,9 +11,19 @@ import java.io.File
 data class RecorderParams(
     val title: String,
     val resolution: Size,
-    val fps: Int,
-    val captureFps: Int,
+    val outputFps: Int,
+    val inputFps: Int,
     val sampleRate: Int,
     val outputFile: File,
     val rotation: Int
-)
+) {
+    override fun toString(): String {
+        return """
+            RecordParams {
+                resolution: $resolution
+                outputFps: $outputFps
+                inputFps: $inputFps
+            }
+        """.trimIndent()
+    }
+}

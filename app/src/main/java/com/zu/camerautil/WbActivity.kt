@@ -14,6 +14,7 @@ import android.widget.AdapterView
 import android.widget.AdapterView.OnItemSelectedListener
 import android.widget.ArrayAdapter
 import com.zu.camerautil.bean.CameraInfoWrapper
+import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.CoroutineCameraLogic
@@ -31,7 +32,7 @@ class WbActivity : AppCompatActivity() {
         queryCameraInfo(this)
     }
 
-    private lateinit var cameraLogic: CoroutineCameraLogic
+    private lateinit var cameraLogic: BaseCameraLogic
 
     private var openedCameraID: String? = null
     private var currentSize: Size? = null
@@ -72,23 +73,26 @@ class WbActivity : AppCompatActivity() {
     }
 
     private fun initCameraLogic() {
-        cameraLogic = CoroutineCameraLogic(this)
+        cameraLogic = BaseCameraLogic(this)
         cameraLogic.configCallback = object : BaseCameraLogic.ConfigCallback {
             override fun getFps(): FPS {
-                if (currentFps != binding.cameraSelector.currentFps) {
-                    currentFps = binding.cameraSelector.currentFps
-                }
                 return currentFps!!
             }
 
             override fun getSessionSurfaceList(): List<Surface> {
-                Timber.d("getSessionSurfaceList")
                 return arrayListOf(binding.surfaceMain.surface)
             }
 
             override fun getCaptureSurfaceList(): List<Surface> {
-                Timber.d("getCaptureSurfaceList")
                 return getSessionSurfaceList()
+            }
+
+            override fun getSize(): Size {
+                return currentSize!!
+            }
+
+            override fun getUsage(): CameraUsage {
+                return CameraUsage.PREVIEW
             }
 
             override fun configBuilder(requestBuilder: CaptureRequest.Builder) {
@@ -132,15 +136,24 @@ class WbActivity : AppCompatActivity() {
         binding.surfaceMain.surfaceStateListener = surfaceStateListener
 
         binding.cameraSelector.onConfigChangedListener = {camera, fps, size ->
+            var reopenCamera = false
             if (camera.cameraID != openedCameraID) {
                 updateWbModes(camera)
-            }
-            if (currentSize !=  binding.cameraSelector.currentSize) {
-                currentSize = binding.cameraSelector.currentSize
-                binding.surfaceMain.previewSize = currentSize!!
+                reopenCamera = true
             }
 
-            if (camera.cameraID != openedCameraID || size != currentSize || fps != currentFps) {
+            if (size != currentSize) {
+                currentSize = size
+                binding.surfaceMain.previewSize = currentSize!!
+                reopenCamera = true
+            }
+
+            if (fps != currentFps) {
+                currentFps = fps
+                reopenCamera = true
+            }
+
+            if (reopenCamera) {
                 Timber.d("onConfigChanged: camera: ${camera.cameraID}, size: $size, fps: $fps")
                 // 注意这里回调本来就是在主线程内，但是为什么还要post呢？
                 // 因为上面PreviewView设置分辨率后，会调用一次requestLayout或者postInvalidate进行重新布局。

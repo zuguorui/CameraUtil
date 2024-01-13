@@ -13,6 +13,7 @@ import android.util.Size
 import android.view.Surface
 import androidx.appcompat.app.AppCompatActivity
 import com.zu.camerautil.bean.CameraInfoWrapper
+import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.computeImageReaderSize
@@ -83,14 +84,18 @@ class MultiSurfaceActivity : AppCompatActivity() {
         cameraLogic = BaseCameraLogic(this)
         cameraLogic.configCallback = object : BaseCameraLogic.ConfigCallback {
             override fun getFps(): FPS {
-                if (currentFps != binding.cameraSelector.currentFps) {
-                    currentFps = binding.cameraSelector.currentFps
-                }
                 return currentFps!!
             }
 
-            override fun getSessionSurfaceList(): List<Surface> {
+            override fun getSize(): Size {
+                return currentSize!!
+            }
 
+            override fun getUsage(): CameraUsage {
+                return CameraUsage.PREVIEW
+            }
+
+            override fun getSessionSurfaceList(): List<Surface> {
                 imageReaderSize = computeImageReaderSize(
                     binding.cameraSelector.currentCamera.characteristics,
                     currentSize!!,
@@ -183,12 +188,28 @@ class MultiSurfaceActivity : AppCompatActivity() {
         }
 
         binding.cameraSelector.onConfigChangedListener = {camera, fps, size ->
-            if (currentSize !=  binding.cameraSelector.currentSize) {
-                currentSize = binding.cameraSelector.currentSize
+            var reopenCamera = false
+            if (camera.cameraID != openedCameraID) {
+                reopenCamera = true
+            }
+
+            if (size != currentSize) {
+                currentSize = size
                 binding.surfaceMain.previewSize = currentSize!!
                 binding.surface1.previewSize = currentSize!!
+                if (imageReaderSize != size) {
+                    imageReaderSize = size
+                    initImageReaders()
+                }
+                reopenCamera = true
             }
-            if (camera.cameraID != openedCameraID || size != currentSize || fps != currentFps) {
+
+            if  (fps != currentFps) {
+                currentFps = fps
+                reopenCamera = true
+            }
+
+            if (reopenCamera) {
                 Timber.d("onConfigChanged: camera: ${camera.cameraID}, size: $size, fps: $fps")
                 // 注意这里回调本来就是在主线程内，但是为什么还要post呢？
                 // 因为上面PreviewView设置分辨率后，会调用一次requestLayout或者postInvalidate进行重新布局。
