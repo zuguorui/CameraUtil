@@ -1,6 +1,7 @@
 package com.zu.camerautil.recorder
 
 import android.media.EncoderProfiles
+import android.media.EncoderProfiles.VideoProfile
 import android.media.MediaRecorder
 import android.media.MediaRecorder.AudioEncoder
 import android.media.MediaRecorder.AudioSource
@@ -39,16 +40,21 @@ class SystemRecorder: IRecorder {
             setAudioSamplingRate(params.sampleRate)
             setAudioChannels(2)
             setAudioEncoder(AudioEncoder.AAC)
-            //setAudioEncodingBitRate(computeAudioBitRate(params.sampleRate, 2, 16))
+            setAudioEncodingBitRate(computeAudioBitRate(params.sampleRate, 2, 16))
 
             setVideoFrameRate(params.outputFps)
             if (params.outputFps != params.inputFps) {
                 setCaptureRate(params.inputFps.toDouble())
             }
-            setVideoEncoder(VideoEncoder.HEVC)
+            if (params.inputFps >= 120) {
+                setVideoEncoder(VideoEncoder.HEVC)
+            } else {
+                setVideoEncoder(VideoEncoder.H264)
+            }
+
             setOrientationHint(90)
             setVideoSize(params.resolution.width, params.resolution.height)
-            // setVideoEncodingBitRate(computeVideoBitRate(params.resolution.width, params.resolution.height, params.outputFps, 8))
+            setVideoEncodingBitRate(computeVideoBitRate(params.resolution.width, params.resolution.height, params.outputFps, 24))
 
             setOutputFile(params.outputFile.absolutePath)
         }
@@ -82,11 +88,12 @@ class SystemRecorder: IRecorder {
         _isRecording = false
     }
 
-    private fun computeVideoBitRate(width: Int, height: Int, frameRate: Int, depth: Int): Int {
-        return width * height * 3 * depth * frameRate
+    private val videoQuality = 1
+    private fun computeVideoBitRate(width: Int, height: Int, frameRate: Int, pixelSize: Int): Int {
+        return (0.07 * width * height * pixelSize * frameRate * videoQuality).toInt()
     }
 
     private fun computeAudioBitRate(sampleRate: Int, channel: Int, depth: Int): Int {
-        return sampleRate * channel * depth
+        return 320 * 1000
     }
 }
