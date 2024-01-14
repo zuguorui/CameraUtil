@@ -88,6 +88,8 @@ class SystemRecorder: IRecorder {
         _isRecording = false
     }
 
+    // 计算视频比特率
+    // https://zidivo.com/blog/video-bitrate-guide/
     private val videoQuality = 1
     private fun computeVideoBitRate(width: Int, height: Int, frameRate: Int, pixelSize: Int): Int {
         return (0.07 * width * height * pixelSize * frameRate * videoQuality).toInt()
