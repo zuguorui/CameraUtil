@@ -161,7 +161,6 @@ class RecordActivity : AppCompatActivity() {
 
         binding.cameraSelector.onConfigChangedListener = {camera, fps, size ->
             var reopenCamera = false
-            var recreateRecorder = false
 
             if (camera.cameraID != openedCameraID) {
                 reopenCamera = true
@@ -171,18 +170,11 @@ class RecordActivity : AppCompatActivity() {
                 currentSize = size
                 binding.surfaceMain.previewSize = size
                 reopenCamera = true
-                recreateRecorder = true
             }
 
             if (fps != currentFps) {
                 currentFps = fps
                 reopenCamera = true
-                recreateRecorder = true
-            }
-
-            if (recreateRecorder) {
-                releaseRecorder()
-                prepareRecorder(size, fps)
             }
 
             if (reopenCamera) {
@@ -200,7 +192,9 @@ class RecordActivity : AppCompatActivity() {
 
     }
 
-    private fun prepareRecorder(size: Size, fps: FPS) {
+    private fun startRecord() {
+        val size = currentSize ?: return
+        val fps = currentFps ?: return
         val title = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis())) + ".mp4"
         val dcim = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
 
@@ -224,13 +218,7 @@ class RecordActivity : AppCompatActivity() {
             return
         }
         recordParams = params
-    }
 
-    private fun releaseRecorder() {
-        recorder.release()
-    }
-
-    private fun startRecord() {
         cameraLogic.closeSession()
         recording = recorder.start()
         cameraLogic.createSession()
@@ -242,7 +230,6 @@ class RecordActivity : AppCompatActivity() {
         cameraLogic.closeSession()
         recorder.stop()
         recorder.release()
-        prepareRecorder(currentSize!!, currentFps!!)
         recording = false
         cameraLogic.createSession()
         previousParams?.let { params ->

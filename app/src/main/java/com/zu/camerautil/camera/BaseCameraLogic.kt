@@ -22,6 +22,7 @@ import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.recorder.FakeMediaEncoderSurfaceProvider
+import com.zu.camerautil.recorder.FakeMediaRecorderSurfaceProvider
 import com.zu.camerautil.util.waitCallbackResult
 import timber.log.Timber
 import java.util.concurrent.Executors
@@ -85,8 +86,10 @@ open class BaseCameraLogic(val context: Context) {
 
     protected var cameraExecutor = Executors.newSingleThreadExecutor()
 
+    // 为了避免阻塞主线程，相机操作都放在单独线程
     private var cameraOperationExecutor = Executors.newSingleThreadExecutor()
 
+    // 某些手机高帧率预览必须提供一个MediaCodec或者MediaRecorder的surface
     private val fakeSurfaceProvider = FakeMediaEncoderSurfaceProvider()
 
     /**

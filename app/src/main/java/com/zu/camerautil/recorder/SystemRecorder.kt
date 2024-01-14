@@ -1,5 +1,6 @@
 package com.zu.camerautil.recorder
 
+import android.media.EncoderProfiles
 import android.media.MediaRecorder
 import android.media.MediaRecorder.AudioEncoder
 import android.media.MediaRecorder.AudioSource
@@ -29,6 +30,7 @@ class SystemRecorder: IRecorder {
             return false
         }
         mediaRecorder = MediaRecorder()
+
         mediaRecorder?.apply {
             setAudioSource(AudioSource.MIC)
             setVideoSource(VideoSource.SURFACE)
@@ -37,17 +39,16 @@ class SystemRecorder: IRecorder {
             setAudioSamplingRate(params.sampleRate)
             setAudioChannels(2)
             setAudioEncoder(AudioEncoder.AAC)
+            //setAudioEncodingBitRate(computeAudioBitRate(params.sampleRate, 2, 16))
 
             setVideoFrameRate(params.outputFps)
             if (params.outputFps != params.inputFps) {
                 setCaptureRate(params.inputFps.toDouble())
             }
-
             setVideoEncoder(VideoEncoder.HEVC)
-
             setOrientationHint(90)
-
             setVideoSize(params.resolution.width, params.resolution.height)
+            // setVideoEncodingBitRate(computeVideoBitRate(params.resolution.width, params.resolution.height, params.outputFps, 8))
 
             setOutputFile(params.outputFile.absolutePath)
         }
@@ -79,5 +80,13 @@ class SystemRecorder: IRecorder {
         mediaRecorder?.release()
         mediaRecorder = null
         _isRecording = false
+    }
+
+    private fun computeVideoBitRate(width: Int, height: Int, frameRate: Int, depth: Int): Int {
+        return width * height * 3 * depth * frameRate
+    }
+
+    private fun computeAudioBitRate(sampleRate: Int, channel: Int, depth: Int): Int {
+        return sampleRate * channel * depth
     }
 }
