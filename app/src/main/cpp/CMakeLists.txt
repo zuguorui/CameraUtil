@@ -5,13 +5,14 @@
 
 cmake_minimum_required(VERSION 3.10.2)
 
+enable_language(ASM)
 
 # Creates and names a library, sets it as either STATIC
 # or SHARED, and provides the relative paths to its source code.
 # You can define multiple libraries, and CMake builds them for you.
 # Gradle automatically packages shared libraries with your APK.
 
-file(GLOB CPP_FILES "./*.cpp" )
+file(GLOB CPP_FILES "./*.cpp")
 
 include_directories("./")
 

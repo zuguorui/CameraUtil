@@ -570,3 +570,34 @@ jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, i
 
 
 
+//jobject convert_YUV_420_888_assembly(JNIEnv *env, ImageProxy &image, int rotation, int facing) {
+//
+//
+//    if (bitmapClass == nullptr) {
+//        LOGE(TAG, "JNI object not init, init");
+//        initJNI(env);
+//    }
+//
+//    jobject bitmap = env->CallStaticObjectMethod(bitmapClass, bitmapCreateMethod, image.getWidth(), image.getHeight(), argb8888Obj);
+//
+//    int32_t *bitmapBuffer = nullptr;
+//    AndroidBitmap_lockPixels(env, bitmap, (void **)&bitmapBuffer);
+//
+//    uint8_t *yBuffer, *uBuffer, *vBuffer;
+//    int yBufferLen, uBufferLen, vBufferLen;
+//    int yRowStride, uRowStride, vRowStride;
+//    int yPixelStride, uPixelStride, vPixelStride;
+//
+//    image.getPlane(0, &yBuffer, yBufferLen, yRowStride, yPixelStride);
+//    image.getPlane(1, &uBuffer, uBufferLen, uRowStride, uPixelStride);
+//    image.getPlane(2, &vBuffer, vBufferLen, vRowStride, vPixelStride);
+//
+//    neonYUV420ToRGBAFullSwing(yBuffer, uBuffer, vBuffer, (uint8_t *)bitmapBuffer, image.getWidth(), image.getHeight(), image.getWidth() * 4, yRowStride, uRowStride);
+//
+//    AndroidBitmap_unlockPixels(env, bitmap);
+//    return bitmap;
+//}
+
+
+
+
