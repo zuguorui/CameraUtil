@@ -59,6 +59,7 @@ open class BaseCameraLogic(val context: Context) {
         }
 
 
+
         override fun onCaptureProgressed(
             session: CameraCaptureSession,
             request: CaptureRequest,

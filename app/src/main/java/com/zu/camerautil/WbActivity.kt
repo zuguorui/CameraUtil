@@ -5,6 +5,9 @@ import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.params.ColorSpaceProfiles
+import android.hardware.camera2.params.ColorSpaceTransform
+import android.hardware.camera2.params.RggbChannelVector
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Size
@@ -13,11 +16,14 @@ import android.view.View
 import android.widget.AdapterView
 import android.widget.AdapterView.OnItemSelectedListener
 import android.widget.ArrayAdapter
+import android.widget.SeekBar
+import android.widget.SeekBar.OnSeekBarChangeListener
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
-import com.zu.camerautil.camera.CoroutineCameraLogic
+import com.zu.camerautil.camera.CTS_COLOR
+import com.zu.camerautil.camera.computeRggbChannelVector
 import com.zu.camerautil.camera.getWbModeName
 import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.databinding.ActivityWbBinding
@@ -27,6 +33,14 @@ import timber.log.Timber
 
 @SuppressLint("MissingPermission")
 class WbActivity : AppCompatActivity() {
+
+    private val TEMP_MAX = 1
+    private val TEMP_MIN = 0
+    private val TINT_MAX = 1
+    private val TINT_MIN = -1
+
+    private val gain = 2.0f
+    private val testVector = RggbChannelVector(1.0f * gain, 0.5f * gain, 0.5f * gain, 1.0f * gain)
 
     private val cameraInfoMap: HashMap<String, CameraInfoWrapper> by lazy {
         queryCameraInfo(this)
@@ -58,6 +72,7 @@ class WbActivity : AppCompatActivity() {
     private lateinit var binding: ActivityWbBinding
     private lateinit var wbModeAdapter: ArrayAdapter<String>
 
+    private lateinit var rggbChannelVector: RggbChannelVector
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,6 +80,7 @@ class WbActivity : AppCompatActivity() {
         setContentView(binding.root)
         initCameraLogic()
         initViews()
+        updateRggbChannelVector()
     }
 
     override fun onDestroy() {
@@ -96,10 +112,19 @@ class WbActivity : AppCompatActivity() {
             }
 
             override fun configBuilder(requestBuilder: CaptureRequest.Builder) {
+                var wbMode = CameraCharacteristics.CONTROL_AWB_MODE_OFF
                 if (binding.spWbMode.selectedItemPosition >= 0) {
                     cameraLogic.currentCameraInfo?.awbModes?.get(binding.spWbMode.selectedItemPosition)?.let {
-                        requestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, it)
+                        wbMode = it
                     }
+                }
+                requestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, wbMode)
+                if (wbMode == CameraCharacteristics.CONTROL_AWB_MODE_OFF) {
+                    requestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+                    requestBuilder.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, CTS_COLOR)
+                    //requestBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector)
+                    requestBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, testVector)
+
                 }
 
             }
@@ -178,9 +203,9 @@ class WbActivity : AppCompatActivity() {
             ) {
                 val mode = cameraLogic.currentCameraInfo?.awbModes?.get(position) ?: return
                 val isManual = mode == CameraCharacteristics.CONTROL_AWB_MODE_OFF
-                binding.tvInputWb.visibility = if (isManual) View.VISIBLE else View.VISIBLE
-                binding.sbKelvin.isEnabled = isManual
-                binding.sbGreenRed.isEnabled = isManual
+                binding.tvInputTemp.visibility = if (isManual) View.VISIBLE else View.VISIBLE
+                binding.sbTemp.isEnabled = isManual
+                binding.sbTint.isEnabled = isManual
                 cameraLogic.updateCaptureRequestParams()
             }
 
@@ -189,6 +214,55 @@ class WbActivity : AppCompatActivity() {
             }
         }
 
+        binding.tvMaxTemp.text = "$TEMP_MAX"
+        binding.tvMinTemp.text = "$TEMP_MIN"
+        binding.tvMaxTint.text = "$TINT_MAX"
+        binding.tvMinTint.text = "$TINT_MIN"
+
+        binding.sbTemp.setOnSeekBarChangeListener(object : OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    updateRggbChannelVector()
+                }
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {
+
+            }
+
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+
+            }
+        })
+
+        binding.sbTint.setOnSeekBarChangeListener(object : OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    updateRggbChannelVector()
+                }
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {
+
+            }
+
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+
+            }
+        })
+
+    }
+
+    private fun updateRggbChannelVector() {
+        val tempProgress = binding.sbTemp.progress.toFloat() / binding.sbTemp.max
+        val tintProgress = binding.sbTint.progress.toFloat() / binding.sbTint.max
+        val temp = (1 - tempProgress) * TEMP_MIN + tempProgress * TEMP_MAX
+        val tint = (1 - tintProgress) * TINT_MIN + tintProgress * TINT_MAX
+        binding.tvInputTemp.text = "色温(输入): ${String.format("%.2f", temp)}"
+        binding.tvTint.text = "色调: ${String.format("%.2f", tint)}"
+
+        rggbChannelVector = computeRggbChannelVector(temp, tint)
+        cameraLogic.updateCaptureRequestParams()
     }
 
     private fun updateWbModes(cameraInfo: CameraInfoWrapper) {

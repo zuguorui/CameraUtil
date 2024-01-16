@@ -58,96 +58,109 @@
             android:layout_height="wrap_content"
             app:layout_constraintLeft_toRightOf="@id/sp_wb_mode"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toTopOf="@id/tv_analyze_wb"
+            app:layout_constraintBottom_toTopOf="@id/tv_analyze_temp"
             android:layout_marginLeft="20dp"
-            android:text="输入值：123"
-            android:id="@+id/tv_input_wb"/>
+            android:text="色温(输入): 123"
+            android:id="@+id/tv_input_temp"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             app:layout_constraintLeft_toRightOf="@id/sp_wb_mode"
             app:layout_constraintBottom_toTopOf="@id/gl2"
-            app:layout_constraintTop_toBottomOf="@id/tv_input_wb"
+            app:layout_constraintTop_toBottomOf="@id/tv_input_temp"
             android:layout_marginLeft="20dp"
-            android:text="解析值：456"
-            android:id="@+id/tv_analyze_wb"/>
+            android:text="色温(解析): 456"
+            android:id="@+id/tv_analyze_temp"/>
+        
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintLeft_toRightOf="@id/tv_input_temp"
+            app:layout_constraintTop_toTopOf="@id/tv_input_temp"
+            android:layout_marginLeft="10dp"
+            android:text="色调: 0"
+            android:id="@+id/tv_tint"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintTop_toTopOf="@id/sb_kelvin"
-            app:layout_constraintBottom_toBottomOf="@id/sb_kelvin"
-            android:id="@+id/label_kelvin"
+            app:layout_constraintTop_toTopOf="@id/sb_temp"
+            app:layout_constraintBottom_toBottomOf="@id/sb_temp"
+            android:id="@+id/label_temp"
             android:text="色温:"/>
 
         <SeekBar
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             app:layout_constraintTop_toBottomOf="@id/gl2"
-            app:layout_constraintBottom_toTopOf="@id/sb_green_red"
-            app:layout_constraintLeft_toRightOf="@id/tv_min_kelvin"
-            app:layout_constraintRight_toLeftOf="@id/tv_max_kelvin"
+            app:layout_constraintBottom_toTopOf="@id/sb_tint"
+            app:layout_constraintLeft_toRightOf="@id/tv_min_temp"
+            app:layout_constraintRight_toLeftOf="@id/tv_max_temp"
             android:layout_marginLeft="10dp"
             android:layout_marginRight="10dp"
-            android:id="@+id/sb_kelvin"/>
+            android:max="100"
+            android:progress="50"
+            android:id="@+id/sb_temp"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:layout_constraintLeft_toRightOf="@id/label_kelvin"
-            app:layout_constraintTop_toTopOf="@id/sb_kelvin"
-            app:layout_constraintBottom_toBottomOf="@id/sb_kelvin"
+            app:layout_constraintLeft_toRightOf="@id/label_temp"
+            app:layout_constraintTop_toTopOf="@id/sb_temp"
+            app:layout_constraintBottom_toBottomOf="@id/sb_temp"
             android:text="2000"
-            android:id="@+id/tv_min_kelvin"/>
+            android:id="@+id/tv_min_temp"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             app:layout_constraintRight_toRightOf="parent"
-            app:layout_constraintTop_toTopOf="@id/sb_kelvin"
-            app:layout_constraintBottom_toBottomOf="@id/sb_kelvin"
+            app:layout_constraintTop_toTopOf="@id/sb_temp"
+            app:layout_constraintBottom_toBottomOf="@id/sb_temp"
             android:text="10000"
-            android:id="@+id/tv_max_kelvin"/>
+            android:id="@+id/tv_max_temp"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintTop_toTopOf="@id/sb_green_red"
-            app:layout_constraintBottom_toBottomOf="@id/sb_green_red"
-            android:id="@+id/label_green_red"
-            android:text="绿品:"/>
+            app:layout_constraintTop_toTopOf="@id/sb_tint"
+            app:layout_constraintBottom_toBottomOf="@id/sb_tint"
+            android:id="@+id/label_tint"
+            android:text="色调:"/>
 
         <SeekBar
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            app:layout_constraintTop_toBottomOf="@id/sb_kelvin"
+            app:layout_constraintTop_toBottomOf="@id/sb_temp"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintLeft_toRightOf="@id/tv_min_green_red"
-            app:layout_constraintRight_toLeftOf="@id/tv_max_green_red"
+            app:layout_constraintLeft_toRightOf="@id/tv_min_tint"
+            app:layout_constraintRight_toLeftOf="@id/tv_max_tint"
             android:layout_marginLeft="10dp"
             android:layout_marginRight="10dp"
-            android:id="@+id/sb_green_red"/>
+            android:max="100"
+            android:progress="50"
+            android:id="@+id/sb_tint"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:layout_constraintLeft_toRightOf="@id/label_green_red"
-            app:layout_constraintTop_toTopOf="@id/sb_green_red"
-            app:layout_constraintBottom_toBottomOf="@id/sb_green_red"
+            app:layout_constraintLeft_toRightOf="@id/label_tint"
+            app:layout_constraintTop_toTopOf="@id/sb_tint"
+            app:layout_constraintBottom_toBottomOf="@id/sb_tint"
             android:text="2000"
-            android:id="@+id/tv_min_green_red"/>
+            android:id="@+id/tv_min_tint"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             app:layout_constraintRight_toRightOf="parent"
-            app:layout_constraintTop_toTopOf="@id/sb_green_red"
-            app:layout_constraintBottom_toBottomOf="@id/sb_green_red"
+            app:layout_constraintTop_toTopOf="@id/sb_tint"
+            app:layout_constraintBottom_toBottomOf="@id/sb_tint"
             android:text="10000"
-            android:id="@+id/tv_max_green_red"/>
+            android:id="@+id/tv_max_tint"/>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 
