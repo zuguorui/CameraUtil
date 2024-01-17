@@ -1,6 +1,5 @@
 package com.zu.camerautil
 
-import android.annotation.SuppressLint
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
@@ -14,25 +13,21 @@ import android.util.Size
 import android.view.Surface
 import android.view.View
 import android.widget.AdapterView
-import android.widget.AdapterView.OnItemSelectedListener
 import android.widget.ArrayAdapter
 import android.widget.SeekBar
-import android.widget.SeekBar.OnSeekBarChangeListener
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.WbUtil
 import com.zu.camerautil.camera.queryCameraInfo
-import com.zu.camerautil.databinding.ActivityWbBinding
+import com.zu.camerautil.databinding.ActivitySimpleWbBinding
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
 import timber.log.Timber
 import kotlin.math.roundToInt
 
-@SuppressLint("MissingPermission")
-class WbActivity : AppCompatActivity() {
-
+class SimpleWbActivity : AppCompatActivity() {
     private val cameraInfoMap: HashMap<String, CameraInfoWrapper> by lazy {
         queryCameraInfo(this)
     }
@@ -60,7 +55,7 @@ class WbActivity : AppCompatActivity() {
         }
     }
 
-    private lateinit var binding: ActivityWbBinding
+    private lateinit var binding: ActivitySimpleWbBinding
     private lateinit var wbModeAdapter: ArrayAdapter<String>
 
     private lateinit var rggbChannelVector: RggbChannelVector
@@ -76,7 +71,7 @@ class WbActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityWbBinding.inflate(layoutInflater)
+        binding = ActivitySimpleWbBinding.inflate(layoutInflater)
         setContentView(binding.root)
         initCameraLogic()
         initViews()
@@ -168,11 +163,10 @@ class WbActivity : AppCompatActivity() {
                     Timber.d("phone color transform:\n$sb")
                 }
                 result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let {
-                    val (temp, tint) = WbUtil.computeTempAndTint(it)
+                    val temp = WbUtil.computeTemp(it)
 
                     runOnUiThread {
                         binding.tvTempAnalyze.text = "$temp"
-                        binding.tvTintAnalyze.text = "$tint"
                     }
 
 
@@ -180,11 +174,6 @@ class WbActivity : AppCompatActivity() {
                         runOnUiThread {
                             binding.sbTemp.run {
                                 val p = (temp.toFloat() - WbUtil.TEMP_RANGE.lower) / (WbUtil.TEMP_RANGE.upper - WbUtil.TEMP_RANGE.lower)
-                                progress = (p * max).roundToInt()
-                            }
-
-                            binding.sbTint.run {
-                                val p = (tint.toFloat() - WbUtil.TINT_RANGE.lower) / (WbUtil.TINT_RANGE.upper - WbUtil.TINT_RANGE.lower)
                                 progress = (p * max).roundToInt()
                             }
                         }
@@ -237,7 +226,7 @@ class WbActivity : AppCompatActivity() {
 
         wbModeAdapter = ArrayAdapter(this, R.layout.item_camera_simple,R.id.tv)
         binding.spWbMode.adapter = wbModeAdapter
-        binding.spWbMode.onItemSelectedListener = object : OnItemSelectedListener {
+        binding.spWbMode.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(
                 parent: AdapterView<*>?,
                 view: View?,
@@ -261,7 +250,7 @@ class WbActivity : AppCompatActivity() {
         binding.tvMaxTint.text = "${WbUtil.TINT_RANGE.upper}"
         binding.tvMinTint.text = "${WbUtil.TINT_RANGE.lower}"
 
-        binding.sbTemp.setOnSeekBarChangeListener(object : OnSeekBarChangeListener {
+        binding.sbTemp.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 updateRggbChannelVector()
                 Timber.d("temp changed, from user = $fromUser")
@@ -279,7 +268,7 @@ class WbActivity : AppCompatActivity() {
             }
         })
 
-        binding.sbTint.setOnSeekBarChangeListener(object : OnSeekBarChangeListener {
+        binding.sbTint.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 updateRggbChannelVector()
                 Timber.d("tint changed, from user = $fromUser")
@@ -301,12 +290,12 @@ class WbActivity : AppCompatActivity() {
 
     private fun updateRggbChannelVector() {
         val tempProgress = binding.sbTemp.progress.toFloat() / binding.sbTemp.max
-        val tintProgress = binding.sbTint.progress.toFloat() / binding.sbTint.max
+        //val tintProgress = binding.sbTint.progress.toFloat() / binding.sbTint.max
         val temp = ((1 - tempProgress) * WbUtil.TEMP_RANGE.lower + tempProgress * WbUtil.TEMP_RANGE.upper).roundToInt()
-        val tint = ((1 - tintProgress) * WbUtil.TINT_RANGE.lower + tintProgress * WbUtil.TINT_RANGE.upper).roundToInt()
+        //val tint = ((1 - tintProgress) * WbUtil.TINT_RANGE.lower + tintProgress * WbUtil.TINT_RANGE.upper).roundToInt()
         binding.tvTempInput.text = "$temp"
-        binding.tvTintInput.text = "$tint"
-        rggbChannelVector = WbUtil.computeRggbChannelVector(temp, tint)
+        //binding.tvTintInput.text = "$tint"
+        rggbChannelVector = WbUtil.computeRggbChannelVector(temp)
     }
 
     private fun updateWbModes(cameraInfo: CameraInfoWrapper) {

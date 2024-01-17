@@ -4,7 +4,7 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.params.ColorSpaceTransform
 import android.hardware.camera2.params.RggbChannelVector
 import android.util.Range
-import androidx.annotation.Size
+import kotlin.math.roundToInt
 
 /**
  * @author zuguorui
@@ -15,40 +15,6 @@ import androidx.annotation.Size
 object WbUtil {
 
     var phoneColorSpaceTransform: ColorSpaceTransform? = null
-
-    fun m8117(@Size(3) fArr: FloatArray, @Size(3) fArr2: FloatArray, f: Float): FloatArray {
-        val fArr3 = FloatArray(3)
-        val f2 = fArr[0]
-        val f3 = fArr2[0]
-        fArr3[0] = if (f2 > f3) f2 - Math.abs(f2 - f3) * f else f2 + Math.abs(f2 - f3) * f
-        val f4 = fArr[1]
-        val f5 = fArr2[1]
-        fArr3[1] = if (f4 > f5) f4 - Math.abs(f4 - f5) * f else f4 + Math.abs(f4 - f5) * f
-        val f6 = fArr[2]
-        val f7 = fArr2[2]
-        fArr3[2] = if (f6 > f7) f6 - Math.abs(f6 - f7) * f else f6 + Math.abs(f6 - f7) * f
-        return fArr3
-    }
-
-    fun m8118(f: Float, f2: Float, f3: Float, f4: Float, f5: Float): Float {
-        return f3 + (f4 - f3) * ((f5 - f) / (f2 - f))
-    }
-
-    fun m8119(f: Float): Float {
-        return Math.max(0.0f, Math.min(1.0f, f))
-    }
-
-    fun m8120(range: Range<Float>, range2: Range<Float>, f: Float): Float {
-        return range2.lower + (range2.upper - range2.lower) * ((f - range.lower) / (range.upper - range.lower))
-    }
-
-    fun computeRggbChannelVector(f: Float, f2: Float): RggbChannelVector {
-        var fArr1 = m8117(m8117(BLUE_GREEN, RED_GREEN, f), m8117(GREEN, WHITE, f2), 0.5f)
-        var f3 = m8118(0.0f, 255.0f, 1.0f, 3.0f, fArr1[0])
-        var f4 = m8118(0.0f, 255.0f, 1.0f, 3.0f, fArr1[1]) / 2
-        var f5 = m8118(0.0f, 255.0f, 1.0f, 3.0f, fArr1[2])
-        return RggbChannelVector(f3, f4, f4, f5)
-    }
 
     private fun combineArrayByRatio(fromArray: FloatArray, toArray: FloatArray, ratio: Float): FloatArray {
         val result = FloatArray(3)
@@ -64,9 +30,12 @@ object WbUtil {
         return dstMin + (dstMax - dstMin) * ((src - srcMin) / (srcMax - srcMin))
     }
 
-    fun computeRggbChannelVector_my(temp: Float, tint: Float): RggbChannelVector {
-        val tempArray = combineArrayByRatio(BLUE_GREEN, RED_GREEN, temp)
-        val tintArray = combineArrayByRatio(GREEN, WHITE, tint)
+
+    fun computeRggbChannelVector(temp: Int, tint: Int): RggbChannelVector {
+        val tempF = (temp.toFloat() - TEMP_RANGE.lower) / (TEMP_RANGE.upper - TEMP_RANGE.lower)
+        val tintF = (tint.toFloat() - TINT_RANGE.lower) / (TINT_RANGE.upper - TINT_RANGE.lower)
+        val tempArray = combineArrayByRatio(BLUE_GREEN, RED_GREEN, tempF)
+        val tintArray = combineArrayByRatio(GREEN, WHITE, tintF)
         val combined = combineArrayByRatio(tempArray, tintArray, 0.5f)
 
         val rGain = transformToRange(0.0f, 255.0f, 1.0f, 3.0f, combined[0])
@@ -76,7 +45,7 @@ object WbUtil {
         return RggbChannelVector(rGain, gGain, gGain, bGain)
     }
 
-    fun computeTempAndTint_my(vector: RggbChannelVector): Pair<Float, Float> {
+    fun computeTempAndTint(vector: RggbChannelVector): Pair<Int, Int> {
         var rGain = vector.red
         var bGain = vector.blue
 
@@ -86,7 +55,25 @@ object WbUtil {
         val tint = (rGain + bGain - 127.5f) / 255
         val temp = (rGain - bGain + 127.5f) / 255
 
-        return Pair(temp, tint)
+        val tempI = ((1 - temp) * TEMP_RANGE.lower + temp * TEMP_RANGE.upper).roundToInt()
+        val tintI = ((1 - tint) * TINT_RANGE.lower + tint * TINT_RANGE.upper).roundToInt()
+        return Pair(tempI, tintI)
+    }
+
+    fun computeRggbChannelVector(temp: Int): RggbChannelVector {
+        return computeRggbChannelVector(temp, 0)
+    }
+
+    fun computeTemp(vector: RggbChannelVector): Int {
+        var rGain = vector.red
+        rGain = transformToRange(1.0f, 3.0f, 0.0f, 255.0f, rGain)
+
+        var bGain = vector.blue
+        bGain = transformToRange(1.0f, 3.0f, 0.0f, 255.0f, bGain)
+
+        val tempF = (rGain - bGain + 127.5f) / 255
+
+        return ((1 - tempF) * TEMP_RANGE.lower + tempF * TEMP_RANGE.upper).roundToInt()
     }
 
 
@@ -113,6 +100,9 @@ object WbUtil {
     private val WHITE = floatArrayOf(255.0f, 127.5f, 255.0f)
     private val RED_GREEN = floatArrayOf(255.0f, 127.5f, 0.0f)
     private val BLUE_GREEN = floatArrayOf(0.0f, 127.5f, 255.0f)
+
+    val TEMP_RANGE = Range<Int>(2000, 8000)
+    val TINT_RANGE = Range<Int>(-50, 50)
 
 }
 

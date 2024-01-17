@@ -1,8 +1,7 @@
 package com.zu.camerautil
 
 import android.util.Log
-import com.zu.camerautil.camera.computeRggbChannelVector_my
-import com.zu.camerautil.camera.computeTempAndTint_my
+import com.zu.camerautil.camera.WbUtil
 import org.junit.Test
 
 import org.junit.Assert.*
@@ -26,12 +25,12 @@ class ExampleUnitTest {
 
     @Test
     fun test_temp() {
-        val temp = 0.2f
-        val tint = 0.5f
+        val temp = 3000
+        val tint = 0
 
-        val vector = computeRggbChannelVector_my(temp, tint)
+        val vector = WbUtil.computeRggbChannelVector(temp, tint)
 
-        val (newTemp, newTint) = computeTempAndTint_my(vector)
+        val (newTemp, newTint) = WbUtil.computeTempAndTint(vector)
 
         assert(temp == newTemp && tint == newTint) {
             Log.e(TAG, "temp = $temp, tint = $tint, newTemp = $newTemp, newTint = $newTint")

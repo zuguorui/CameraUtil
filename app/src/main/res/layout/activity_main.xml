@@ -49,6 +49,12 @@
             <Button
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:id="@+id/btn_simple_wb"
+                android:layout_margin="10dp"
+                android:text="白平衡(无色调)"/>
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:id="@+id/btn_system_recorder"
                 android:layout_margin="10dp"
                 android:text="MediaRecorder录像"/>

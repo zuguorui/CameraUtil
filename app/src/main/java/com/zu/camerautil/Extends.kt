@@ -1,6 +1,7 @@
 package com.zu.camerautil
 
 import android.graphics.Rect
+import android.util.Range
 import android.util.Rational
 import android.util.Size
 import java.lang.StringBuilder
@@ -80,6 +81,9 @@ suspend fun <T> suspendLockBlock(lock: ReentrantLock, block: suspend () -> T): T
     return t
 }
 
+fun Range<Int>.route(): Int {
+    return upper - lower
+}
 
 
 
