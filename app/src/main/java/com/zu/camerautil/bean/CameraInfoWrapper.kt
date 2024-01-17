@@ -36,6 +36,8 @@ open class CameraInfoWrapper(
 
     val activeArraySize: Rect = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)!!
 
+    val sensorOrientation: Int? = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION)
+
     val maxDigitalZoom: Float = characteristics.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM)!!
 
     val minDigitalCropSize: Size = Size(

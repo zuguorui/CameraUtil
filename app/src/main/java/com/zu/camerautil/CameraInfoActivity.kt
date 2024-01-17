@@ -80,6 +80,8 @@ class CameraInfoActivity : AppCompatActivity() {
 
         addItem("可用像素尺寸", activePixelSizeStr)
 
+        addItem("传感器方向", "${cameraInfo.sensorOrientation}")
+
         val zoomRangeStr = if (Build.VERSION.SDK_INT < 30) {
             "系统版本不支持"
         } else {

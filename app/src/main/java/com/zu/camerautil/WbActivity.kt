@@ -5,6 +5,8 @@ import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.CaptureResult
+import android.hardware.camera2.TotalCaptureResult
 import android.hardware.camera2.params.ColorSpaceProfiles
 import android.hardware.camera2.params.ColorSpaceTransform
 import android.hardware.camera2.params.RggbChannelVector
@@ -22,9 +24,7 @@ import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
-import com.zu.camerautil.camera.CTS_COLOR
-import com.zu.camerautil.camera.computeRggbChannelVector
-import com.zu.camerautil.camera.getWbModeName
+import com.zu.camerautil.camera.WbUtil
 import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.databinding.ActivityWbBinding
 import com.zu.camerautil.preview.Camera2PreviewView
@@ -34,10 +34,11 @@ import timber.log.Timber
 @SuppressLint("MissingPermission")
 class WbActivity : AppCompatActivity() {
 
-    private val TEMP_MAX = 1
-    private val TEMP_MIN = 0
-    private val TINT_MAX = 1
-    private val TINT_MIN = -1
+    private val TEMP_MAX = 8000
+    private val TEMP_MIN = 2000
+    private val TINT_MAX = 50
+    private val TINT_MIN = -50
+
 
     private val gain = 2.0f
     private val testVector = RggbChannelVector(1.0f * gain, 0.5f * gain, 0.5f * gain, 1.0f * gain)
@@ -74,13 +75,21 @@ class WbActivity : AppCompatActivity() {
 
     private lateinit var rggbChannelVector: RggbChannelVector
 
+    private val currentMode: Int
+        get() {
+            return openedCameraID?.let { id ->
+                val cameraInfo = cameraInfoMap[id]
+                val index = binding.spWbMode.selectedItemPosition
+                cameraInfo!!.awbModes!![index]
+            } ?: CameraCharacteristics.CONTROL_AWB_MODE_OFF
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityWbBinding.inflate(layoutInflater)
         setContentView(binding.root)
         initCameraLogic()
         initViews()
-        updateRggbChannelVector()
     }
 
     override fun onDestroy() {
@@ -112,19 +121,13 @@ class WbActivity : AppCompatActivity() {
             }
 
             override fun configBuilder(requestBuilder: CaptureRequest.Builder) {
-                var wbMode = CameraCharacteristics.CONTROL_AWB_MODE_OFF
-                if (binding.spWbMode.selectedItemPosition >= 0) {
-                    cameraLogic.currentCameraInfo?.awbModes?.get(binding.spWbMode.selectedItemPosition)?.let {
-                        wbMode = it
-                    }
-                }
-                requestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, wbMode)
-                if (wbMode == CameraCharacteristics.CONTROL_AWB_MODE_OFF) {
-                    requestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
-                    requestBuilder.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, CTS_COLOR)
-                    //requestBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector)
-                    requestBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, testVector)
+                val currentMode = currentMode
 
+                requestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, currentMode)
+                if (currentMode == CameraCharacteristics.CONTROL_AWB_MODE_OFF) {
+                    requestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+                    requestBuilder.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, WbUtil.phoneColorSpaceTransform ?: WbUtil.CTS_COLOR)
+                    requestBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector)
                 }
 
             }
@@ -144,15 +147,65 @@ class WbActivity : AppCompatActivity() {
             }
         }
 
-        cameraLogic.sessionStateCallback = object : CameraCaptureSession.StateCallback() {
-            override fun onConfigured(session: CameraCaptureSession) {
-                currentFps = binding.cameraSelector.currentFps
-            }
+        cameraLogic.captureCallback = object : CameraCaptureSession.CaptureCallback() {
 
-            override fun onConfigureFailed(session: CameraCaptureSession) {
+            override fun onCaptureCompleted(
+                session: CameraCaptureSession,
+                request: CaptureRequest,
+                result: TotalCaptureResult
+            ) {
+
+                Timber.d("onCaptureComplete, thread = ${Thread.currentThread().name}")
+
+                val currentMode = currentMode
+
+                if (WbUtil.phoneColorSpaceTransform == null) {
+
+                    val transform = result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM)
+                    WbUtil.phoneColorSpaceTransform = transform
+                    var sb = StringBuilder()
+                    for (row in 0..2) {
+                        for (col in 0..2) {
+                            sb.append(String.format("%.2f", transform!!.getElement(col, row).toFloat()))
+                            if (col < 2) {
+                                sb.append(", ")
+                            }
+                        }
+                        if (row < 2) {
+                            sb.append("\n")
+                        }
+                    }
+                    Timber.d("phone color transform:\n$sb")
+                }
+                result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let {
+                    val (temp, tint) = WbUtil.computeTempAndTint_my(it)
+                    val tempValue = ((1 - temp) * TEMP_MIN + temp * TEMP_MAX).toInt()
+                    val tintValue = ((1 - tint) * TINT_MIN + tint * TINT_MAX).toInt()
+
+                    runOnUiThread {
+                        binding.tvTempAnalyze.text = "$tempValue"
+                        binding.tvTintAnalyze.text = "$tintValue"
+                    }
+
+
+                    if (currentMode != CameraCharacteristics.CONTROL_AWB_MODE_OFF) {
+                        runOnUiThread {
+                            binding.sbTemp.run {
+                                progress = (temp * max).toInt()
+                            }
+
+                            binding.sbTint.run {
+                                progress = (tint * max).toInt()
+                            }
+                        }
+
+                    }
+                }
 
             }
         }
+
+
     }
 
     private fun initViews() {
@@ -203,7 +256,6 @@ class WbActivity : AppCompatActivity() {
             ) {
                 val mode = cameraLogic.currentCameraInfo?.awbModes?.get(position) ?: return
                 val isManual = mode == CameraCharacteristics.CONTROL_AWB_MODE_OFF
-                binding.tvInputTemp.visibility = if (isManual) View.VISIBLE else View.VISIBLE
                 binding.sbTemp.isEnabled = isManual
                 binding.sbTint.isEnabled = isManual
                 cameraLogic.updateCaptureRequestParams()
@@ -221,8 +273,10 @@ class WbActivity : AppCompatActivity() {
 
         binding.sbTemp.setOnSeekBarChangeListener(object : OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                updateRggbChannelVector()
+                Timber.d("temp changed, from user = $fromUser")
                 if (fromUser) {
-                    updateRggbChannelVector()
+                    cameraLogic.updateCaptureRequestParams()
                 }
             }
 
@@ -237,8 +291,10 @@ class WbActivity : AppCompatActivity() {
 
         binding.sbTint.setOnSeekBarChangeListener(object : OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                updateRggbChannelVector()
+                Timber.d("tint changed, from user = $fromUser")
                 if (fromUser) {
-                    updateRggbChannelVector()
+                    cameraLogic.updateCaptureRequestParams()
                 }
             }
 
@@ -254,23 +310,24 @@ class WbActivity : AppCompatActivity() {
     }
 
     private fun updateRggbChannelVector() {
-        val tempProgress = binding.sbTemp.progress.toFloat() / binding.sbTemp.max
-        val tintProgress = binding.sbTint.progress.toFloat() / binding.sbTint.max
-        val temp = (1 - tempProgress) * TEMP_MIN + tempProgress * TEMP_MAX
-        val tint = (1 - tintProgress) * TINT_MIN + tintProgress * TINT_MAX
-        binding.tvInputTemp.text = "色温(输入): ${String.format("%.2f", temp)}"
-        binding.tvTint.text = "色调: ${String.format("%.2f", tint)}"
-
-        rggbChannelVector = computeRggbChannelVector(temp, tint)
-        cameraLogic.updateCaptureRequestParams()
+        val temp = binding.sbTemp.progress.toFloat() / binding.sbTemp.max
+        val tint = binding.sbTint.progress.toFloat() / binding.sbTint.max
+        val tempValue = ((1 - temp) * TEMP_MIN + temp * TEMP_MAX).toInt()
+        val tintValue = ((1 - tint) * TINT_MIN + tint * TINT_MAX).toInt()
+        binding.tvTempInput.text = "$tempValue"
+        binding.tvTintInput.text = "$tintValue"
+        rggbChannelVector = WbUtil.computeRggbChannelVector_my(temp, tint)
     }
 
     private fun updateWbModes(cameraInfo: CameraInfoWrapper) {
         val nameList = ArrayList<String>()
-        cameraInfo.awbModes?.forEach {
-            nameList.add(getWbModeName(it) ?: "$it")
+
+        cameraInfo.awbModes!!.forEach {
+            nameList.add(WbUtil.getWbModeName(it) ?: "$it")
         }
         wbModeAdapter.clear()
         wbModeAdapter.addAll(nameList)
+//        val index = cameraInfo.awbModes!!.indexOf(CameraCharacteristics.CONTROL_AWB_MODE_AUTO)
+//        binding.spWbMode.setSelection(index)
     }
 }

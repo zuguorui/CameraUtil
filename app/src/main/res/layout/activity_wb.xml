@@ -53,34 +53,86 @@
             android:layout_marginLeft="10dp"
             android:id="@+id/sp_wb_mode"/>
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="0dp"
             app:layout_constraintLeft_toRightOf="@id/sp_wb_mode"
+            app:layout_constraintRight_toRightOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toTopOf="@id/tv_analyze_temp"
-            android:layout_marginLeft="20dp"
-            android:text="色温(输入): 123"
-            android:id="@+id/tv_input_temp"/>
+            app:layout_constraintBottom_toBottomOf="@id/gl2"
+            android:orientation="horizontal">
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="6"
+                android:orientation="vertical"
+                android:gravity="center_vertical">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="色温(输入): "/>
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="5000"
+                        android:id="@+id/tv_temp_input"/>
+                </LinearLayout>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="色温(解析): "/>
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="5000"
+                        android:id="@+id/tv_temp_analyze"/>
+                </LinearLayout>
+            </LinearLayout>
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:layout_constraintLeft_toRightOf="@id/sp_wb_mode"
-            app:layout_constraintBottom_toTopOf="@id/gl2"
-            app:layout_constraintTop_toBottomOf="@id/tv_input_temp"
-            android:layout_marginLeft="20dp"
-            android:text="色温(解析): 456"
-            android:id="@+id/tv_analyze_temp"/>
-        
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:layout_constraintLeft_toRightOf="@id/tv_input_temp"
-            app:layout_constraintTop_toTopOf="@id/tv_input_temp"
-            android:layout_marginLeft="10dp"
-            android:text="色调: 0"
-            android:id="@+id/tv_tint"/>
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="5"
+                android:orientation="vertical"
+                android:gravity="center_vertical">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="色调(输入): "/>
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="5000"
+                        android:id="@+id/tv_tint_input"/>
+                </LinearLayout>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="色调(解析): "/>
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="5000"
+                        android:id="@+id/tv_tint_analyze"/>
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"
@@ -89,7 +141,7 @@
             app:layout_constraintTop_toTopOf="@id/sb_temp"
             app:layout_constraintBottom_toBottomOf="@id/sb_temp"
             android:id="@+id/label_temp"
-            android:text="色温:"/>
+            android:text="色温: "/>
 
         <SeekBar
             android:layout_width="0dp"
@@ -105,21 +157,23 @@
             android:id="@+id/sb_temp"/>
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="45dp"
             android:layout_height="wrap_content"
             app:layout_constraintLeft_toRightOf="@id/label_temp"
             app:layout_constraintTop_toTopOf="@id/sb_temp"
             app:layout_constraintBottom_toBottomOf="@id/sb_temp"
             android:text="2000"
+            android:gravity="right"
             android:id="@+id/tv_min_temp"/>
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="45dp"
             android:layout_height="wrap_content"
             app:layout_constraintRight_toRightOf="parent"
             app:layout_constraintTop_toTopOf="@id/sb_temp"
             app:layout_constraintBottom_toBottomOf="@id/sb_temp"
             android:text="10000"
+            android:gravity="left"
             android:id="@+id/tv_max_temp"/>
 
         <TextView
@@ -129,7 +183,7 @@
             app:layout_constraintTop_toTopOf="@id/sb_tint"
             app:layout_constraintBottom_toBottomOf="@id/sb_tint"
             android:id="@+id/label_tint"
-            android:text="色调:"/>
+            android:text="色调: "/>
 
         <SeekBar
             android:layout_width="0dp"
@@ -145,21 +199,23 @@
             android:id="@+id/sb_tint"/>
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="45dp"
             android:layout_height="wrap_content"
             app:layout_constraintLeft_toRightOf="@id/label_tint"
             app:layout_constraintTop_toTopOf="@id/sb_tint"
             app:layout_constraintBottom_toBottomOf="@id/sb_tint"
             android:text="2000"
+            android:gravity="right"
             android:id="@+id/tv_min_tint"/>
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="45dp"
             android:layout_height="wrap_content"
             app:layout_constraintRight_toRightOf="parent"
             app:layout_constraintTop_toTopOf="@id/sb_tint"
             app:layout_constraintBottom_toBottomOf="@id/sb_tint"
             android:text="10000"
+            android:gravity="left"
             android:id="@+id/tv_max_tint"/>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
