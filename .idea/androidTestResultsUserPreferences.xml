@@ -11,6 +11,7 @@
                   <entry key="Duration" value="90" />
                   <entry key="Tests" value="360" />
                   <entry key="Xiaomi 2210132C" value="120" />
+                  <entry key="samsung SM-S9080" value="120" />
                 </map>
               </option>
             </AndroidTestResultsTableState>
@@ -24,6 +25,8 @@
                   <entry key="Duration" value="90" />
                   <entry key="Tests" value="360" />
                   <entry key="Xiaomi 2210132C" value="120" />
+                  <entry key="samsung SM-S9080" value="120" />
+                  <entry key="vivo V2324A" value="120" />
                 </map>
               </option>
             </AndroidTestResultsTableState>

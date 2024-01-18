@@ -1,12 +1,14 @@
 package com.zu.camerautil
 
 import android.graphics.Rect
+import android.hardware.camera2.params.RggbChannelVector
 import android.util.Range
 import android.util.Rational
 import android.util.Size
 import java.lang.StringBuilder
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
+import kotlin.math.abs
 import kotlin.reflect.typeOf
 
 inline fun <reified T> ArrayList<T>.copyToArray(): Array<T> {
@@ -83,6 +85,12 @@ suspend fun <T> suspendLockBlock(lock: ReentrantLock, block: suspend () -> T): T
 
 fun Range<Int>.route(): Int {
     return upper - lower
+}
+
+fun isColorGainEqual(vec1: RggbChannelVector, vec2: RggbChannelVector): Boolean {
+    val limit = 0.01f
+    return abs(vec1.red - vec2.red) < limit && abs(vec1.greenOdd - vec2.greenOdd) < limit
+            && abs(vec1.greenEven - vec2.greenEven) < limit && abs(vec1.blue - vec2.blue) < limit
 }
 
 

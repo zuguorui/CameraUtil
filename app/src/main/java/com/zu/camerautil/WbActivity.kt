@@ -7,6 +7,7 @@ import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.TotalCaptureResult
+import android.hardware.camera2.params.ColorSpaceTransform
 import android.hardware.camera2.params.RggbChannelVector
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
@@ -44,6 +45,7 @@ class WbActivity : AppCompatActivity() {
     private var currentFps: FPS? = null
 
 
+
     private val surfaceStateListener = object : PreviewViewImplementation.SurfaceStateListener {
         override fun onSurfaceCreated(surface: Surface) {
             Timber.d("surfaceCreated: Thread = ${Thread.currentThread().name}")
@@ -74,12 +76,16 @@ class WbActivity : AppCompatActivity() {
             } ?: CameraCharacteristics.CONTROL_AWB_MODE_OFF
         }
 
+    // 镜头是否刚刚打开
+    private var justOpenCamera = true
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityWbBinding.inflate(layoutInflater)
         setContentView(binding.root)
         initCameraLogic()
         initViews()
+        updateRggbChannelVector()
     }
 
     override fun onDestroy() {
@@ -111,13 +117,28 @@ class WbActivity : AppCompatActivity() {
             }
 
             override fun configBuilder(requestBuilder: CaptureRequest.Builder) {
-                val currentMode = currentMode
+                Timber.w("configBuilder: justOpenCamera = $justOpenCamera")
+                // 如果镜头刚刚打开，这是第一次配置builder，那白平衡先不要设置或者设置为自动模式。
+                // 有些手机如三星S22 ultra，如果第一次builder白平衡就配置为OFF的话，后续切换到
+                // 其他模式，ColorSpaceTransform会无法更新导致画面颜色异常。
+                if (!justOpenCamera) {
+                    val currentMode = currentMode
+                    requestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, currentMode)
+                    if (currentMode == CameraCharacteristics.CONTROL_AWB_MODE_OFF  && WbUtil.previousCST != null) {
+                        requestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+                        requestBuilder.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, WbUtil.previousCST)
+                        requestBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector)
+                    } else {
+                        // 不处于OFF模式下，手动给设置一下色彩校正模式，否则有的手机无法切换到自动白平衡或者其他模式
+                        requestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_FAST)
+                    }
+                } else {
+                    requestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
+                }
 
-                requestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, currentMode)
-                if (currentMode == CameraCharacteristics.CONTROL_AWB_MODE_OFF) {
-                    requestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
-                    requestBuilder.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, WbUtil.phoneColorSpaceTransform ?: WbUtil.CTS_COLOR)
-                    requestBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector)
+                if (justOpenCamera) {
+                    justOpenCamera = false
+                    cameraLogic.updateCaptureRequestParams()
                 }
 
             }
@@ -126,6 +147,7 @@ class WbActivity : AppCompatActivity() {
         cameraLogic.cameraStateCallback = object : CameraDevice.StateCallback() {
             override fun onOpened(camera: CameraDevice) {
                 openedCameraID = camera.id
+                justOpenCamera = true
             }
 
             override fun onDisconnected(camera: CameraDevice) {
@@ -139,37 +161,51 @@ class WbActivity : AppCompatActivity() {
 
         cameraLogic.captureCallback = object : CameraCaptureSession.CaptureCallback() {
 
+            var debugGain: RggbChannelVector? = null
+            var debugTransform: ColorSpaceTransform? = null
+            val formatText = "%.3f"
+
             override fun onCaptureCompleted(
                 session: CameraCaptureSession,
                 request: CaptureRequest,
                 result: TotalCaptureResult
             ) {
 
-                Timber.d("onCaptureComplete, thread = ${Thread.currentThread().name}")
-
                 val currentMode = currentMode
+                var needUpdate = false
 
-                if (WbUtil.phoneColorSpaceTransform == null) {
-
-                    val transform = result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM)
-                    WbUtil.phoneColorSpaceTransform = transform
-                    var sb = StringBuilder()
-                    for (row in 0..2) {
-                        for (col in 0..2) {
-                            sb.append(String.format("%.2f", transform!!.getElement(col, row).toFloat()))
-                            if (col < 2) {
-                                sb.append(", ")
+                result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM)?.let {
+                    if (debugTransform == null || it != debugTransform) {
+                        debugTransform = it
+                        val sb = StringBuilder("transform:\n")
+                        for (row in 0 until 3) {
+                            for (col in 0 until 3) {
+                                sb.append("${it.getElement(col, row)}")
+                                if (col < 2) {
+                                    sb.append(", ")
+                                }
+                            }
+                            if (row < 2) {
+                                sb.append("\n")
                             }
                         }
-                        if (row < 2) {
-                            sb.append("\n")
-                        }
+                        Timber.d(sb.toString())
                     }
-                    Timber.d("phone color transform:\n$sb")
+                    if (WbUtil.previousCST == null) {
+                        needUpdate = true
+                    }
+                    WbUtil.previousCST = it
                 }
-                result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let {
-                    val (temp, tint) = WbUtil.computeTempAndTint(it)
 
+                result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let {
+
+                    if (debugGain == null || !isColorGainEqual(debugGain!!, it)) {
+                        debugGain = it
+                        Timber.d("ColorGain: [${String.format(formatText, it.red - 1)}, ${String.format(formatText, it.greenOdd - 1)}, ${String.format(formatText, it.greenEven - 1)}, ${String.format(formatText, it.blue - 1)}]")
+                        Timber.d("ColorGain baseLine: ${String.format(formatText, (it.red - 1 + it.blue - 1) / 2)}")
+                    }
+
+                    val (temp, tint) = WbUtil.computeTempAndTint(it)
                     runOnUiThread {
                         binding.tvTempAnalyze.text = "$temp"
                         binding.tvTintAnalyze.text = "$tint"
@@ -192,6 +228,10 @@ class WbActivity : AppCompatActivity() {
                     }
                 }
 
+                if (needUpdate) {
+                    Timber.d("first get CST, needUpdate")
+                    cameraLogic.updateCaptureRequestParams()
+                }
             }
         }
 
@@ -264,7 +304,7 @@ class WbActivity : AppCompatActivity() {
         binding.sbTemp.setOnSeekBarChangeListener(object : OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 updateRggbChannelVector()
-                Timber.d("temp changed, from user = $fromUser")
+                //Timber.d("temp changed, from user = $fromUser")
                 if (fromUser) {
                     cameraLogic.updateCaptureRequestParams()
                 }
@@ -282,7 +322,7 @@ class WbActivity : AppCompatActivity() {
         binding.sbTint.setOnSeekBarChangeListener(object : OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 updateRggbChannelVector()
-                Timber.d("tint changed, from user = $fromUser")
+                //Timber.d("tint changed, from user = $fromUser")
                 if (fromUser) {
                     cameraLogic.updateCaptureRequestParams()
                 }
@@ -306,6 +346,7 @@ class WbActivity : AppCompatActivity() {
         val tint = ((1 - tintProgress) * WbUtil.TINT_RANGE.lower + tintProgress * WbUtil.TINT_RANGE.upper).roundToInt()
         binding.tvTempInput.text = "$temp"
         binding.tvTintInput.text = "$tint"
+        Timber.d("updateRggbChannelVector: temp = $temp, tint = $tint")
         rggbChannelVector = WbUtil.computeRggbChannelVector(temp, tint)
     }
 
@@ -317,9 +358,12 @@ class WbActivity : AppCompatActivity() {
         }
         wbModeAdapter.clear()
         wbModeAdapter.addAll(nameList)
-        val index = cameraInfo.awbModes!!.indexOf(CameraCharacteristics.CONTROL_AWB_MODE_AUTO)
+
+        val initMode = CameraCharacteristics.CONTROL_AWB_MODE_AUTO
+        val index = cameraInfo.awbModes!!.indexOf(initMode)
         binding.spWbMode.setSelection(index)
-        binding.sbTemp.isEnabled = false
-        binding.sbTint.isEnabled = false
+        binding.sbTemp.isEnabled = (initMode == CameraCharacteristics.CONTROL_AWB_MODE_OFF)
+        binding.sbTint.isEnabled = (initMode == CameraCharacteristics.CONTROL_AWB_MODE_OFF)
+
     }
 }

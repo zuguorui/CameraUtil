@@ -53,4 +53,21 @@ class ExampleInstrumentedTest {
         Log.d(TAG, "temp = $temp, tint = $tint")
         assert(true)
     }
+
+    @Test
+    fun test_temp() {
+        val temp = 4762
+        val vector = WbUtil.computeRggbChannelVector(temp)
+        Log.d(TAG, "vector = [${vector.red}, ${vector.greenOdd}, ${vector.blue}]")
+        val newTemp = WbUtil.computeTemp(vector)
+        val newVector = WbUtil.computeRggbChannelVector(newTemp)
+        Log.d(TAG, "newVector = [${newVector.red}, ${newVector.greenOdd}, ${newVector.blue}]")
+        assert(temp == newTemp) {
+            Log.e(TAG, "temp = $temp, newTemp = $newTemp")
+        }
+        assert(vector == newVector) {
+            Log.e(TAG, "vector = [${vector.red}, ${vector.greenOdd}, ${vector.blue}]")
+            Log.e(TAG, "newVector = [${newVector.red}, ${newVector.greenOdd}, ${newVector.blue}]")
+        }
+    }
 }

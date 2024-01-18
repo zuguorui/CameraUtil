@@ -385,10 +385,12 @@ open class BaseCameraLogic(val context: Context) {
      * 传给客户端，由客户端进行自定义配置，然后更新到session。
      * */
     fun updateCaptureRequestParams() {
-        val builder = captureRequestBuilder ?: return
-        val configCallback = configCallback ?: return
-        configCallback.configBuilder(builder)
-        startRepeating()
+        cameraExecutor.execute {
+            val builder = captureRequestBuilder ?: return@execute
+            val configCallback = configCallback ?: return@execute
+            configCallback.configBuilder(builder)
+            startRepeating()
+        }
     }
 
     /**

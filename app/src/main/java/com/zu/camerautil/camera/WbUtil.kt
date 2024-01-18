@@ -4,6 +4,7 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.params.ColorSpaceTransform
 import android.hardware.camera2.params.RggbChannelVector
 import android.util.Range
+import timber.log.Timber
 import kotlin.math.roundToInt
 
 /**
@@ -14,14 +15,30 @@ import kotlin.math.roundToInt
 
 object WbUtil {
 
-    var phoneColorSpaceTransform: ColorSpaceTransform? = null
+    private val DEFAULT_CST_MATRIX = intArrayOf(1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1)
+    val DEFAULT_CST = ColorSpaceTransform(DEFAULT_CST_MATRIX)
+
+    // 纯绿
+    private val GREEN = floatArrayOf(0.0f, 127.5f, 0.0f)
+    // 品红
+    private val MAGENTA = floatArrayOf(255.0f, 127.5f, 255.0f)
+    // 红色
+    private val RED = floatArrayOf(255.0f, 127.5f, 0.0f)
+    // 蓝色
+    private val BLUE = floatArrayOf(0.0f, 127.5f, 255.0f)
+
+    val TEMP_RANGE = Range<Int>(2000, 10000)
+    val TINT_RANGE = Range<Int>(-50, 50)
+
+    var previousCST: ColorSpaceTransform? = null
+    private var previousTint: Int = (TINT_RANGE.lower + TINT_RANGE.upper) / 2
 
     private fun combineArrayByRatio(fromArray: FloatArray, toArray: FloatArray, ratio: Float): FloatArray {
-        val result = FloatArray(3)
-        for (i in 0 until 3) {
-            val from = fromArray[i]
-            val to = toArray[i]
-            result[i] = if (from > to) from - Math.abs(from - to) * ratio else from + Math.abs(from - to) * ratio
+        assert(fromArray.size == toArray.size)
+        val size = fromArray.size
+        val result = FloatArray(size)
+        for (i in 0 until size) {
+            result[i] = (1 - ratio) * fromArray[i] + ratio * toArray[i]
         }
         return result
     }
@@ -34,8 +51,8 @@ object WbUtil {
     fun computeRggbChannelVector(temp: Int, tint: Int): RggbChannelVector {
         val tempF = (temp.toFloat() - TEMP_RANGE.lower) / (TEMP_RANGE.upper - TEMP_RANGE.lower)
         val tintF = (tint.toFloat() - TINT_RANGE.lower) / (TINT_RANGE.upper - TINT_RANGE.lower)
-        val tempArray = combineArrayByRatio(BLUE_GREEN, RED_GREEN, tempF)
-        val tintArray = combineArrayByRatio(GREEN, WHITE, tintF)
+        val tempArray = combineArrayByRatio(BLUE, RED, tempF)
+        val tintArray = combineArrayByRatio(GREEN, MAGENTA, tintF)
         val combined = combineArrayByRatio(tempArray, tintArray, 0.5f)
 
         val rGain = transformToRange(0.0f, 255.0f, 1.0f, 3.0f, combined[0])
@@ -52,31 +69,24 @@ object WbUtil {
         rGain = transformToRange(1.0f, 3.0f, 0.0f, 255.0f, rGain)
         bGain = transformToRange(1.0f, 3.0f, 0.0f, 255.0f, bGain)
 
-        val tint = (rGain + bGain - 127.5f) / 255
+
         val temp = (rGain - bGain + 127.5f) / 255
+        val tint = (rGain + bGain - 127.5f) / 255
 
         val tempI = ((1 - temp) * TEMP_RANGE.lower + temp * TEMP_RANGE.upper).roundToInt()
         val tintI = ((1 - tint) * TINT_RANGE.lower + tint * TINT_RANGE.upper).roundToInt()
+        previousTint = tintI
         return Pair(tempI, tintI)
     }
 
     fun computeRggbChannelVector(temp: Int): RggbChannelVector {
-        return computeRggbChannelVector(temp, 0)
+        Timber.d("computeRggbChannelVector: tint = $previousTint")
+        return computeRggbChannelVector(temp, previousTint)
     }
 
     fun computeTemp(vector: RggbChannelVector): Int {
-        var rGain = vector.red
-        rGain = transformToRange(1.0f, 3.0f, 0.0f, 255.0f, rGain)
-
-        var bGain = vector.blue
-        bGain = transformToRange(1.0f, 3.0f, 0.0f, 255.0f, bGain)
-
-        val tempF = (rGain - bGain + 127.5f) / 255
-
-        return ((1 - tempF) * TEMP_RANGE.lower + tempF * TEMP_RANGE.upper).roundToInt()
+        return computeTempAndTint(vector).first
     }
-
-
 
     fun getWbModeName(wbMode: Int): String? = WB_MODE_NAME_MAP[wbMode]
 
@@ -91,18 +101,6 @@ object WbUtil {
         put(CameraCharacteristics.CONTROL_AWB_MODE_TWILIGHT, "黄昏")
         put(CameraCharacteristics.CONTROL_AWB_MODE_SHADE, "阴影")
     }
-
-
-    private val MATRIX = intArrayOf(1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1)
-    val CTS_COLOR = ColorSpaceTransform(MATRIX)
-
-    private val GREEN = floatArrayOf(0.0f, 127.5f, 0.0f)
-    private val WHITE = floatArrayOf(255.0f, 127.5f, 255.0f)
-    private val RED_GREEN = floatArrayOf(255.0f, 127.5f, 0.0f)
-    private val BLUE_GREEN = floatArrayOf(0.0f, 127.5f, 255.0f)
-
-    val TEMP_RANGE = Range<Int>(2000, 8000)
-    val TINT_RANGE = Range<Int>(-50, 50)
 
 }
 
