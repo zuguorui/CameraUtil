@@ -98,7 +98,7 @@ open class BaseCameraLogic(val context: Context) {
     private var cameraOperationExecutor = Executors.newSingleThreadExecutor()
 
     // 某些手机高帧率预览必须提供一个MediaCodec或者MediaRecorder的surface
-    private val fakeSurfaceProvider = FakeMediaEncoderSurfaceProvider()
+    private val fakeSurfaceProvider = FakeMediaRecorderSurfaceProvider()
 
     /**
      * 启动相机

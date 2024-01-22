@@ -31,6 +31,28 @@ object WbUtil {
     val TINT_RANGE = Range<Int>(-50, 50)
 
     var previousCST: ColorSpaceTransform? = null
+        set(value) {
+            val diff = field != value
+            field = value
+            if (diff) {
+                value?.let {
+                    val sb = StringBuilder("transform:\n")
+                    for (row in 0 until 3) {
+                        for (col in 0 until 3) {
+                            sb.append("${it.getElement(col, row)}")
+                            if (col < 2) {
+                                sb.append(", ")
+                            }
+                        }
+                        if (row < 2) {
+                            sb.append("\n")
+                        }
+                    }
+                    Timber.d(sb.toString())
+                } ?: Timber.d("transform: null")
+            }
+        }
+
     private var previousTint: Int = (TINT_RANGE.lower + TINT_RANGE.upper) / 2
 
     private fun combineArrayByRatio(fromArray: FloatArray, toArray: FloatArray, ratio: Float): FloatArray {

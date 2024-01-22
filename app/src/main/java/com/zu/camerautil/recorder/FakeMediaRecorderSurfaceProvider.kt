@@ -28,7 +28,8 @@ class FakeMediaRecorderSurfaceProvider: IRecorder {
             setVideoSource(MediaRecorder.VideoSource.SURFACE)
             setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
 
-            setVideoFrameRate(fps)
+            setCaptureRate(fps.toDouble())
+            setVideoFrameRate(fps / 5)
 
             if (fps >= 120) {
                 setVideoEncoder(MediaRecorder.VideoEncoder.HEVC)

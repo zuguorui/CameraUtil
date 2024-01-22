@@ -130,7 +130,7 @@ class WbActivity : AppCompatActivity() {
                         requestBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector)
                     } else {
                         // 不处于OFF模式下，手动给设置一下色彩校正模式，否则有的手机无法切换到自动白平衡或者其他模式
-                        requestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_FAST)
+                        // requestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_HIGH_QUALITY)
                     }
                 } else {
                     requestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
@@ -194,7 +194,9 @@ class WbActivity : AppCompatActivity() {
                     if (WbUtil.previousCST == null) {
                         needUpdate = true
                     }
-                    WbUtil.previousCST = it
+                    if (WbUtil.previousCST == null) {
+                        WbUtil.previousCST = it
+                    }
                 }
 
                 result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let {
