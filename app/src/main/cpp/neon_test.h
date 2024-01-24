@@ -21,5 +21,10 @@
 
 void do_neon_test();
 
+extern "C" int assembly_add(int a, int b);
+extern "C" int my_function(int a, int b);
+
+void assembly_test();
+
 
 #endif //CAMERAUTIL_NEON_TEST_H

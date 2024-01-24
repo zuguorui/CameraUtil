@@ -256,3 +256,11 @@ void do_neon_test() {
 
     LOGD(TAG, "colorInt1 = 0x%x, colorInt2 = 0x%x, diff = %d", colorInt1, colorInt2, (int32_t)colorInt1 - (int32_t)colorInt2);
 }
+
+void assembly_test() {
+    int a = 4;
+    int b = 7;
+    //int c = assembly_add(a, b);
+    int c = my_function(a, b);
+    LOGD(TAG, "%d", c);
+}

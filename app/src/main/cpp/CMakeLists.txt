@@ -12,7 +12,7 @@ enable_language(ASM)
 # You can define multiple libraries, and CMake builds them for you.
 # Gradle automatically packages shared libraries with your APK.
 
-file(GLOB CPP_FILES "./*.cpp")
+file(GLOB CPP_FILES "./*.cpp" "./*.s")
 
 include_directories("./")
 

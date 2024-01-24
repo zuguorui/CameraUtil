@@ -22,5 +22,6 @@ Java_com_zu_camerautil_util_ImageConverter_nYUV_1420_1888_1to_1bitmap(JNIEnv *en
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_zu_camerautil_util_NeonTest_doNeonTest(JNIEnv *env, jobject thiz) {
-    do_neon_test();
+    //do_neon_test();
+    assembly_test();
 }
