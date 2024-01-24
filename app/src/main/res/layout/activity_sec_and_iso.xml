@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".WbActivity">
-
+    tools:context=".SecAndIsoActivity">
     <androidx.constraintlayout.widget.Guideline
         android:layout_width="match_parent"
         android:layout_height="1dp"
@@ -45,22 +43,24 @@
             app:layout_constraintGuide_percent="0.5"
             android:id="@+id/gl2"/>
 
-        <Spinner
+        <CheckBox
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toTopOf="@id/gl2"
             app:layout_constraintLeft_toLeftOf="parent"
             android:layout_marginLeft="10dp"
-            android:id="@+id/sp_wb_mode"/>
+            android:id="@+id/cb_mode"
+            android:text="手动"/>
 
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="0dp"
-            app:layout_constraintLeft_toRightOf="@id/sp_wb_mode"
+            app:layout_constraintLeft_toRightOf="@id/cb_mode"
             app:layout_constraintRight_toRightOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="@id/gl2"
+            android:layout_marginLeft="20dp"
             android:orientation="horizontal">
             <LinearLayout
                 android:layout_width="0dp"
@@ -75,12 +75,12 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="色温(输入): "/>
+                        android:text="Sec(输入): "/>
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="5000"
-                        android:id="@+id/tv_temp_input"/>
+                        android:id="@+id/tv_sec_input"/>
                 </LinearLayout>
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -89,12 +89,12 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="色温(解析): "/>
+                        android:text="Sec(解析): "/>
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="5000"
-                        android:id="@+id/tv_temp_analyze"/>
+                        android:id="@+id/tv_sec_output"/>
                 </LinearLayout>
             </LinearLayout>
 
@@ -111,12 +111,12 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="色调(输入): "/>
+                        android:text="ISO(输入): "/>
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="5000"
-                        android:id="@+id/tv_tint_input"/>
+                        android:id="@+id/tv_iso_input"/>
                 </LinearLayout>
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -125,12 +125,12 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="色调(解析): "/>
+                        android:text="ISO(解析): "/>
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="5000"
-                        android:id="@+id/tv_tint_analyze"/>
+                        android:id="@+id/tv_iso_output"/>
                 </LinearLayout>
             </LinearLayout>
         </LinearLayout>
@@ -139,88 +139,84 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintTop_toTopOf="@id/sb_temp"
-            app:layout_constraintBottom_toBottomOf="@id/sb_temp"
-            android:id="@+id/label_temp"
-            android:text="色温: "/>
+            app:layout_constraintTop_toTopOf="@id/sb_sec"
+            app:layout_constraintBottom_toBottomOf="@id/sb_sec"
+            android:id="@+id/label_sec"
+            android:text="Sec: "/>
 
         <SeekBar
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             app:layout_constraintTop_toBottomOf="@id/gl2"
-            app:layout_constraintBottom_toTopOf="@id/sb_tint"
-            app:layout_constraintLeft_toRightOf="@id/tv_min_temp"
-            app:layout_constraintRight_toLeftOf="@id/tv_max_temp"
+            app:layout_constraintBottom_toTopOf="@id/sb_iso"
+            app:layout_constraintLeft_toRightOf="@id/tv_min_sec"
+            app:layout_constraintRight_toLeftOf="@id/tv_max_sec"
             android:layout_marginLeft="10dp"
             android:layout_marginRight="10dp"
             android:max="100"
             android:progress="50"
-            android:id="@+id/sb_temp"/>
+            android:id="@+id/sb_sec"/>
 
         <TextView
             android:layout_width="45dp"
             android:layout_height="wrap_content"
-            app:layout_constraintLeft_toRightOf="@id/label_temp"
-            app:layout_constraintTop_toTopOf="@id/sb_temp"
-            app:layout_constraintBottom_toBottomOf="@id/sb_temp"
+            app:layout_constraintLeft_toRightOf="@id/label_sec"
+            app:layout_constraintTop_toTopOf="@id/sb_sec"
+            app:layout_constraintBottom_toBottomOf="@id/sb_sec"
             android:text="2000"
             android:gravity="right"
-            android:id="@+id/tv_min_temp"/>
+            android:id="@+id/tv_min_sec"/>
 
         <TextView
             android:layout_width="45dp"
             android:layout_height="wrap_content"
             app:layout_constraintRight_toRightOf="parent"
-            app:layout_constraintTop_toTopOf="@id/sb_temp"
-            app:layout_constraintBottom_toBottomOf="@id/sb_temp"
+            app:layout_constraintTop_toTopOf="@id/sb_sec"
+            app:layout_constraintBottom_toBottomOf="@id/sb_sec"
             android:text="10000"
             android:gravity="left"
-            android:id="@+id/tv_max_temp"/>
+            android:id="@+id/tv_max_sec"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintTop_toTopOf="@id/sb_tint"
-            app:layout_constraintBottom_toBottomOf="@id/sb_tint"
-            android:id="@+id/label_tint"
-            android:text="色调: "/>
+            app:layout_constraintTop_toTopOf="@id/sb_iso"
+            app:layout_constraintBottom_toBottomOf="@id/sb_iso"
+            android:id="@+id/label_iso"
+            android:text="ISO: "/>
 
         <SeekBar
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            app:layout_constraintTop_toBottomOf="@id/sb_temp"
+            app:layout_constraintTop_toBottomOf="@id/sb_sec"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintLeft_toRightOf="@id/tv_min_tint"
-            app:layout_constraintRight_toLeftOf="@id/tv_max_tint"
+            app:layout_constraintLeft_toRightOf="@id/tv_min_iso"
+            app:layout_constraintRight_toLeftOf="@id/tv_max_iso"
             android:layout_marginLeft="10dp"
             android:layout_marginRight="10dp"
             android:max="100"
             android:progress="50"
-            android:id="@+id/sb_tint"/>
+            android:id="@+id/sb_iso"/>
 
         <TextView
             android:layout_width="45dp"
             android:layout_height="wrap_content"
-            app:layout_constraintLeft_toRightOf="@id/label_tint"
-            app:layout_constraintTop_toTopOf="@id/sb_tint"
-            app:layout_constraintBottom_toBottomOf="@id/sb_tint"
+            app:layout_constraintLeft_toRightOf="@id/label_iso"
+            app:layout_constraintTop_toTopOf="@id/sb_iso"
+            app:layout_constraintBottom_toBottomOf="@id/sb_iso"
             android:text="2000"
             android:gravity="right"
-            android:id="@+id/tv_min_tint"/>
+            android:id="@+id/tv_min_iso"/>
 
         <TextView
             android:layout_width="45dp"
             android:layout_height="wrap_content"
             app:layout_constraintRight_toRightOf="parent"
-            app:layout_constraintTop_toTopOf="@id/sb_tint"
-            app:layout_constraintBottom_toBottomOf="@id/sb_tint"
+            app:layout_constraintTop_toTopOf="@id/sb_iso"
+            app:layout_constraintBottom_toBottomOf="@id/sb_iso"
             android:text="10000"
             android:gravity="left"
-            android:id="@+id/tv_max_tint"/>
+            android:id="@+id/tv_max_iso"/>
     </androidx.constraintlayout.widget.ConstraintLayout>
-
-
-
-
 </androidx.constraintlayout.widget.ConstraintLayout>
