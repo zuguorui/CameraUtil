@@ -23,5 +23,6 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_zu_camerautil_util_NeonTest_doNeonTest(JNIEnv *env, jobject thiz) {
     //do_neon_test();
-    assembly_test();
+    //assembly_test();
+    instruction_test();
 }

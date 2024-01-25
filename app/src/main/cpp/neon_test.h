@@ -21,6 +21,8 @@
 
 void do_neon_test();
 
+void instruction_test();
+
 extern "C" int assembly_add(int a, int b);
 extern "C" int my_function(int a, int b);
 

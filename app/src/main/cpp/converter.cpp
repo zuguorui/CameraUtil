@@ -568,6 +568,101 @@ jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, i
     return bitmap;
 }
 
+static inline int16x8x2_t neon_load_y(uint8_t *buffer) {
+    uint8x8x2_t u8_2 = vld2_u8(buffer);
+    int16x8x2_t s16_2;
+    // Y[even]
+    s16_2.val[0] = vreinterpretq_s16_u16(vmovl_u8(u8_2.val[0]));
+    // Y[odd]
+    s16_2.val[1] = vreinterpretq_s16_u16(vmovl_u8(u8_2.val[1]));
+    return s16_2;
+}
+
+static inline int16x8_t neon_load_uv(uint8_t *buffer) {
+    uint8x8x2_t u8_2 = vld2_u8(buffer);
+    uint8x8_t u8 = u8_2.val[0];
+    int16x8_t s16 = vreinterpretq_s16_u16(vmovl_u8(u8));
+    return s16;
+}
+
+jobject convert_YUV_420_888_neon2(JNIEnv *env, ImageProxy &image, int rotation, int facing) {
+    glm::mat3x3 posMat;
+    glm::vec3 posInCamera, posInBitmap;
+    int bitmapHeight, bitmapWidth;
+    if (rotation == ROTATION_0 || rotation == ROTATION_180) {
+        bitmapWidth = image.getHeight();
+        bitmapHeight = image.getWidth();
+    } else {
+        bitmapWidth = image.getWidth();
+        bitmapHeight = image.getHeight();
+    }
+
+    glm::mat3x3 rotateMat = getRotationMat(bitmapWidth, bitmapHeight, rotation);
+    glm::mat3x3 facingMat = getFacingMat(image.getWidth(), image.getHeight(), facing);
+
+    posMat = rotateMat * facingMat;
+
+    if (bitmapClass == nullptr) {
+        LOGE(TAG, "JNI object not init, init");
+        initJNI(env);
+    }
+
+    jobject bitmap = env->CallStaticObjectMethod(bitmapClass, bitmapCreateMethod, bitmapWidth, bitmapHeight, argb8888Obj);
+
+    int32_t *bitmapBuffer = nullptr;
+    AndroidBitmap_lockPixels(env, bitmap, (void **)&bitmapBuffer);
+
+    uint8_t *yBuffer, *uBuffer, *vBuffer;
+    int yBufferLen, uBufferLen, vBufferLen;
+    int yRowStride, uRowStride, vRowStride;
+    int yPixelStride, uPixelStride, vPixelStride;
+
+    image.getPlane(0, &yBuffer, yBufferLen, yRowStride, yPixelStride);
+    image.getPlane(1, &uBuffer, uBufferLen, uRowStride, uPixelStride);
+    image.getPlane(2, &vBuffer, vBufferLen, vRowStride, vPixelStride);
+
+    assert(yPixelStride == 1);
+    assert(uPixelStride == 2);
+    assert(vPixelStride == 2);
+
+    assert(image.getWidth() % 16 == 0);
+    assert(image.getHeight() % 2 == 0);
+
+    int row = 0;
+    while (row < image.getHeight()) {
+        int col = 0;
+        while (col < image.getWidth()) {
+            int16x8_t u = neon_load_uv(uBuffer + row / 2 * uRowStride + col);
+            // u - 128
+            u = vsubq_s16(u, _128);
+            int16x8_t v = neon_load_uv(vBuffer + row / 2 * vRowStride + col);
+            // v - 128
+            v = vsubq_s16(v, _128);
+
+            for (int lineOddEven = 0; lineOddEven < 2; lineOddEven++) {
+                int16x8x2_t y_2 = neon_load_y(yBuffer + (row + lineOddEven) * yRowStride + col);
+                for (int lowHigh = 0; lowHigh < 2; lowHigh++) {
+                    int16x8_t y = y_2.val[lowHigh];
+                    // y * 128
+                    y = vmulq_n_s16(y, 128);
+
+                    // 44 * (u - 128)
+                    int16x8_t u1 = vqdmulhq_n_s16(u, 44);
+                    // 227 * (u - 128)
+                    int16x8_t u2 = vqdmulhq_n_s16(u, 227);
+
+                    // 179 * (v - 128)
+                    int16x8_t v1 = vqdmulhq_n_s16(v, 179);
+                    // 91 * (v - 128)
+                    int16x8_t v2 = vqdmulhq_n_s16(v, 91);
+
+
+                }
+            }
+        }
+    }
+}
+
 
 
 //jobject convert_YUV_420_888_assembly(JNIEnv *env, ImageProxy &image, int rotation, int facing) {

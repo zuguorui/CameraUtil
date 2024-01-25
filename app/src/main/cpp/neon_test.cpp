@@ -142,6 +142,16 @@ void stepByStep() {
 
 }
 
+void instruction_test() {
+    // 饱和式加法
+    int8x8_t a = vdup_n_s8(100);
+    int8x8_t b = vdup_n_s8(1);
+    int8x8_t c = vqadd_s8(a, b);
+
+//    int16x8_t a = vdupq_n_s16(INT16_MAX - 100);
+//    int16x8_t c = vqrdmulhq_n_s16(a, 2);
+}
+
 void do_neon_test() {
     movTest();
     stepByStep();

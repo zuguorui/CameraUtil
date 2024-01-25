@@ -15,6 +15,7 @@
 jobject convert_YUV_420_888_f32(JNIEnv *env, ImageProxy &image, int rotation, int facing);
 jobject convert_YUV_420_888_i32(JNIEnv *env, ImageProxy &image, int rotation, int facing);
 jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, int facing);
+jobject convert_YUV_420_888_neon2(JNIEnv *env, ImageProxy &image, int rotation, int facing);
 //jobject convert_YUV_420_888_assembly(JNIEnv *env, ImageProxy &image, int rotation, int facing);
 
 
