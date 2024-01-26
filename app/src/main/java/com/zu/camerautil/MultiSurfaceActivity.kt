@@ -101,8 +101,10 @@ class MultiSurfaceActivity : AppCompatActivity() {
                     currentSize!!,
                     imageReaderFormat,
                     true,
-                    -1
+                    1
                 )
+
+                Timber.d("imageReaderSize = $imageReaderSize")
 
                 initImageReaders()
 

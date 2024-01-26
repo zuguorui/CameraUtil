@@ -19,12 +19,12 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
             cmake {
-                arguments("-DANDROID_PLATFORM=26", "-DANDROID_ARM_NEON=ON", "-DANDROID_STL=c++_shared", "-O3", "-Otime", "-mfpu=neon")
-                cppFlags("-std=c++17")
+                arguments("-DANDROID_PLATFORM=26", "-DANDROID_ARM_NEON=ON", "-DANDROID_STL=c++_shared")
+                cppFlags("-std=c++17", "-O3", "-fvectorize", "-mfpu=neon")
             }
             ndk {
                 abiFilters.run {
-                    add("armeabi-v7a")
+                    //add("armeabi-v7a")
                     add("arm64-v8a")
                 }
             }

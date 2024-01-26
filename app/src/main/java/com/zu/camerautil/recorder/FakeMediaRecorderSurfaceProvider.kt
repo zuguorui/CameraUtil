@@ -1,5 +1,7 @@
 package com.zu.camerautil.recorder
 
+import android.media.AudioManager.AudioRecordingCallback
+import android.media.EncoderProfiles
 import android.media.MediaRecorder
 import android.util.Size
 import android.view.Surface
@@ -40,6 +42,7 @@ class FakeMediaRecorderSurfaceProvider: IRecorder {
             setOrientationHint(90)
 
             setVideoSize(size.width, size.height)
+
 
             setOutputFile(tempFilePath)
         }
