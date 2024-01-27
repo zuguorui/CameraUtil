@@ -9,7 +9,7 @@
 
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:layout_gravity="center">
         <LinearLayout
             android:layout_width="match_parent"
@@ -52,6 +52,12 @@
                 android:id="@+id/btn_simple_wb"
                 android:layout_margin="10dp"
                 android:text="白平衡(无色调)"/>
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/btn_sec_iso"
+                android:layout_margin="10dp"
+                android:text="曝光与ISO"/>
             <Button
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

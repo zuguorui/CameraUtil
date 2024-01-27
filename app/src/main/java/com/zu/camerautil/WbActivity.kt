@@ -203,8 +203,8 @@ class WbActivity : AppCompatActivity() {
 
                     if (debugGain == null || !isColorGainEqual(debugGain!!, it)) {
                         debugGain = it
-                        Timber.d("ColorGain: [${String.format(formatText, it.red - 1)}, ${String.format(formatText, it.greenOdd - 1)}, ${String.format(formatText, it.greenEven - 1)}, ${String.format(formatText, it.blue - 1)}]")
-                        Timber.d("ColorGain baseLine: ${String.format(formatText, (it.red - 1 + it.blue - 1) / 2)}")
+                        Timber.d("ColorGain: [${String.format(formatText, it.red)}, ${String.format(formatText, it.greenOdd)}, ${String.format(formatText, it.greenEven)}, ${String.format(formatText, it.blue)}]")
+                        Timber.d("ColorGain baseLine: ${String.format(formatText, (it.red + it.blue) / 2)}")
                     }
 
                     val (temp, tint) = WbUtil.computeTempAndTint(it)

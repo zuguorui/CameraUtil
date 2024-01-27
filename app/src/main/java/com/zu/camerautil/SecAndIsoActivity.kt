@@ -54,7 +54,7 @@ class SecAndIsoActivity : AppCompatActivity() {
     private val surfaceStateListener = object : PreviewViewImplementation.SurfaceStateListener {
         override fun onSurfaceCreated(surface: Surface) {
             Timber.d("surfaceCreated: Thread = ${Thread.currentThread().name}")
-            binding.cameraSelector.setCameras(cameraInfoMap.values)
+            binding.cameraLens.setCameras(cameraInfoMap.values)
         }
 
         override fun onSurfaceSizeChanged(surface: Surface, surfaceWidth: Int, surfaceHeight: Int) {
@@ -137,11 +137,11 @@ class SecAndIsoActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        binding.surfaceMain.implementationType = Camera2PreviewView.ImplementationType.TEXTURE_VIEW
+        binding.surfaceMain.implementationType = Camera2PreviewView.ImplementationType.SURFACE_VIEW
         binding.surfaceMain.scaleType = Camera2PreviewView.ScaleType.FIT_CENTER
         binding.surfaceMain.surfaceStateListener = surfaceStateListener
 
-        binding.cameraSelector.onConfigChangedListener = {camera, fps, size ->
+        binding.cameraLens.onConfigChangedListener = {camera, fps, size ->
             var reopenCamera = false
             if (camera.cameraID != openedCameraID) {
                 reopenCamera = true

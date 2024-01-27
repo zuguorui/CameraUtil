@@ -54,6 +54,10 @@ class MainActivity : AppCompatActivity() {
             startActivity(SimpleWbActivity::class.java)
         }
 
+        binding.btnSecIso.setOnClickListener {
+            startActivity(SecAndIsoActivity::class.java)
+        }
+
         binding.btnNeonTest.setOnClickListener {
             NeonTest.doNeonTest()
         }

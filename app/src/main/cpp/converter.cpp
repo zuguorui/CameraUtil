@@ -63,14 +63,17 @@ inline uint8_t clamp(int32_t n) {
     return n | ((255 - n) >> 31);
 }
 
-inline void yuv2rgb_i32(int32_t y, int32_t u, int32_t v, int32_t &r, int32_t &g, int32_t &b) {
-    y -= 16;
-    u -= 128;
-    v -= 128;
+inline void yuv2rgb_i32(uint8_t y, uint8_t u, uint8_t v, uint8_t &r, uint8_t &g, uint8_t &b) {
+    int32_t my = (int32_t)y * 128;
+    int32_t mu = (int32_t)u - 128;
+    int32_t mv = (int32_t)v - 128;
 
-    r = clamp((int32_t)(1.164 * y + 1.793 * v));
-    g = clamp((int32_t)(1.164 * y - 0.213 * u - 0.533 * v));
-    b = clamp((int32_t)(1.164 * y + 2.112 * u));
+    int32_t mr = (my + 179 * mv) >> 7;
+    int32_t mg = (my - 44 * mu - 91 * mv) >> 7;
+    int32_t mb = (my + 227 * mu) >> 7;
+    r = clamp(mr);
+    g = clamp(mg);
+    b = clamp(mb);
 }
 
 inline glm::mat3x3 getRotationMat(int bitmapWidth, int bitmapHeight, int rotation) {
@@ -204,15 +207,15 @@ jobject convert_YUV_420_888_i32(JNIEnv *env, ImageProxy &image, int rotation, in
     image.getPlane(1, &uBuffer, uBufferLen, uRowStride, uPixelStride);
     image.getPlane(2, &vBuffer, vBufferLen, vRowStride, vPixelStride);
 
-    int32_t y, u, v, r, g, b;
+    uint8_t y, u, v, r, g, b;
 
     int32_t colorInt;
     chrono::time_point startTime = chrono::system_clock::now();
     for (int row = 0; row < image.getHeight(); row++) {
         for (int col = 0; col < image.getWidth(); col++) {
-            y = ((int)yBuffer[row * yRowStride + col * yPixelStride] & 0x00FF);
-            u = ((int)uBuffer[row / 2 * uRowStride + col / 2 * uPixelStride] & 0x00FF);
-            v = ((int)vBuffer[row / 2 * vRowStride + col / 2 * vPixelStride] & 0x00FF);
+            y = yBuffer[row * yRowStride + col * yPixelStride];
+            u = uBuffer[row / 2 * uRowStride + col / 2 * uPixelStride];
+            v = vBuffer[row / 2 * vRowStride + col / 2 * vPixelStride];
             yuv2rgb_i32(y, u, v, r, g, b);
             colorInt = (0x00FF << 24) | ((b & 0x00FF) << 16) | ((g & 0x00FF) << 8) | (r & 0x00FF);
 
@@ -232,6 +235,61 @@ jobject convert_YUV_420_888_i32(JNIEnv *env, ImageProxy &image, int rotation, in
     if (debugIndex >= DEBUG_LOOP) {
         long avg = timeMS / debugIndex;
         LOGD(TAG, "convert i32, %d images avg cost %d ms", debugIndex, (int)avg);
+        debugIndex = 0;
+        timeMS = 0;
+    }
+
+    AndroidBitmap_unlockPixels(env, bitmap);
+    return bitmap;
+}
+
+jobject convert_YUV_420_888_i32_raw(JNIEnv *env, ImageProxy &image, int rotation, int facing) {
+
+    int bitmapWidth = image.getWidth();
+    int bitmapHeight = image.getHeight();
+
+    if (bitmapClass == nullptr) {
+        LOGE(TAG, "JNI object not init, init");
+        initJNI(env);
+    }
+
+    jobject bitmap = env->CallStaticObjectMethod(bitmapClass, bitmapCreateMethod, bitmapWidth, bitmapHeight, argb8888Obj);
+
+    int32_t *bitmapBuffer = nullptr;
+    AndroidBitmap_lockPixels(env, bitmap, (void **)&bitmapBuffer);
+
+    uint8_t *yBuffer, *uBuffer, *vBuffer;
+    int yBufferLen, uBufferLen, vBufferLen;
+    int yRowStride, uRowStride, vRowStride;
+    int yPixelStride, uPixelStride, vPixelStride;
+
+    image.getPlane(0, &yBuffer, yBufferLen, yRowStride, yPixelStride);
+    image.getPlane(1, &uBuffer, uBufferLen, uRowStride, uPixelStride);
+    image.getPlane(2, &vBuffer, vBufferLen, vRowStride, vPixelStride);
+
+    uint8_t y, u, v, r, g, b;
+
+    int32_t colorInt;
+    chrono::time_point startTime = chrono::system_clock::now();
+    for (int row = 0; row < image.getHeight(); row++) {
+        for (int col = 0; col < image.getWidth(); col++) {
+            y = yBuffer[row * yRowStride + col * yPixelStride];
+            u = uBuffer[row / 2 * uRowStride + col / 2 * uPixelStride];
+            v = vBuffer[row / 2 * vRowStride + col / 2 * vPixelStride];
+            yuv2rgb_i32(y, u, v, r, g, b);
+            colorInt = (0x00FF << 24) | ((b & 0x00FF) << 16) | ((g & 0x00FF) << 8) | (r & 0x00FF);
+
+            bitmapBuffer[(row * bitmapWidth) + col] = colorInt;
+        }
+    }
+    chrono::time_point endTime = chrono::system_clock::now();
+    chrono::duration oneImageTime = endTime - startTime;
+    long ms = chrono::duration_cast<chrono::milliseconds>(oneImageTime).count();
+    debugIndex++;
+    timeMS += ms;
+    if (debugIndex >= DEBUG_LOOP) {
+        long avg = timeMS / debugIndex;
+        LOGD(TAG, "convert i32 raw, %d images avg cost %d ms", debugIndex, (int)avg);
         debugIndex = 0;
         timeMS = 0;
     }
@@ -315,6 +373,68 @@ jobject convert_YUV_420_888_f32(JNIEnv *env, ImageProxy &image, int rotation, in
     return bitmap;
 }
 
+jobject convert_YUV_420_888_f32_raw(JNIEnv *env, ImageProxy &image, int rotation, int facing) {
+    int bitmapWidth = image.getWidth();
+    int bitmapHeight = image.getHeight();
+
+    if (bitmapClass == nullptr) {
+        LOGE(TAG, "JNI object not init, init");
+        initJNI(env);
+    }
+
+    jobject bitmap = env->CallStaticObjectMethod(bitmapClass, bitmapCreateMethod, bitmapWidth, bitmapHeight, argb8888Obj);
+
+    int32_t *bitmapBuffer = nullptr;
+    AndroidBitmap_lockPixels(env, bitmap, (void **)&bitmapBuffer);
+
+    uint8_t *yBuffer, *uBuffer, *vBuffer;
+    int yBufferLen, uBufferLen, vBufferLen;
+    int yRowStride, uRowStride, vRowStride;
+    int yPixelStride, uPixelStride, vPixelStride;
+
+    image.getPlane(0, &yBuffer, yBufferLen, yRowStride, yPixelStride);
+    image.getPlane(1, &uBuffer, uBufferLen, uRowStride, uPixelStride);
+    image.getPlane(2, &vBuffer, vBufferLen, vRowStride, vPixelStride);
+
+    float y, u, v, r, g, b;
+
+    int32_t colorInt;
+    chrono::time_point startTime = chrono::system_clock::now();
+    for (int row = 0; row < image.getHeight(); row++) {
+        for (int col = 0; col < image.getWidth(); col++) {
+            y = ((int)yBuffer[row * yRowStride + col * yPixelStride] & 0x00FF) * 1.0f / 0x00FF;
+            u = ((int)uBuffer[row / 2 * uRowStride + col / 2 * uPixelStride] & 0x00FF) * 1.0f / 0x00FF;
+            v = ((int)vBuffer[row / 2 * vRowStride + col / 2 * vPixelStride] & 0x00FF) * 1.0f / 0x00FF;
+            yuv2rgb_f32(y, u, v, r, g, b);
+            colorInt = 0xFF << 24 | ((int)(b * 0x00FF) << 16) | ((int)(g * 0x00FF) << 8) | ((int)(r * 0x00FF) & 0x00FF);
+
+            bitmapBuffer[(int)(row * bitmapWidth) + col] = colorInt;
+        }
+    }
+    chrono::time_point endTime = chrono::system_clock::now();
+    chrono::duration oneImageTime = endTime - startTime;
+    long ms = chrono::duration_cast<chrono::milliseconds>(oneImageTime).count();
+    debugIndex++;
+    timeMS += ms;
+    if (debugIndex >= DEBUG_LOOP) {
+        long avg = timeMS / debugIndex;
+        LOGD(TAG, "convert f32 raw, %d images avg cost %d ms, image size = [%d, %d]", debugIndex, (int)avg, bitmapWidth, bitmapHeight);
+        debugIndex = 0;
+        timeMS = 0;
+    }
+
+    AndroidBitmap_unlockPixels(env, bitmap);
+    return bitmap;
+}
+
+/**
+ * load Y
+ * from:
+ * Y1 Y2 Y3 Y4 Y5 Y6 Y7 Y8
+ * to:
+ * Y1 Y3 Y5 Y7
+ * Y2 Y4 Y6 Y8
+ * */
 static inline int16x8x2_t neon_load_y(uint8_t *buffer) {
     uint8x8x2_t u8_2 = vld2_u8(buffer);
     int16x8x2_t s16_2;
@@ -325,6 +445,16 @@ static inline int16x8x2_t neon_load_y(uint8_t *buffer) {
     return s16_2;
 }
 
+/**
+ * load U or V
+ * from:
+ * U1 X U2 X U3 X U4 X
+ * to:
+ * U1 U2 U3 U4
+ * X  X  X  X
+ * where X means unused byte, which is described by stride. In this case,
+ * assuming the stride of U and Y is 2.
+ * */
 static inline int16x8_t neon_load_uv(uint8_t *buffer) {
     uint8x8x2_t u8_2 = vld2_u8(buffer);
     uint8x8_t u8 = u8_2.val[0];
@@ -460,6 +590,117 @@ jobject convert_YUV_420_888_neon(JNIEnv *env, ImageProxy &image, int rotation, i
     return bitmap;
 }
 
+
+jobject convert_YUV_420_888_neon_raw(JNIEnv *env, ImageProxy &image, int rotation, int facing) {
+    static int16x8_t _128 = vdupq_n_s16(128);
+    int bitmapWidth = image.getWidth();
+    int bitmapHeight = image.getHeight();
+
+    if (bitmapClass == nullptr) {
+        LOGE(TAG, "JNI object not init, init");
+        initJNI(env);
+    }
+
+    jobject bitmap = env->CallStaticObjectMethod(bitmapClass, bitmapCreateMethod, bitmapWidth, bitmapHeight, argb8888Obj);
+
+    int32_t *bitmapBuffer = nullptr;
+    AndroidBitmap_lockPixels(env, bitmap, (void **)&bitmapBuffer);
+
+    uint8_t *yBuffer, *uBuffer, *vBuffer;
+    int yBufferLen, uBufferLen, vBufferLen;
+    int yRowStride, uRowStride, vRowStride;
+    int yPixelStride, uPixelStride, vPixelStride;
+
+    image.getPlane(0, &yBuffer, yBufferLen, yRowStride, yPixelStride);
+    image.getPlane(1, &uBuffer, uBufferLen, uRowStride, uPixelStride);
+    image.getPlane(2, &vBuffer, vBufferLen, vRowStride, vPixelStride);
+
+    assert(yPixelStride == 1);
+    assert(uPixelStride == 2);
+    assert(vPixelStride == 2);
+
+    assert(image.getWidth() % 16 == 0);
+    assert(image.getHeight() % 2 == 0);
+
+    uint8_t rBuffer[8], gBuffer[8], bBuffer[8];
+
+    chrono::time_point startTime = chrono::system_clock::now();
+    int row = 0;
+    while (row < image.getHeight()) {
+        int col = 0;
+        while (col < image.getWidth()) {
+            int16x8_t u = neon_load_uv(uBuffer + row / 2 * uRowStride + col);
+            // u - 128
+            u = vsubq_s16(u, _128);
+            int16x8_t v = neon_load_uv(vBuffer + row / 2 * vRowStride + col);
+            // v - 128
+            v = vsubq_s16(v, _128);
+
+            // will not overflow
+            // 44 * (u - 128)
+            int16x8_t u1 = vmulq_n_s16(u, 44);
+            // 227 * (u - 128)
+            int16x8_t u2 = vmulq_n_s16(u, 227);
+            // 179 * (v - 128)
+            int16x8_t v1 = vmulq_n_s16(v, 179);
+            // 91 * (v - 128)
+            int16x8_t v2 = vmulq_n_s16(v, 91);
+            // 44 * (u - 128) + 91 * (v - 128)
+            int16x8_t c1 = vaddq_s16(u1, v2);
+
+            // 1 line UV is used by 2 lines Y
+            for (int lineOddEven = 0; lineOddEven < 2; lineOddEven++) {
+                int16x8x2_t y_2 = neon_load_y(yBuffer + (row + lineOddEven) * yRowStride + col);
+                for (int colOddEven = 0; colOddEven < 2; colOddEven++) {
+                    int16x8_t y = y_2.val[colOddEven];
+                    // y * 128
+                    y = vmulq_n_s16(y, 128);
+
+                    int16x8_t r1 = vqaddq_s16(y, v1);
+                    int16x8_t g1 = vqsubq_s16(y, c1);
+                    int16x8_t b1 = vqaddq_s16(y, u2);
+
+                    r1 = vshrq_n_s16(r1, 7);
+                    g1 = vshrq_n_s16(g1, 7);
+                    b1 = vshrq_n_s16(b1, 7);
+
+                    uint8x8_t r2 = vqmovun_s16(r1);
+                    uint8x8_t g2 = vqmovun_s16(g1);
+                    uint8x8_t b2 = vqmovun_s16(b1);
+
+                    vst1_u8(rBuffer, r2);
+                    vst1_u8(gBuffer, g2);
+                    vst1_u8(bBuffer, b2);
+
+                    for (int i = 0; i < 8; i++) {
+                        uint8_t r = rBuffer[i];
+                        uint8_t g = gBuffer[i];
+                        uint8_t b = bBuffer[i];
+
+                        uint32_t colorInt = (0x00FF << 24) | ((b & 0x00FF) << 16) | ((g & 0x00FF) << 8) | (r & 0x00FF);
+
+                        bitmapBuffer[((row + lineOddEven) * bitmapWidth) + (col + 2 * i + colOddEven)] = colorInt;
+                    }
+                }
+            }
+            col += 16;
+        }
+        row += 2;
+    }
+    chrono::time_point endTime = chrono::system_clock::now();
+    chrono::duration oneImageTime = endTime - startTime;
+    long ms = chrono::duration_cast<chrono::milliseconds>(oneImageTime).count();
+    debugIndex++;
+    timeMS += ms;
+    if (debugIndex >= DEBUG_LOOP) {
+        long avg = timeMS / debugIndex;
+        LOGD(TAG, "convert neon raw, %d images avg cost %d ms, image size = [%d, %d]", debugIndex, (int)avg, bitmapWidth, bitmapHeight);
+        debugIndex = 0;
+        timeMS = 0;
+    }
+    AndroidBitmap_unlockPixels(env, bitmap);
+    return bitmap;
+}
 
 
 

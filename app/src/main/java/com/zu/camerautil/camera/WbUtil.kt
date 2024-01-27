@@ -30,6 +30,9 @@ object WbUtil {
     val TEMP_RANGE = Range<Int>(2000, 10000)
     val TINT_RANGE = Range<Int>(-50, 50)
 
+    // 色温占颜色增强的比例，则色调占1 - A
+    private const val A = 0.7f
+
     var previousCST: ColorSpaceTransform? = null
         set(value) {
             val diff = field != value
@@ -75,7 +78,7 @@ object WbUtil {
         val tintF = (tint.toFloat() - TINT_RANGE.lower) / (TINT_RANGE.upper - TINT_RANGE.lower)
         val tempArray = combineArrayByRatio(BLUE, RED, tempF)
         val tintArray = combineArrayByRatio(GREEN, MAGENTA, tintF)
-        val combined = combineArrayByRatio(tempArray, tintArray, 0.5f)
+        val combined = combineArrayByRatio(tempArray, tintArray,  1 - A)
 
         val rGain = transformToRange(0.0f, 255.0f, 1.0f, 3.0f, combined[0])
         val gGain = transformToRange(0.0f, 255.0f, 1.0f, 3.0f, combined[1]) / 2
@@ -91,9 +94,8 @@ object WbUtil {
         rGain = transformToRange(1.0f, 3.0f, 0.0f, 255.0f, rGain)
         bGain = transformToRange(1.0f, 3.0f, 0.0f, 255.0f, bGain)
 
-
-        val temp = (rGain - bGain + 127.5f) / 255
-        val tint = (rGain + bGain - 127.5f) / 255
+        val temp = (rGain - bGain + 255 * A) / (255 * 2 * A)
+        val tint = (rGain + bGain - 255 * A) / (255 * 2 * (1 - A))
 
         val tempI = ((1 - temp) * TEMP_RANGE.lower + temp * TEMP_RANGE.upper).roundToInt()
         val tintI = ((1 - tint) * TINT_RANGE.lower + tint * TINT_RANGE.upper).roundToInt()

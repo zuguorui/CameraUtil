@@ -20,7 +20,7 @@ android {
         externalNativeBuild {
             cmake {
                 arguments("-DANDROID_PLATFORM=26", "-DANDROID_ARM_NEON=ON", "-DANDROID_STL=c++_shared")
-                cppFlags("-std=c++17", "-O3", "-fvectorize", "-mfpu=neon")
+                cppFlags("-std=c++17", "-O1", "-fvectorize", "-mfpu=neon")
             }
             ndk {
                 abiFilters.run {

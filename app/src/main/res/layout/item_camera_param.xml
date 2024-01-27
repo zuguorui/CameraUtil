@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="50dp"
+    android:padding="3dp"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <androidx.constraintlayout.widget.Guideline
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.5"
+        android:id="@+id/gl1"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toLeftOf="@id/tv_mode"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/gl1"
+        android:gravity="center"
+        android:id="@+id/tv_name"
+        android:text="参数"
+        android:lines="1"
+        android:textColor="#FF4900"
+        android:textStyle="bold"
+        android:layout_marginRight="3dp"
+        app:layout_constraintHorizontal_chainStyle="packed"/>
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/gl1"
+        android:id="@+id/tv_mode"
+        android:text="M"
+        android:background="#FF4900"
+        android:gravity="center"
+        android:paddingHorizontal="3dp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/gl1"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:gravity="center"
+        android:id="@+id/tv_value"
+        android:textColor="#FF4900"
+        android:text="1000"/>
+</androidx.constraintlayout.widget.ConstraintLayout>
