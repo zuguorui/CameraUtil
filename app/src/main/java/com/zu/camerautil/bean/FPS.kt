@@ -19,6 +19,6 @@ data class FPS(
     }
 
     override fun toString(): String {
-        return "${value}FPS ${if (type == Type.HIGH_SPEED) "高速" else "普通"}"
+        return "${value}FPS ${if (type == Type.HIGH_SPEED) "高速aaaaaaaa" else "普通"}"
     }
 }

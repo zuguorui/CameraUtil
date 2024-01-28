@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="AbsCameraParamView">
+        <attr name="paramPanelPopupGravity" format="flags">
+            <flag name="left" value="1"/>
+            <flag name="right" value="2"/>
+            <flag name="top" value="4"/>
+            <flag name="bottom" value="8"/>
+        </attr>
+    </declare-styleable>
+</resources>

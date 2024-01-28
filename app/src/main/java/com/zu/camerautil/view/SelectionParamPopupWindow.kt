@@ -5,22 +5,21 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.view.View
 import android.view.ViewGroup
-import android.widget.PopupWindow
 import android.widget.TextView
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.zu.camerautil.util.dpToPx
-import timber.log.Timber
 
-class SelectionParamPopupWindow: PopupWindow {
-    val context: Context
+class SelectionParamPopupWindow: EasyLayoutPopupWindow {
+
+//    val context: Context
 
     var onItemClickListener: ((Param) -> Unit)? = null
 
-    private val recyclerView: RecyclerView
+    private var recyclerView: RecyclerView
 
-    private var adapter = Adapter()
+    private var adapter: Adapter = Adapter()
 
     private val data = ArrayList<Param>()
 
@@ -32,20 +31,20 @@ class SelectionParamPopupWindow: PopupWindow {
     }
 
     constructor(context: Context): super(context) {
-        this.context = context
+//        this.context = context
+        isOutsideTouchable = true
+        setBackgroundDrawable(ColorDrawable(Color.WHITE))
+
         recyclerView = RecyclerView(context).apply {
             this.layoutManager = LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false)
             //this.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             //this.layoutParams = ViewGroup.LayoutParams(dpToPx(context, 400f).toInt(), dpToPx(context, 800f).toInt())
             this.addItemDecoration(DividerItemDecoration(context, DividerItemDecoration.VERTICAL))
             this.adapter = this@SelectionParamPopupWindow.adapter
-            this@SelectionParamPopupWindow.contentView = this
         }
-
         contentView = recyclerView
-        isOutsideTouchable = true
-        setBackgroundDrawable(ColorDrawable(Color.WHITE))
     }
+
 
     fun setData(dataList: List<Param>) {
         data.clear()
@@ -82,7 +81,6 @@ class SelectionParamPopupWindow: PopupWindow {
         }
 
         override fun getItemCount(): Int {
-            Timber.d("getItemCount = ${data.size}")
             return data.size
         }
     }

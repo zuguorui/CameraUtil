@@ -27,6 +27,7 @@
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         android:orientation="horizontal"
+        app:paramPanelPopupGravity="bottom"
         android:id="@+id/camera_lens"/>
 
 

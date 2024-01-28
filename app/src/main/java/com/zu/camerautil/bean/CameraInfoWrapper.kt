@@ -220,5 +220,12 @@ open class CameraInfoWrapper(
         """.trimIndent()
         return str1
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) {
+            return true
+        }
+        return this.cameraID == (other as? CameraInfoWrapper)?.cameraID
+    }
 }
 
