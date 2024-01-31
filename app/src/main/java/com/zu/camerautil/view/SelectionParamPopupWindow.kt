@@ -9,24 +9,48 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.zu.camerautil.bean.SelectionParam
+import com.zu.camerautil.bean.UiElement
 import com.zu.camerautil.util.dpToPx
 
-class SelectionParamPopupWindow: EasyLayoutPopupWindow {
+class SelectionParamPopupWindow<T>: EasyLayoutPopupWindow {
 
-//    val context: Context
-
-    var onItemClickListener: ((Param) -> Unit)? = null
+    var onItemClickListener: ((T) -> Unit)? = null
 
     private var recyclerView: RecyclerView
 
     private var adapter: Adapter = Adapter()
 
-    private val data = ArrayList<Param>()
+    private val data = ArrayList<UiElement>()
+
+    var param: SelectionParam<T>? = null
+        set(value) {
+            field = value
+            data.clear()
+            field?.let {
+                for (v in it.values) {
+                    val uiElement = it.valueToUiElement(v)
+                    data.add(uiElement)
+                }
+            }
+            adapter.notifyDataSetChanged()
+        }
+
+    private var _current: T? = null
+    var current: T?
+        get() = _current
+        set(value) {
+            _current = value
+        }
+
 
     private val internalClickListener = object : View.OnClickListener {
         override fun onClick(v: View) {
-            val position = v.tag as Int
-            onItemClickListener?.invoke(data[position]!!)
+            param?.let {
+                val position = v.tag as Int
+                onItemClickListener?.invoke(it.values[position])
+            }
+
         }
     }
 
@@ -46,7 +70,7 @@ class SelectionParamPopupWindow: EasyLayoutPopupWindow {
     }
 
 
-    fun setData(dataList: List<Param>) {
+    fun setData(dataList: List<UiElement>) {
         data.clear()
         data.addAll(dataList)
         adapter.notifyDataSetChanged()
@@ -87,10 +111,4 @@ class SelectionParamPopupWindow: EasyLayoutPopupWindow {
 
     private inner class ViewHolder(view: View): RecyclerView.ViewHolder(view)
 
-    data class Param(
-        val text: String,
-        val id: Int,
-        val textColor: Int = Color.BLACK,
-        val background: Int = Color.WHITE
-    )
 }

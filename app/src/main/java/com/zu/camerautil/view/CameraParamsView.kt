@@ -39,6 +39,8 @@ class CameraParamsView: AbsCameraParamView {
         companion object {
             private val VALUES = floatArrayOf(
                 1.0f / 5,
+                1.0f / 6,
+                1.0f / 7,
                 1.0f / 10,
                 1.0f / 15,
                 1.0f / 24,

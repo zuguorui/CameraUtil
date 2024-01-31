@@ -26,7 +26,7 @@ class RangeParamPopupWindow: PopupWindow {
             }
 
             val percent = (current - value).toFloat() / (max - value)
-            binding.sb.progress = (percent * binding.sb.max).toInt()
+            binding.slider.value = percent * (binding.slider.valueTo - binding.slider.valueFrom) + binding.slider.valueFrom
         }
     var max: Int = 100
         set(value) {
@@ -36,7 +36,7 @@ class RangeParamPopupWindow: PopupWindow {
                 current = value
             }
             val percent = (current - min).toFloat() / (value - min)
-            binding.sb.progress = (percent * binding.sb.max).toInt()
+            binding.slider.value = percent * (binding.slider.valueTo - binding.slider.valueFrom) + binding.slider.valueFrom
         }
 
     private var _current: Int = 0
@@ -51,7 +51,7 @@ class RangeParamPopupWindow: PopupWindow {
                 return
             }
             val percent = (value - min).toFloat() / (max - min)
-            binding.sb.progress = (percent * binding.sb.max).toInt()
+            binding.slider.value = percent * (binding.slider.valueTo - binding.slider.valueFrom) + binding.slider.valueFrom
         }
 
     var isAuto: Boolean = true
@@ -83,23 +83,14 @@ class RangeParamPopupWindow: PopupWindow {
         max = 100
         current = 50
 
-        binding.sb.setOnSeekBarChangeListener(object : OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                val percent = progress.toFloat() / seekBar.max
-                _current = (min + percent * (max - min)).toInt()
-                if (fromUser) {
-                    onValueChangedListener?.invoke(_current)
-                }
+        binding.slider.addOnChangeListener { slider, value, fromUser ->
+            val percent = value / (slider.valueTo - slider.valueFrom)
+            _current = (min + percent * (max - min)).toInt()
+            if (fromUser) {
+                onValueChangedListener?.invoke(_current)
             }
+        }
 
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {
-
-            }
-
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {
-
-            }
-        })
 
         binding.swAuto.setOnCheckedChangeListener { _, isChecked ->
             isAuto = isChecked

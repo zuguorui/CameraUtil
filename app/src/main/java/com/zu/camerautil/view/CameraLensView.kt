@@ -10,24 +10,27 @@ import android.view.LayoutInflater
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraParamID
 import com.zu.camerautil.bean.FPS
+import com.zu.camerautil.bean.FpsParam
+import com.zu.camerautil.bean.LensParam
 import com.zu.camerautil.bean.SelectionParam
+import com.zu.camerautil.bean.SizeParam
 import com.zu.camerautil.camera.selectCameraID
 import com.zu.camerautil.databinding.ItemCameraParamBinding
 import timber.log.Timber
 
 class CameraLensView: AbsCameraParamView {
 
-    private lateinit var lensBinding: ItemCameraParamBinding
-    private lateinit var sizeBinding: ItemCameraParamBinding
-    private lateinit var fpsBinding: ItemCameraParamBinding
+    private lateinit var lensView: ParamView
+    private lateinit var sizeView: ParamView
+    private lateinit var fpsView: ParamView
 
-    private lateinit var lensPopupWindow: SelectionParamPopupWindow
-    private lateinit var sizePopupWindow: SelectionParamPopupWindow
-    private lateinit var fpsPopupWindow: SelectionParamPopupWindow
+    private lateinit var lensPopupWindow: SelectionParamPopupWindow<CameraInfoWrapper>
+    private lateinit var sizePopupWindow: SelectionParamPopupWindow<Size>
+    private lateinit var fpsPopupWindow: SelectionParamPopupWindow<FPS>
 
-    private var lensParam = SelectionParam<CameraInfoWrapper>(CameraParamID.LENS)
-    private var sizeParam = SelectionParam<Size>(CameraParamID.SIZE)
-    private var fpsParam = SelectionParam<FPS>(CameraParamID.FPS)
+    private var lensParam = LensParam
+    private var sizeParam = SizeParam
+    private var fpsParam = FpsParam
 
     private val layoutInflater = LayoutInflater.from(context)
 
@@ -66,43 +69,17 @@ class CameraLensView: AbsCameraParamView {
     }
 
     private fun initViews() {
-        lensBinding = ItemCameraParamBinding.inflate(layoutInflater, this, false)
-        lensBinding.run {
-            tvName.text = "镜头"
-            tvValue.text = ""
-            tvMode.visibility = GONE
-            root.isClickable = true
-            root.setOnClickListener {
-                showLensMenu()
-            }
-        }
+        lensView = ParamView(context)
 
-        sizeBinding = ItemCameraParamBinding.inflate(layoutInflater, this, false)
-        sizeBinding.run {
-            tvName.text = "分辨率"
-            tvValue.text = ""
-            tvMode.visibility = GONE
-            root.isClickable = true
-            root.setOnClickListener {
-                showSizeMenu()
-            }
-        }
+        sizeView = ParamView(context)
 
-        fpsBinding = ItemCameraParamBinding.inflate(layoutInflater, this, false)
-        fpsBinding.run {
-            tvName.text = "FPS"
-            tvValue.text = ""
-            root.isClickable = true
-            root.setOnClickListener {
-                showFpsMenu()
-            }
-        }
+        fpsView = ParamView(context)
 
-        val itemViews = arrayListOf(lensBinding.root, sizeBinding.root, fpsBinding.root)
+        val itemViews = arrayListOf(lensView, sizeView, fpsView)
 
         setItems(itemViews)
 
-        lensPopupWindow = SelectionParamPopupWindow(context).apply {
+        lensPopupWindow = SelectionParamPopupWindow<CameraInfoWrapper>(context).apply {
             onItemClickListener = { param ->
                 this.dismiss()
                 val camera = lensParam.values[param.id]
