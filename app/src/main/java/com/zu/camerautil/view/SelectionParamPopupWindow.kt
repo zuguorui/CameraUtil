@@ -9,19 +9,19 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.zu.camerautil.bean.AdjustUiElement
 import com.zu.camerautil.bean.SelectionParam
-import com.zu.camerautil.bean.UiElement
 import com.zu.camerautil.util.dpToPx
 
 class SelectionParamPopupWindow<T>: EasyLayoutPopupWindow {
 
-    var onItemClickListener: ((T) -> Unit)? = null
+    var onParamSelectedListener: ((T) -> Unit)? = null
 
     private var recyclerView: RecyclerView
 
     private var adapter: Adapter = Adapter()
 
-    private val data = ArrayList<UiElement>()
+    private val data = ArrayList<AdjustUiElement>()
 
     var param: SelectionParam<T>? = null
         set(value) {
@@ -48,20 +48,19 @@ class SelectionParamPopupWindow<T>: EasyLayoutPopupWindow {
         override fun onClick(v: View) {
             param?.let {
                 val position = v.tag as Int
-                onItemClickListener?.invoke(it.values[position])
+                onParamSelectedListener?.invoke(it.values[position])
+                dismiss()
             }
 
         }
     }
 
     constructor(context: Context): super(context) {
-//        this.context = context
         isOutsideTouchable = true
         setBackgroundDrawable(ColorDrawable(Color.WHITE))
 
         recyclerView = RecyclerView(context).apply {
             this.layoutManager = LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false)
-            //this.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             //this.layoutParams = ViewGroup.LayoutParams(dpToPx(context, 400f).toInt(), dpToPx(context, 800f).toInt())
             this.addItemDecoration(DividerItemDecoration(context, DividerItemDecoration.VERTICAL))
             this.adapter = this@SelectionParamPopupWindow.adapter
@@ -69,15 +68,14 @@ class SelectionParamPopupWindow<T>: EasyLayoutPopupWindow {
         contentView = recyclerView
     }
 
-
-    fun setData(dataList: List<UiElement>) {
+    fun notifyDataChanged() {
         data.clear()
-        data.addAll(dataList)
-        adapter.notifyDataSetChanged()
-    }
-
-    fun clearData() {
-        data.clear()
+        param?.let {
+            for (v in it.values) {
+                val uiElement = it.valueToUiElement(v)
+                data.add(uiElement)
+            }
+        }
         adapter.notifyDataSetChanged()
     }
 

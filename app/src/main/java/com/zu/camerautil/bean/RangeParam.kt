@@ -1,17 +1,53 @@
 package com.zu.camerautil.bean
 
-import androidx.annotation.FloatRange
+import java.lang.ref.WeakReference
 
-open class RangeParam<T: Number>(val id: CameraParamID): ICameraParam<T>{
+typealias OnRangeChangedListener<A> = ((min: A?, max: A?) -> Unit)
+abstract class RangeParam<T: Number>(val id: CameraParamID): AbsCameraParam<T>(){
+
+    protected val rangeListeners = ArrayList<WeakReference<OnRangeChangedListener<T>>>()
+
     var max: T? = null
+        protected set(value) {
+            val diff = value == field
+            field = value
+            if (diff) {
+
+            }
+        }
     var min: T? = null
-    var current: T? = null
+        protected set(value) {
+            val diff = value == field
+            field = value
+            if (diff) {
 
-    override fun valueToUiElement(t: T): UiElement {
-        TODO("Not yet implemented")
+            }
+        }
+
+    protected fun notifyRangeChanged() {
+        val iterator = rangeListeners.iterator()
+        while (iterator.hasNext()) {
+            val ref = iterator.next()
+            ref.get()?.invoke(min, max) ?: kotlin.run {
+                iterator.remove()
+            }
+        }
     }
 
-    override fun toString(): String {
-        return "$id: range = [$min, $max], current = $current"
+    fun addOnRangeChangedListener(listener: OnRangeChangedListener<T>) {
+        val ref = WeakReference(listener)
+        rangeListeners.add(ref)
     }
+
+    fun removeOnRangeChangedListener(listener: OnRangeChangedListener<T>) {
+        rangeListeners.removeIf {
+            it.get() == null || it.get() == listener
+        }
+    }
+
+    abstract val uiMin: Float
+    abstract val uiMax: Float
+    abstract val isDiscrete: Boolean
+    abstract val uiStep: Float
+    abstract fun onUiValueChanged(uiValue: Float)
 }

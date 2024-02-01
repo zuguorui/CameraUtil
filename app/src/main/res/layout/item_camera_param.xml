@@ -33,6 +33,8 @@
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toTopOf="@id/gl1"
+        app:layout_constraintLeft_toRightOf="@id/tv_name"
+        app:layout_constraintHorizontal_chainStyle="packed"
         android:id="@+id/tv_mode"
         android:text="M"
         android:background="#FF4900"

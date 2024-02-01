@@ -43,8 +43,8 @@ abstract class PreviewViewImplementation(val context: Context) {
         var resolution = previewSize ?: kotlin.run {
             val centerX = parentMeasuredWidth / 2
             val centerY = parentMeasuredHeight / 2
-            val width = parentMeasuredWidth / 2
-            val height = parentMeasuredHeight / 2
+            val width = parentMeasuredWidth
+            val height = parentMeasuredHeight
             surfaceRect = Rect(centerX - width / 2, centerY - height / 2, centerX + width / 2, centerY + height / 2)
             //surfaceRect = Rect(0, 0, parentMeasuredWidth, parentMeasuredHeight)
             onMeasure(surfaceRect)
