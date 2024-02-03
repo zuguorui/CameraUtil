@@ -9,49 +9,47 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.zu.camerautil.bean.AdjustUiElement
 import com.zu.camerautil.bean.SelectionParam
+import com.zu.camerautil.bean.UiElement
+import com.zu.camerautil.bean.ValuesListener
 import com.zu.camerautil.util.dpToPx
+import timber.log.Timber
 
-class SelectionParamPopupWindow<T>: EasyLayoutPopupWindow {
-
-    var onParamSelectedListener: ((T) -> Unit)? = null
+class SelectionParamPopupWindow: EasyLayoutPopupWindow {
 
     private var recyclerView: RecyclerView
 
     private var adapter: Adapter = Adapter()
 
-    private val data = ArrayList<AdjustUiElement>()
+    private val data = ArrayList<UiElement>()
 
-    var param: SelectionParam<T>? = null
+    private val valuesListener: ValuesListener<Any> = {
+        Timber.d("values changed: $param")
+        onValuesChanged()
+    }
+
+    var param: SelectionParam<Any>? = null
         set(value) {
+            Timber.d("param setter, field = $field, value = $value")
+            field?.removeOnValuesChangedListener(valuesListener)
+            value?.addOnValuesChangedListener(valuesListener)
+            val diff = field != value
             field = value
-            data.clear()
-            field?.let {
-                for (v in it.values) {
-                    val uiElement = it.valueToUiElement(v)
-                    data.add(uiElement)
-                }
+            if (diff) {
+                onValuesChanged()
             }
-            adapter.notifyDataSetChanged()
         }
 
-    private var _current: T? = null
-    var current: T?
-        get() = _current
-        set(value) {
-            _current = value
-        }
 
 
     private val internalClickListener = object : View.OnClickListener {
         override fun onClick(v: View) {
             param?.let {
                 val position = v.tag as Int
-                onParamSelectedListener?.invoke(it.values[position])
+                val element = data[position]
+                it.value = it.selectionElementToValue(element)
                 dismiss()
             }
-
         }
     }
 
@@ -68,14 +66,16 @@ class SelectionParamPopupWindow<T>: EasyLayoutPopupWindow {
         contentView = recyclerView
     }
 
-    fun notifyDataChanged() {
+    private fun onValuesChanged() {
+        Timber.d("onValuesChanged")
         data.clear()
         param?.let {
             for (v in it.values) {
-                val uiElement = it.valueToUiElement(v)
+                val uiElement = it.valueToSelectionElement(v)
                 data.add(uiElement)
             }
         }
+
         adapter.notifyDataSetChanged()
     }
 

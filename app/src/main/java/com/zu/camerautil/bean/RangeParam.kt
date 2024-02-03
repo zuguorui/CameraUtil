@@ -2,25 +2,25 @@ package com.zu.camerautil.bean
 
 import java.lang.ref.WeakReference
 
-typealias OnRangeChangedListener<A> = ((min: A?, max: A?) -> Unit)
-abstract class RangeParam<T: Number>(val id: CameraParamID): AbsCameraParam<T>(){
+typealias RangeListener<A> = ((min: A?, max: A?) -> Unit)
+abstract class RangeParam<T>(val id: CameraParamID): AbsCameraParam<T>(){
 
-    protected val rangeListeners = ArrayList<WeakReference<OnRangeChangedListener<T>>>()
+    protected val rangeListeners = ArrayList<WeakReference<RangeListener<T>>>()
 
-    var max: T? = null
+    open var max: T? = null
         protected set(value) {
-            val diff = value == field
+            val diff = value != field
             field = value
             if (diff) {
-
+                notifyRangeChanged()
             }
         }
-    var min: T? = null
+    open var min: T? = null
         protected set(value) {
-            val diff = value == field
+            val diff = value != field
             field = value
             if (diff) {
-
+                notifyRangeChanged()
             }
         }
 
@@ -34,20 +34,24 @@ abstract class RangeParam<T: Number>(val id: CameraParamID): AbsCameraParam<T>()
         }
     }
 
-    fun addOnRangeChangedListener(listener: OnRangeChangedListener<T>) {
+    fun addOnRangeChangedListener(listener: RangeListener<T>) {
         val ref = WeakReference(listener)
         rangeListeners.add(ref)
     }
 
-    fun removeOnRangeChangedListener(listener: OnRangeChangedListener<T>) {
+    fun removeOnRangeChangedListener(listener: RangeListener<T>) {
         rangeListeners.removeIf {
             it.get() == null || it.get() == listener
         }
     }
 
-    abstract val uiMin: Float
-    abstract val uiMax: Float
     abstract val isDiscrete: Boolean
     abstract val uiStep: Float
-    abstract fun onUiValueChanged(uiValue: Float)
+
+    abstract fun uiValueToValue(uiValue: Float): T
+    abstract fun valueToUiValue(value: T): Float
+
+    open fun valueToUiName(value: T): String {
+        return value.toString()
+    }
 }

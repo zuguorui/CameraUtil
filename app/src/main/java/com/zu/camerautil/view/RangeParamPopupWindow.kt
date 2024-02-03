@@ -1,11 +1,11 @@
 package com.zu.camerautil.view
 
 import android.content.Context
-import android.content.Intent
 import android.view.LayoutInflater
 import android.widget.PopupWindow
-import android.widget.SeekBar
-import android.widget.SeekBar.OnSeekBarChangeListener
+import com.zu.camerautil.bean.RangeListener
+import com.zu.camerautil.bean.RangeParam
+import com.zu.camerautil.bean.ValueListener
 import com.zu.camerautil.databinding.ParamRangeBinding
 
 class RangeParamPopupWindow: PopupWindow {
@@ -14,88 +14,73 @@ class RangeParamPopupWindow: PopupWindow {
 
     private val layoutInflater: LayoutInflater
 
-    private val binding: ParamRangeBinding
+    private lateinit var binding: ParamRangeBinding
 
-    var min: Int = 0
-        set(value) {
-            field = value
-            binding.tvMin.text = valueTranslator?.invoke(value) ?: "$value"
-
-            if (current < value) {
-                current = value
-            }
-
-            val percent = (current - value).toFloat() / (max - value)
-            binding.slider.value = percent * (binding.slider.valueTo - binding.slider.valueFrom) + binding.slider.valueFrom
+    private val valueListener: ValueListener<Any> = { value ->
+        value?.let {
+            val param = param ?: return@let
+            val uiValue = param.valueToUiValue(it)
+            val uiName = param.valueToUiName(it)
+            binding.tvValue.text = uiName
+            binding.slider.value = uiValue
         }
-    var max: Int = 100
-        set(value) {
-            field = value
-            binding.tvMin.text = valueTranslator?.invoke(value) ?: "$value"
-            if (current > value) {
-                current = value
-            }
-            val percent = (current - min).toFloat() / (value - min)
-            binding.slider.value = percent * (binding.slider.valueTo - binding.slider.valueFrom) + binding.slider.valueFrom
-        }
+    }
 
-    private var _current: Int = 0
+    private val rangeListener: RangeListener<Any> = { min, max ->
+        refreshView()
+    }
+
+    var param: RangeParam<Any>? = null
         set(value) {
-            field = value
-            binding.tvValue.text = valueTranslator?.invoke(value) ?: "$value"
-        }
-    var current: Int
-        get() = _current
-        set(value) {
-            if (_current == value) {
+            if (field == value) {
                 return
             }
-            val percent = (value - min).toFloat() / (max - min)
-            binding.slider.value = percent * (binding.slider.valueTo - binding.slider.valueFrom) + binding.slider.valueFrom
-        }
-
-    var isAuto: Boolean = true
-        set(value) {
-            val diff = field == value
+            field?.run {
+                removeOnRangeChangedListener(rangeListener)
+                removeValueListener(valueListener)
+            }
+            value?.run {
+                addOnRangeChangedListener(rangeListener)
+                addValueListener(valueListener)
+            }
             field = value
-            if (binding.swAuto.isChecked != value) {
-                binding.swAuto.isChecked = value
-            }
-            if (diff) {
-                onAutoModeChangedListener?.invoke(value)
-            }
-        }
 
-    var valueTranslator: ((Int) -> String)? = null
-    var onValueChangedListener: ((Int) -> Unit)? = null
-    var onAutoModeChangedListener: ((Boolean) -> Unit)? = null
+        }
 
     constructor(context: Context): super(context) {
         this.context = context
         layoutInflater = LayoutInflater.from(context)
         binding = ParamRangeBinding.inflate(layoutInflater)
-        initViews()
+        refreshView()
     }
 
-    private fun initViews() {
-        // 手动初始化一下
-        min = 0
-        max = 100
-        current = 50
+    private fun refreshView() {
+        param?.let {
+            val min = it.min ?: return@let
+            val max = it.max ?: return@let
+            val value = it.value ?: return@let
 
-        binding.slider.addOnChangeListener { slider, value, fromUser ->
-            val percent = value / (slider.valueTo - slider.valueFrom)
-            _current = (min + percent * (max - min)).toInt()
-            if (fromUser) {
-                onValueChangedListener?.invoke(_current)
+            val uiMin = it.valueToUiValue(min)
+            val minName = it.valueToUiName(min)
+
+            val uiMax = it.valueToUiValue(max)
+            val maxName = it.valueToUiName(max)
+
+            val uiValue = it.valueToUiValue(value)
+            val valueName = it.valueToUiName(value)
+
+            binding.tvMin.text = minName
+            binding.tvMax.text = maxName
+            binding.tvValue.text = valueName
+
+            binding.slider.valueFrom = uiMin
+            binding.slider.valueTo = uiMax
+            binding.slider.value = uiValue
+            if (it.isDiscrete) {
+                binding.slider.stepSize = it.uiStep
             }
+
         }
-
-
-        binding.swAuto.setOnCheckedChangeListener { _, isChecked ->
-            isAuto = isChecked
-        }
-
-        contentView = binding.root
     }
+
 }

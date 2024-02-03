@@ -1,6 +1,7 @@
 package com.zu.camerautil.util
 
 import androidx.lifecycle.LiveData
+import timber.log.Timber
 import kotlin.properties.Delegates
 import kotlin.reflect.KProperty
 
@@ -17,12 +18,14 @@ class MutableListLiveData<T>(private var list: MutableList<T> = ArrayList()): Li
     }
 
     override fun addAll(elements: Collection<T>): Boolean {
+        Timber.d("addAll")
         list.addAll(elements)
         value = list
         return true
     }
 
     override fun addAll(index: Int, elements: Collection<T>): Boolean {
+        Timber.d("addAll")
         list.addAll(index, elements)
         value = list
         return true
@@ -56,6 +59,6 @@ class MutableListLiveData<T>(private var list: MutableList<T> = ArrayList()): Li
     }
 
     operator fun getValue(thisRef: Any, property: KProperty<*>): MutableList<T> {
-        return list
+        return this
     }
 }

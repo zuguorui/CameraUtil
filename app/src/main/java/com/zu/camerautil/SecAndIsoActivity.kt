@@ -21,6 +21,8 @@ import android.widget.SeekBar
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
+import com.zu.camerautil.bean.FpsParam
+import com.zu.camerautil.bean.SelectionParam
 import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.WbUtil
 import com.zu.camerautil.camera.queryCameraInfo

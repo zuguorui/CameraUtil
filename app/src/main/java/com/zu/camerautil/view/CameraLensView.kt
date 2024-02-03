@@ -1,17 +1,17 @@
 package com.zu.camerautil.view
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCharacteristics
 import android.util.AttributeSet
 import android.util.Size
-import android.view.LayoutInflater
+import com.zu.camerautil.bean.AbsCameraParam
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.bean.FpsParam
-import com.zu.camerautil.bean.IDisplayParam
 import com.zu.camerautil.bean.LensParam
+import com.zu.camerautil.bean.SelectionParam
+import com.zu.camerautil.bean.ValueListener
 import com.zu.camerautil.bean.SizeParam
 import com.zu.camerautil.camera.selectCameraID
 import timber.log.Timber
@@ -22,13 +22,40 @@ class CameraLensView: AbsCameraParamView {
     private lateinit var sizeView: ParamView
     private lateinit var fpsView: ParamView
 
-    private lateinit var lensPopupWindow: SelectionParamPopupWindow<CameraInfoWrapper>
-    private lateinit var sizePopupWindow: SelectionParamPopupWindow<Size>
-    private lateinit var fpsPopupWindow: SelectionParamPopupWindow<FPS>
+    private lateinit var lensPopupWindow: SelectionParamPopupWindow
+    private lateinit var sizePopupWindow: SelectionParamPopupWindow
+    private lateinit var fpsPopupWindow: SelectionParamPopupWindow
 
-    private var lensParam = LensParam()
-    private var sizeParam = SizeParam()
-    private var fpsParam = FpsParam()
+    private val lensListener: ValueListener<CameraInfoWrapper> = { camera ->
+        camera?.let {
+            configChanged = true
+            updateSizeByCamera()
+        }
+    }
+
+    private val sizeListener: ValueListener<Size> = { size ->
+        size?.let {
+            configChanged = true
+            updateFpsBySize()
+        }
+    }
+
+    private val fpsListener: ValueListener<FPS> = { fps ->
+        fps?.let {
+            configChanged = true
+            notifyConfigChanged()
+        }
+    }
+
+    private var lensParam = LensParam().apply {
+        addValueListener(lensListener)
+    }
+    private var sizeParam = SizeParam().apply {
+        addValueListener(sizeListener)
+    }
+    private var fpsParam = FpsParam().apply {
+        addValueListener(fpsListener)
+    }
 
     private val cameraMap = HashMap<String, CameraInfoWrapper>()
 
@@ -39,21 +66,18 @@ class CameraLensView: AbsCameraParamView {
         get() = lensParam.value
         private set(value) {
             lensParam.value = value
-            lensView.notifyDataChanged()
         }
 
     var currentFps: FPS?
         get() = fpsParam.value
         private set(value) {
             fpsParam.value = value
-            fpsView.notifyDataChanged()
         }
 
     var currentSize: Size?
         get() = sizeParam.value
         private set(value) {
             sizeParam.value = value
-            sizeView.notifyDataChanged()
         }
 
     var onConfigChangedListener: ((cameraInfoWrapper: CameraInfoWrapper, fps: FPS, size: Size) -> Unit)? = null
@@ -66,58 +90,61 @@ class CameraLensView: AbsCameraParamView {
     constructor(context: Context, attributeSet: AttributeSet?, defStyleAttr: Int, defStyleRes: Int) : super(context, attributeSet, defStyleAttr, defStyleRes) {
         initViews()
         if (isInEditMode) {
-            lensView.param = object : IDisplayParam {
+
+            lensView.param = object : AbsCameraParam<CameraInfoWrapper>() {
                 override val name: String
                     get() = "Lens"
                 override val isModal: Boolean
                     get() = false
-                override val currentValue: String
+                override val valueName: String
                     get() = "0"
-                override val currentMode: String
+                override val modeName: String
                     get() = throw UnsupportedOperationException("unsupported")
-            }
+            } as AbsCameraParam<Any>
 
-            sizeView.param = object : IDisplayParam {
+            sizeView.param = object : AbsCameraParam<Size>() {
                 override val name: String
                     get() = "Size"
                 override val isModal: Boolean
                     get() = false
-                override val currentValue: String
+                override val valueName: String
                     get() = "1920x1080"
-                override val currentMode: String
+                override val modeName: String
                     get() = throw UnsupportedOperationException("unsupported")
-            }
 
-            fpsView.param = object : IDisplayParam {
+            } as AbsCameraParam<Any>
+
+            fpsView.param = object : AbsCameraParam<FPS>() {
                 override val name: String
                     get() = "FPS"
                 override val isModal: Boolean
                     get() = true
-                override val currentValue: String
+                override val valueName: String
                     get() = "60FPS"
-                override val currentMode: String
+                override val modeName: String
                     get() = "H"
-            }
+
+            } as AbsCameraParam<Any>
         }
     }
 
     private fun initViews() {
         lensView = ParamView(context).apply {
-            param = lensParam
+            param = lensParam as AbsCameraParam<Any>
             setOnClickListener {
                 showLensMenu()
             }
         }
 
         sizeView = ParamView(context).apply {
-            param = sizeParam
+            param = sizeParam as AbsCameraParam<Any>
             setOnClickListener {
                 showSizeMenu()
             }
         }
 
         fpsView = ParamView(context).apply {
-            param = fpsParam
+            param = fpsParam as AbsCameraParam<Any>
             setOnClickListener {
                 showFpsMenu()
             }
@@ -127,25 +154,16 @@ class CameraLensView: AbsCameraParamView {
 
         setItems(itemViews)
 
-        lensPopupWindow = SelectionParamPopupWindow<CameraInfoWrapper>(context).apply {
-            param = lensParam
-            onParamSelectedListener = { camera ->
-                updateCamera(camera)
-            }
+        lensPopupWindow = SelectionParamPopupWindow(context).apply {
+            param = lensParam as SelectionParam<Any>
         }
 
-        sizePopupWindow = SelectionParamPopupWindow<Size>(context).apply {
-            param = sizeParam
-            onParamSelectedListener = { size ->
-                updateSize(size)
-            }
+        sizePopupWindow = SelectionParamPopupWindow(context).apply {
+            param = sizeParam as SelectionParam<Any>
         }
 
-        fpsPopupWindow = SelectionParamPopupWindow<FPS>(context).apply {
-            param = fpsParam
-            onParamSelectedListener = { fps ->
-                updateFps(fps)
-            }
+        fpsPopupWindow = SelectionParamPopupWindow(context).apply {
+            param = fpsParam as SelectionParam<Any>
         }
 
     }
@@ -170,47 +188,13 @@ class CameraLensView: AbsCameraParamView {
             cameraMap[camera.cameraID] = camera
         }
         lensParam.values.addAll(cameraMap.values)
-        lensPopupWindow.notifyDataChanged()
         val cameraID = selectCameraID(cameraMap, CameraCharacteristics.LENS_FACING_BACK, true)
-        updateCamera(cameraMap[cameraID]!!)
-    }
-
-    private fun updateCamera(camera: CameraInfoWrapper) {
-        if (camera == currentCamera) {
-            return
-        }
         configChanged = true
-        currentCamera = camera
-        updateSizeByCamera()
-    }
-
-    private fun updateSize(size: Size) {
-        if (size == currentSize) {
-            if (configChanged) {
-                notifyConfigChanged()
-            }
-            return
-        }
-        configChanged = true
-        currentSize = size
-        updateFpsBySize()
-    }
-
-    private fun updateFps(fps: FPS) {
-        if (fps == currentFps) {
-            if (configChanged) {
-                notifyConfigChanged()
-            }
-            return
-        }
-        configChanged = true
-        currentFps = fps
-        notifyConfigChanged()
+        currentCamera = cameraMap[cameraID]
     }
 
     private fun updateSizeByCamera() {
         val currentCamera = currentCamera ?: return
-        sizeParam.values.clear()
         sizeFpsMap.clear()
 
         val normalFpsSet = HashSet<FPS>()
@@ -272,8 +256,11 @@ class CameraLensView: AbsCameraParamView {
             }
         }
 
-        sizeParam.values.addAll(sizeFpsMap.keys)
-        sizeParam.values.sortWith { o1, o2 ->
+        val list = ArrayList<Size>().apply {
+            addAll(sizeFpsMap.keys)
+        }
+
+        list.sortWith { o1, o2 ->
             if (o1.width != o2.width) {
                 o1.width - o2.width
             } else {
@@ -281,7 +268,8 @@ class CameraLensView: AbsCameraParamView {
             }
         }
 
-        sizePopupWindow.notifyDataChanged()
+        sizeParam.values.clear()
+        sizeParam.values.addAll(list)
 
         val size = currentSize?.let {
             if (sizeFpsMap.contains(currentSize)) {
@@ -291,7 +279,14 @@ class CameraLensView: AbsCameraParamView {
             }
         } ?: sizeParam.values[0]
 
-        updateSize(size)
+        if (size == currentSize) {
+            if (configChanged) {
+                notifyConfigChanged()
+            }
+        } else {
+            configChanged = true
+            currentSize = size
+        }
     }
 
     private fun updateFpsBySize() {
@@ -299,7 +294,6 @@ class CameraLensView: AbsCameraParamView {
         sizeFpsMap[currentSize]?.let {
             fpsParam.values.addAll(it)
         }
-        fpsPopupWindow.notifyDataChanged()
 
         val fps = currentFps?.let {
             if (fpsParam.values.contains(it)) {
@@ -309,11 +303,19 @@ class CameraLensView: AbsCameraParamView {
             }
         } ?: fpsParam.values[0]
 
-        updateFps(fps)
+        if (fps == currentFps) {
+            if (configChanged) {
+                notifyConfigChanged()
+            }
+        } else {
+            configChanged = true
+            currentFps = fps
+        }
     }
 
 
     private fun notifyConfigChanged() {
+        Timber.d("notifyConfigChanged, lens = $currentCamera, size = $currentSize, fps = $currentFps")
         configChanged = false
         onConfigChangedListener?.invoke(currentCamera!!, currentFps!!, currentSize!!)
     }
@@ -322,21 +324,21 @@ class CameraLensView: AbsCameraParamView {
         if (!lensParam.values.contains(camera)) {
             return
         }
-        updateCamera(camera)
+        currentCamera = camera
     }
 
     fun setSize(size: Size) {
         if (!sizeParam.values.contains(size)) {
             return
         }
-        updateSize(size)
+        currentSize = size
     }
 
     fun setFps(fps: FPS) {
         if (!fpsParam.values.contains(fps)) {
             return
         }
-        updateFps(fps)
+        currentFps = fps
     }
 
     fun setEnable(enable: Boolean) {

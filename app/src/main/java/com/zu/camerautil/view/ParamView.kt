@@ -5,8 +5,8 @@ import android.util.AttributeSet
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.FrameLayout
-import com.zu.camerautil.bean.IDisplayParam
-import com.zu.camerautil.bean.OnValueChangedListener
+import com.zu.camerautil.bean.AbsCameraParam
+import com.zu.camerautil.bean.ValueListener
 import com.zu.camerautil.databinding.ItemCameraParamBinding
 
 class ParamView: FrameLayout {
@@ -14,12 +14,14 @@ class ParamView: FrameLayout {
     private val layoutInflater: LayoutInflater
     private val binding: ItemCameraParamBinding
 
-    private val valueListener: OnValueChangedListener<*> = {
+    private val valueListener: ValueListener<Any> = { _ ->
         notifyDataChanged()
     }
 
-    var param: IDisplayParam? = null
+    var param: AbsCameraParam<Any>? = null
         set(value) {
+            field?.removeValueListener(valueListener)
+            value?.addValueListener(valueListener)
             field = value
             notifyDataChanged()
         }
@@ -38,16 +40,17 @@ class ParamView: FrameLayout {
         notifyDataChanged()
     }
 
-    fun notifyDataChanged() {
+    private fun notifyDataChanged() {
         param?.let {
             binding.tvName.text = it.name
-            binding.tvValue.text = it.currentValue
+            binding.tvValue.text = it.valueName
             if (it.isModal) {
                 binding.tvMode.visibility = View.VISIBLE
-                binding.tvMode.text = it.currentMode
+                binding.tvMode.text = it.modeName
             } else {
                 binding.tvMode.visibility = View.GONE
             }
+
         }
     }
 

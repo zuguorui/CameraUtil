@@ -8,14 +8,14 @@ class SizeParam: SelectionParam<Size>(CameraParamID.SIZE) {
         get() = "分辨率"
     override val isModal: Boolean
         get() = false
-    override val currentValue: String
-        get() = current?.let{
+    override val valueName: String
+        get() = value?.let{
             "${it.width}x${it.height}"
         } ?: "N"
-    override val currentMode: String
+    override val modeName: String
         get() = throw UnsupportedOperationException("unsupported")
-    override fun valueToUiElement(t: Size): AdjustUiElement {
+    override fun valueToSelectionElement(t: Size): UiElement {
         val str = "${t.width}x${t.height}"
-        return AdjustUiElement(str, values.indexOf(t))
+        return UiElement(str, values.indexOf(t))
     }
 }

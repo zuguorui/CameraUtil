@@ -6,19 +6,14 @@ class FpsParam: SelectionParam<FPS>(CameraParamID.FPS) {
         get() = "FPS"
     override val isModal: Boolean
         get() = true
-    override val currentValue: String
-        get() = current?.toString() ?: "N"
-    override val currentMode: String
-        get() = current?.let {
+    override val valueName: String
+        get() = value?.toString() ?: "N"
+    override val modeName: String
+        get() = value?.let {
             if (it.type == FPS.Type.HIGH_SPEED) {
                 "H"
             } else {
                 "N"
             }
         } ?: "N"
-    override fun valueToUiElement(t: FPS): AdjustUiElement {
-        return AdjustUiElement(t.toString(), values.indexOf(t))
-    }
-
-
 }

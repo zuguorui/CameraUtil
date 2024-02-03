@@ -95,3 +95,4 @@ fun isColorGainEqual(vec1: RggbChannelVector, vec2: RggbChannelVector): Boolean 
 
 
 
+
