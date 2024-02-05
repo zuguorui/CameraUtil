@@ -35,10 +35,12 @@ object WbUtil {
 
     var previousCST: ColorSpaceTransform? = null
         set(value) {
-            val diff = field != value
-            field = value
-            if (diff) {
-                value?.let {
+            value?.let {
+                if (!isCSTAvailable(it)) {
+                    Timber.w("cst set value is unavailable")
+                    return
+                }
+                if (field != it) {
                     val sb = StringBuilder("transform:\n")
                     for (row in 0 until 3) {
                         for (col in 0 until 3) {
@@ -52,7 +54,8 @@ object WbUtil {
                         }
                     }
                     Timber.d(sb.toString())
-                } ?: Timber.d("transform: null")
+                }
+                field = it
             }
         }
 
@@ -113,6 +116,18 @@ object WbUtil {
     }
 
     fun getWbModeName(wbMode: Int): String? = WB_MODE_NAME_MAP[wbMode]
+
+    private val CST_ELEMENTS_CACHE = IntArray(3 * 3 * 2)
+
+    private fun isCSTAvailable(cst: ColorSpaceTransform): Boolean {
+        cst.copyElements(CST_ELEMENTS_CACHE, 0)
+        for (i in 0 until 9) {
+            if (CST_ELEMENTS_CACHE[2 * i + 1] == 0) {
+                return false
+            }
+        }
+        return true
+    }
 
     private val WB_MODE_NAME_MAP = HashMap<Int, String>().apply {
         put(CameraCharacteristics.CONTROL_AWB_MODE_AUTO, "自动")

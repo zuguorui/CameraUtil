@@ -154,6 +154,7 @@ open class BaseCameraLogic(val context: Context) {
     }
 
     private fun configRequestBuilder() {
+        Timber.d("configRequestBuilder")
         val camera = this.camera ?: return
         val configCallback = configCallback ?: return
         val fps = currentFps ?: return
@@ -169,7 +170,7 @@ open class BaseCameraLogic(val context: Context) {
             target.add(fakeSurfaceProvider.getSurface()!!)
         }
 
-        captureRequestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
+        captureRequestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
             set(CaptureRequest.CONTROL_AF_MODE,
                 CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
             target.forEach {
@@ -207,6 +208,7 @@ open class BaseCameraLogic(val context: Context) {
 
 
     private fun openCameraInternal(cameraInfo: CameraInfoWrapper): Boolean {
+        Timber.d("openCameraInternal")
         val configCallback = configCallback ?: throw IllegalStateException("ConfigCallback must be set before openCamera")
         if (camera != null) {
             closeCamera()
@@ -269,7 +271,7 @@ open class BaseCameraLogic(val context: Context) {
     }
 
     private fun closeCameraInternal() {
-        Timber.d("closeCamera ${camera?.id}")
+        Timber.d("closeCameraInternal ${camera?.id}")
         closeSessionInternal()
         camera?.close()
         camera = null
@@ -277,6 +279,7 @@ open class BaseCameraLogic(val context: Context) {
     }
 
     private fun createSessionInternal(): Boolean {
+        Timber.d("createSessionInternal")
         val camera = this.camera ?: return false
         val configCallback = configCallback ?: return false
 
@@ -356,7 +359,7 @@ open class BaseCameraLogic(val context: Context) {
     }
 
     private fun closeSessionInternal() {
-        Timber.d("closeSession ${camera?.id}")
+        Timber.d("closeSessionInternal ${camera?.id}")
         stopPreviewInternal()
         session?.close()
         session = null
@@ -365,13 +368,13 @@ open class BaseCameraLogic(val context: Context) {
     }
 
     private fun startPreviewInternal() {
-        Timber.d("startPreview ${camera?.id}")
+        Timber.d("startPreviewInternal ${camera?.id}")
         configRequestBuilder()
         startRepeating()
     }
 
     private fun stopPreviewInternal() {
-        Timber.d("stopPreview ${camera?.id}")
+        Timber.d("stopPreviewInternal ${camera?.id}")
         session?.stopRepeating()
         highSpeedSession?.stopRepeating()
         fakeSurfaceProvider.stop()
@@ -385,7 +388,8 @@ open class BaseCameraLogic(val context: Context) {
      * 传给客户端，由客户端进行自定义配置，然后更新到session。
      * */
     fun updateCaptureRequestParams() {
-        cameraExecutor.execute {
+        Timber.d("updateCaptureRequestParams")
+        cameraOperationExecutor.execute {
             val builder = captureRequestBuilder ?: return@execute
             val configCallback = configCallback ?: return@execute
             configCallback.configBuilder(builder)
