@@ -49,7 +49,7 @@ class SecParam: RangeParam<Long>(CameraParamID.SEC) {
     }
 
     private fun updateValues() {
-
+        
     }
 
     companion object {
