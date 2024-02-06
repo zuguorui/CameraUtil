@@ -34,12 +34,12 @@ abstract class RangeParam<T>(val id: CameraParamID): AbsCameraParam<T>(){
         }
     }
 
-    fun addOnRangeChangedListener(listener: RangeListener<T>) {
+    fun addRangeListener(listener: RangeListener<T>) {
         val ref = WeakReference(listener)
         rangeListeners.add(ref)
     }
 
-    fun removeOnRangeChangedListener(listener: RangeListener<T>) {
+    fun removeRangeListener(listener: RangeListener<T>) {
         rangeListeners.removeIf {
             it.get() == null || it.get() == listener
         }

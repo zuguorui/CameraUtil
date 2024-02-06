@@ -21,7 +21,7 @@ abstract class AbsCameraParam<T> {
             }
         }
 
-    open var autoMode: Boolean = false
+    open var autoMode: Boolean = true
         set(value) {
             val diff = field != value
             field = value

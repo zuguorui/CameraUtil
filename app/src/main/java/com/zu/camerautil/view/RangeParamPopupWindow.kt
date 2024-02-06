@@ -1,16 +1,18 @@
 package com.zu.camerautil.view
 
 import android.content.Context
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.view.LayoutInflater
-import android.widget.PopupWindow
+import android.view.ViewGroup
+import com.zu.camerautil.R
 import com.zu.camerautil.bean.RangeListener
 import com.zu.camerautil.bean.RangeParam
 import com.zu.camerautil.bean.ValueListener
 import com.zu.camerautil.databinding.ParamRangeBinding
+import timber.log.Timber
 
-class RangeParamPopupWindow: PopupWindow {
-
-    private val context: Context
+class RangeParamPopupWindow: EasyLayoutPopupWindow {
 
     private val layoutInflater: LayoutInflater
 
@@ -36,11 +38,11 @@ class RangeParamPopupWindow: PopupWindow {
                 return
             }
             field?.run {
-                removeOnRangeChangedListener(rangeListener)
+                removeRangeListener(rangeListener)
                 removeValueListener(valueListener)
             }
             value?.run {
-                addOnRangeChangedListener(rangeListener)
+                addRangeListener(rangeListener)
                 addValueListener(valueListener)
             }
             field = value
@@ -48,9 +50,13 @@ class RangeParamPopupWindow: PopupWindow {
         }
 
     constructor(context: Context): super(context) {
-        this.context = context
         layoutInflater = LayoutInflater.from(context)
         binding = ParamRangeBinding.inflate(layoutInflater)
+        binding.root.layoutParams = ViewGroup.LayoutParams(5000, ViewGroup.LayoutParams.WRAP_CONTENT)
+        contentView = binding.root
+
+        isOutsideTouchable = true
+        setBackgroundDrawable(ColorDrawable(Color.WHITE))
         refreshView()
     }
 

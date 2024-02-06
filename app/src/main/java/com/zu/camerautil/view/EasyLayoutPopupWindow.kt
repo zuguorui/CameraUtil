@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.Gravity
 import android.view.View
 import android.view.View.MeasureSpec
+import android.view.ViewGroup
 import android.widget.PopupWindow
 import timber.log.Timber
 
@@ -26,9 +27,12 @@ open class EasyLayoutPopupWindow: PopupWindow {
         val rootLocation = IntArray(2)
         rootView.getLocationInWindow(rootLocation)
 
-        val widthSpec = MeasureSpec.makeMeasureSpec(rootView.width / 3, MeasureSpec.UNSPECIFIED)
-        val heightSpec = MeasureSpec.makeMeasureSpec(rootView.height / 3, MeasureSpec.UNSPECIFIED)
+        val (widthSpec, heightSpec) = getContentMeasureSpec(rootView.width, rootView.height)
+
         contentView.measure(widthSpec, heightSpec)
+
+        Timber.d("show, root.width = ${rootView.width}, root.height = ${rootView.height}")
+        Timber.d("show, measuredWidth = ${contentView.measuredWidth}, measuredHeight = ${contentView.measuredHeight}")
 
         val anchorLeft = anchorLocation[0]
         val anchorTop = anchorLocation[1]
@@ -122,10 +126,48 @@ open class EasyLayoutPopupWindow: PopupWindow {
                 right = Math.min(rootRight, left + contentView.measuredWidth)
             }
         }
+
+
         Timber.d("show, left = $left, right = $right, top = $top, bottom = $bottom")
         this@EasyLayoutPopupWindow.width = right - left
         this@EasyLayoutPopupWindow.height = bottom - top
+
         showAtLocation(anchorView, Gravity.LEFT or Gravity.TOP, left, top)
+    }
+
+    private fun getContentMeasureSpec(parentWidth: Int, parentHeight: Int): Pair<Int, Int> {
+        if (contentView == null) {
+            throw IllegalStateException("content view is null")
+        }
+        var width = contentView.layoutParams?.width ?: ViewGroup.LayoutParams.WRAP_CONTENT
+        var height = contentView.layoutParams?.height ?: ViewGroup.LayoutParams.WRAP_CONTENT
+
+
+        val widthSpec = when (width) {
+            ViewGroup.LayoutParams.WRAP_CONTENT -> {
+                MeasureSpec.makeMeasureSpec(parentWidth, MeasureSpec.AT_MOST)
+            }
+            ViewGroup.LayoutParams.MATCH_PARENT -> {
+                MeasureSpec.makeMeasureSpec(parentWidth, MeasureSpec.EXACTLY)
+            }
+            else -> {
+                MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY)
+            }
+        }
+
+        val heightSpec = when (height) {
+            ViewGroup.LayoutParams.WRAP_CONTENT -> {
+                MeasureSpec.makeMeasureSpec(parentHeight, MeasureSpec.AT_MOST)
+            }
+            ViewGroup.LayoutParams.MATCH_PARENT -> {
+                MeasureSpec.makeMeasureSpec(parentHeight, MeasureSpec.EXACTLY)
+            }
+            else -> {
+                MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY)
+            }
+        }
+
+        return Pair(widthSpec, heightSpec)
     }
 
 

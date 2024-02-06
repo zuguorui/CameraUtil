@@ -1,6 +1,8 @@
 package com.zu.camerautil.view
 
 import android.content.Context
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
@@ -68,6 +70,7 @@ abstract class AbsCameraParamView : LinearLayout {
         scrollView.addView(itemContainer)
 
         addView(scrollView)
+        isFocusable = true
     }
 
     fun setItems(items: List<View>) {
