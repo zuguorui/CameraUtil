@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.FrameLayout
 import com.zu.camerautil.bean.AbsCameraParam
+import com.zu.camerautil.bean.AutoModeListener
 import com.zu.camerautil.bean.ValueListener
 import com.zu.camerautil.databinding.ItemCameraParamBinding
 
@@ -18,10 +19,16 @@ class ParamView: FrameLayout {
         notifyDataChanged()
     }
 
+    private val autoModeListener: AutoModeListener = { _ ->
+        notifyDataChanged()
+    }
+
     var param: AbsCameraParam<Any>? = null
         set(value) {
             field?.removeValueListener(valueListener)
             value?.addValueListener(valueListener)
+            field?.removeAutoModeListener(autoModeListener)
+            value?.addAutoModeListener(autoModeListener)
             field = value
             notifyDataChanged()
         }

@@ -2,10 +2,13 @@ package com.zu.camerautil.view
 
 import android.content.Context
 import android.util.AttributeSet
+import android.util.Size
 import android.view.LayoutInflater
 import android.view.View
 import com.zu.camerautil.bean.AbsCameraParam
+import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraParamID
+import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.bean.RangeParam
 import com.zu.camerautil.bean.SecParam
 import com.zu.camerautil.bean.ValueListener
@@ -19,6 +22,10 @@ class CameraParamsView: AbsCameraParamView {
     private val listenerMap = HashMap<CameraParamID, ArrayList<WeakReference<ValueListener<Any>>>>()
 
     private val layoutInflater: LayoutInflater
+
+    private var currentLens: CameraInfoWrapper? = null
+    private var currentSize: Size? = null
+    private var currentFps: FPS? = null
 
     constructor(context: Context): this(context, null)
 
@@ -89,6 +96,13 @@ class CameraParamsView: AbsCameraParamView {
         }
     }
 
+    fun setCameraConfig(camera: CameraInfoWrapper, size: Size, fps: FPS) {
+        currentLens = camera
+        currentSize = size
+        currentFps = fps
+        updateParams()
+    }
+
     fun isParamAuto(paramID: CameraParamID): Boolean {
         val param = paramMap[paramID] ?: return true
         return param.autoMode
@@ -97,6 +111,22 @@ class CameraParamsView: AbsCameraParamView {
     fun setParamAuto(paramID: CameraParamID, auto: Boolean) {
         val param = paramMap[paramID] ?: return
         param.autoMode = auto
+    }
+
+    private fun updateParams() {
+        val lens = currentLens ?: return
+        val size = currentSize ?: return
+        val fps = currentFps ?: return
+
+
+    }
+
+    private fun updateSecParam() {
+        val lens = currentLens ?: return
+        val fps = currentFps ?: return
+
+        val secParam = paramMap[CameraParamID.SEC]!!
+
     }
 
 }

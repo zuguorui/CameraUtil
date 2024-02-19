@@ -59,7 +59,7 @@ class SelectionParamPopupWindow: EasyLayoutPopupWindow {
 
         recyclerView = RecyclerView(context).apply {
             this.layoutManager = LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false)
-            //this.layoutParams = ViewGroup.LayoutParams(dpToPx(context, 400f).toInt(), dpToPx(context, 800f).toInt())
+            this.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             this.addItemDecoration(DividerItemDecoration(context, DividerItemDecoration.VERTICAL))
             this.adapter = this@SelectionParamPopupWindow.adapter
         }

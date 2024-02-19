@@ -12,8 +12,19 @@ open class EasyLayoutPopupWindow: PopupWindow {
 
     val context: Context
 
+    // 由于contentView的LayoutParams会被PopupWindow更改，因此这里做一个备份，记录其原始意图
+    private var contentWidth: Int = ViewGroup.LayoutParams.WRAP_CONTENT
+    private var contentHeight: Int = ViewGroup.LayoutParams.WRAP_CONTENT
+
     constructor(context: Context): super(context) {
         this.context = context
+        isFocusable = true
+    }
+
+    override fun setContentView(contentView: View?) {
+        super.setContentView(contentView)
+        contentWidth = contentView?.layoutParams?.width ?: ViewGroup.LayoutParams.WRAP_CONTENT
+        contentHeight = contentView?.layoutParams?.height ?: ViewGroup.LayoutParams.WRAP_CONTENT
     }
 
     open fun show(anchorView: View, gravity: Int = Gravity.NO_GRAVITY) {
@@ -33,6 +44,9 @@ open class EasyLayoutPopupWindow: PopupWindow {
 
         Timber.d("show, root.width = ${rootView.width}, root.height = ${rootView.height}")
         Timber.d("show, measuredWidth = ${contentView.measuredWidth}, measuredHeight = ${contentView.measuredHeight}")
+        contentView.layoutParams?.let {
+            Timber.d("show, param.width = ${it.width}, param.height = ${it.height}")
+        }
 
         val anchorLeft = anchorLocation[0]
         val anchorTop = anchorLocation[1]
@@ -129,8 +143,9 @@ open class EasyLayoutPopupWindow: PopupWindow {
 
 
         Timber.d("show, left = $left, right = $right, top = $top, bottom = $bottom")
-        this@EasyLayoutPopupWindow.width = right - left
-        this@EasyLayoutPopupWindow.height = bottom - top
+        Timber.d("show, window.width = ${this.width}, window.height = ${this.height}")
+        this.width = right - left
+        this.height = bottom - top
 
         showAtLocation(anchorView, Gravity.LEFT or Gravity.TOP, left, top)
     }
@@ -139,11 +154,8 @@ open class EasyLayoutPopupWindow: PopupWindow {
         if (contentView == null) {
             throw IllegalStateException("content view is null")
         }
-        var width = contentView.layoutParams?.width ?: ViewGroup.LayoutParams.WRAP_CONTENT
-        var height = contentView.layoutParams?.height ?: ViewGroup.LayoutParams.WRAP_CONTENT
 
-
-        val widthSpec = when (width) {
+        val widthSpec = when (contentWidth) {
             ViewGroup.LayoutParams.WRAP_CONTENT -> {
                 MeasureSpec.makeMeasureSpec(parentWidth, MeasureSpec.AT_MOST)
             }
@@ -151,11 +163,11 @@ open class EasyLayoutPopupWindow: PopupWindow {
                 MeasureSpec.makeMeasureSpec(parentWidth, MeasureSpec.EXACTLY)
             }
             else -> {
-                MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY)
+                MeasureSpec.makeMeasureSpec(contentWidth, MeasureSpec.EXACTLY)
             }
         }
 
-        val heightSpec = when (height) {
+        val heightSpec = when (contentHeight) {
             ViewGroup.LayoutParams.WRAP_CONTENT -> {
                 MeasureSpec.makeMeasureSpec(parentHeight, MeasureSpec.AT_MOST)
             }
@@ -163,7 +175,7 @@ open class EasyLayoutPopupWindow: PopupWindow {
                 MeasureSpec.makeMeasureSpec(parentHeight, MeasureSpec.EXACTLY)
             }
             else -> {
-                MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY)
+                MeasureSpec.makeMeasureSpec(contentHeight, MeasureSpec.EXACTLY)
             }
         }
 

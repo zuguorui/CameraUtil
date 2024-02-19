@@ -46,14 +46,19 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
                 addValueListener(valueListener)
             }
             field = value
+            refreshView()
 
         }
 
     constructor(context: Context): super(context) {
         layoutInflater = LayoutInflater.from(context)
         binding = ParamRangeBinding.inflate(layoutInflater)
-        binding.root.layoutParams = ViewGroup.LayoutParams(5000, ViewGroup.LayoutParams.WRAP_CONTENT)
+        binding.root.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         contentView = binding.root
+
+        binding.swAuto.setOnCheckedChangeListener { _, isChecked ->
+            param?.autoMode = isChecked
+        }
 
         isOutsideTouchable = true
         setBackgroundDrawable(ColorDrawable(Color.WHITE))
@@ -82,6 +87,8 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
             binding.slider.valueFrom = uiMin
             binding.slider.valueTo = uiMax
             binding.slider.value = uiValue
+
+            binding.swAuto.isChecked = it.autoMode
             if (it.isDiscrete) {
                 binding.slider.stepSize = it.uiStep
             }
