@@ -1,6 +1,7 @@
 package com.zu.camerautil.bean
 
 import com.zu.camerautil.copyToArray
+import timber.log.Timber
 import kotlin.math.ceil
 import kotlin.math.exp
 
@@ -19,6 +20,7 @@ class SecParam: RangeParam<Long>(CameraParamID.SEC) {
             val diff = realValue != field
             field = realValue
             if (diff) {
+                Timber.d("value: $value")
                 notifyValueChanged()
             }
         }
@@ -27,6 +29,7 @@ class SecParam: RangeParam<Long>(CameraParamID.SEC) {
 
     override var min: Long? = null
         set(value) {
+            Timber.d("min: $value")
             val diff = value != field
             field = value
             if (diff) {
@@ -37,6 +40,7 @@ class SecParam: RangeParam<Long>(CameraParamID.SEC) {
 
     override var max: Long? = null
         set(value) {
+            Timber.d("max: $value")
             val diff = value != field
             field = value
             if (diff) {
@@ -50,7 +54,9 @@ class SecParam: RangeParam<Long>(CameraParamID.SEC) {
     override val isModal: Boolean
         get() = true
     override val valueName: String
-        get() = sec?.toString() ?: "N/A"
+        get() = sec?.let {
+            "1/${it.shutterSpeed}"
+        } ?: "N/A"
     override val modeName: String
         get() = if (autoMode) "A" else "M"
     override val isDiscrete: Boolean
@@ -64,29 +70,46 @@ class SecParam: RangeParam<Long>(CameraParamID.SEC) {
     }
 
     override fun valueToUiValue(value: Long): Float {
-        for (i in values.indices) {
-            if (values[i].exposureTime == value) {
-                return i * uiStep
-            }
-        }
-        return 0f
+        val index = findNearestSecIndex(value, values)
+        return index * uiStep
+    }
+
+    override fun valueToUiName(value: Long): String {
+        val sec = findNearestSec(value, values)
+        return "1/${sec.shutterSpeed}"
     }
 
     private fun findNearestSec(exposureTime: Long, secArray: Array<Sec>): Sec {
-        var ret: Sec = secArray[0]
-        var diff = Math.abs(ret.exposureTime - exposureTime)
-        for (i in 1 until secArray.size) {
-            val sec = secArray[i]
-            if (Math.abs(sec.exposureTime - exposureTime) < diff) {
-                ret = sec
+        return secArray[findNearestSecIndex(exposureTime, secArray)]
+    }
+
+    private fun findNearestSecIndex(exposureTime: Long, secArray: Array<Sec>): Int {
+        var begin = 0
+        var end = secArray.size - 1
+        var mid: Int
+        while (begin < end - 1) {
+            mid = (begin + end) / 2
+            val c = (secArray[mid].exposureTime - exposureTime).toInt()
+            if (c == 0) {
+                return mid
+            } else if (c > 0) {
+                end = mid
+            } else {
+                begin = mid
             }
         }
-        return ret
+        val m1 = Math.abs(secArray[begin].exposureTime - exposureTime)
+        val m2 = Math.abs(secArray[end].exposureTime - exposureTime)
+        return if (m1 <= m2) {
+            begin
+        } else {
+            end
+        }
     }
 
     private fun updateValues() {
-        val min = min ?: SEC_ARRAY.last().exposureTime
-        val max = max ?: SEC_ARRAY.first().exposureTime
+        val min = min ?: SEC_ARRAY.first().exposureTime
+        val max = max ?: SEC_ARRAY.last().exposureTime
 
         val ret = ArrayList<Sec>()
 
@@ -96,6 +119,7 @@ class SecParam: RangeParam<Long>(CameraParamID.SEC) {
             }
         }
         values = ret.copyToArray()
+        Timber.d("update values: min = ${values.first()}, max = ${values.last()}")
     }
 
     companion object {
@@ -162,8 +186,9 @@ class SecParam: RangeParam<Long>(CameraParamID.SEC) {
             5500,
             5600
         )
+        // 按照曝光时间由小到大
         private val SEC_ARRAY = Array<Sec>(SHUTTER_SPEED_ARRAY.size) {
-            Sec(SHUTTER_SPEED_ARRAY[it])
+            Sec(SHUTTER_SPEED_ARRAY[SHUTTER_SPEED_ARRAY.size - 1 - it])
         }
     }
 
@@ -172,7 +197,7 @@ class SecParam: RangeParam<Long>(CameraParamID.SEC) {
     ) {
         val exposureTime: Long = (NANO_SECONDS.toDouble() / shutterSpeed).toLong()
         override fun toString(): String {
-            return "1/$shutterSpeed"
+            return "1/$shutterSpeed, $exposureTime"
         }
     }
 }

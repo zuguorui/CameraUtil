@@ -8,7 +8,7 @@ abstract class RangeParam<T>(val id: CameraParamID): AbsCameraParam<T>(){
     protected val rangeListeners = ArrayList<WeakReference<RangeListener<T>>>()
 
     open var max: T? = null
-        protected set(value) {
+        set(value) {
             val diff = value != field
             field = value
             if (diff) {
@@ -16,7 +16,7 @@ abstract class RangeParam<T>(val id: CameraParamID): AbsCameraParam<T>(){
             }
         }
     open var min: T? = null
-        protected set(value) {
+        set(value) {
             val diff = value != field
             field = value
             if (diff) {

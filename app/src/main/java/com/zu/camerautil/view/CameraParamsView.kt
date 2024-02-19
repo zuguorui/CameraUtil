@@ -39,7 +39,7 @@ class CameraParamsView: AbsCameraParamView {
     }
 
     private fun initParamViews() {
-        initSecParams()
+        initSecParam()
 
         val viewList = ArrayList<View>().apply {
             addAll(viewMap.values)
@@ -48,7 +48,7 @@ class CameraParamsView: AbsCameraParamView {
     }
 
 
-    private fun initSecParams() {
+    private fun initSecParam() {
         val paramView = ParamView(context).apply {
             setOnClickListener {
                 panelMap[CameraParamID.SEC]?.let {
@@ -113,20 +113,32 @@ class CameraParamsView: AbsCameraParamView {
         param.autoMode = auto
     }
 
+    fun setParamValue(paramID: CameraParamID, value: Any) {
+        when (paramID) {
+            CameraParamID.SEC -> updateSecValue(value)
+            else -> Unit
+        }
+    }
+
     private fun updateParams() {
-        val lens = currentLens ?: return
-        val size = currentSize ?: return
-        val fps = currentFps ?: return
-
-
+        updateSecParam()
     }
 
     private fun updateSecParam() {
         val lens = currentLens ?: return
         val fps = currentFps ?: return
 
-        val secParam = paramMap[CameraParamID.SEC]!!
+        val max = 1_000_000_000 / fps.value
 
+        val secParam = paramMap[CameraParamID.SEC]!! as SecParam
+        secParam.min = lens.exposureRange!!.lower
+        secParam.max = max.toLong()
+    }
+
+    private fun updateSecValue(value: Any) {
+        val mv = value as Long
+        val secParam = paramMap[CameraParamID.SEC]!! as SecParam
+        secParam.value = mv
     }
 
 }

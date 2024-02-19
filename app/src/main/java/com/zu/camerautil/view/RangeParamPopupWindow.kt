@@ -67,26 +67,33 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
 
     private fun refreshView() {
         param?.let {
-            val min = it.min ?: return@let
-            val max = it.max ?: return@let
-            val value = it.value ?: return@let
+            it.min?.let { min ->
 
-            val uiMin = it.valueToUiValue(min)
-            val minName = it.valueToUiName(min)
+                val uiMin = it.valueToUiValue(min)
+                val minName = it.valueToUiName(min)
+                Timber.d("param.min = $min, uiMin = $uiMin, minName = $minName")
+                binding.tvMin.text = minName
+                binding.slider.valueFrom = uiMin
+            }
 
-            val uiMax = it.valueToUiValue(max)
-            val maxName = it.valueToUiName(max)
+            it.max?.let { max ->
 
-            val uiValue = it.valueToUiValue(value)
-            val valueName = it.valueToUiName(value)
+                val uiMax = it.valueToUiValue(max)
+                val maxName = it.valueToUiName(max)
+                Timber.d("param.max = $max, uiMax = $uiMax, maxName = $maxName")
+                binding.tvMax.text = maxName
+                binding.slider.valueTo = uiMax
+            }
 
-            binding.tvMin.text = minName
-            binding.tvMax.text = maxName
-            binding.tvValue.text = valueName
+            it.value?.let { value ->
 
-            binding.slider.valueFrom = uiMin
-            binding.slider.valueTo = uiMax
-            binding.slider.value = uiValue
+                val uiValue = it.valueToUiValue(value)
+                val valueName = it.valueToUiName(value)
+                Timber.d("param.value = $value, uiValue = $uiValue, valueName = $valueName")
+                binding.tvValue.text = valueName
+                binding.slider.value = uiValue
+            }
+
 
             binding.swAuto.isChecked = it.autoMode
             if (it.isDiscrete) {

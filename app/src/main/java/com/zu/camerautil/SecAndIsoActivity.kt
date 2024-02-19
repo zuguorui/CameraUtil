@@ -19,6 +19,7 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.SeekBar
 import com.zu.camerautil.bean.CameraInfoWrapper
+import com.zu.camerautil.bean.CameraParamID
 import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.bean.FpsParam
@@ -44,13 +45,6 @@ class SecAndIsoActivity : AppCompatActivity() {
     private var openedCameraID: String? = null
     private var currentSize: Size? = null
     private var currentFps: FPS? = null
-
-    private var cameraSecRange: Range<Long>? = null
-    private var cameraIsoRange: Range<Int>? = null
-
-    private var actualSecRange: Range<Long>? = null
-    private var actualIsoRange: Range<Int>? = null
-
 
 
     private val surfaceStateListener = object : PreviewViewImplementation.SurfaceStateListener {
@@ -133,6 +127,13 @@ class SecAndIsoActivity : AppCompatActivity() {
                 request: CaptureRequest,
                 result: TotalCaptureResult
             ) {
+                if (binding.cameraParams.isParamAuto(CameraParamID.SEC)) {
+                    result.get(CaptureResult.SENSOR_EXPOSURE_TIME)?.let { sec ->
+                        runOnUiThread {
+                            binding.cameraParams.setParamValue(CameraParamID.SEC, sec)
+                        }
+                    }
+                }
 
             }
         }
@@ -172,6 +173,8 @@ class SecAndIsoActivity : AppCompatActivity() {
                     cameraLogic.openCamera(camera)
                 }
             }
+
+            binding.cameraParams.setCameraConfig(camera, size, fps)
         }
 
 
