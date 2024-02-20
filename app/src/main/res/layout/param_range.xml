@@ -61,7 +61,8 @@
             app:layout_constraintRight_toLeftOf="@id/tv_max"
             android:layout_marginLeft="5dp"
             android:layout_marginRight="5dp"
-            app:circularflow_viewCenter="@id/gl1"
+            app:labelBehavior="gone"
+            app:tickVisible="false"
             android:id="@+id/slider"/>
     </androidx.constraintlayout.widget.ConstraintLayout>
 </FrameLayout>

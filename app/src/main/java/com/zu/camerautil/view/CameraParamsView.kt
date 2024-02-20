@@ -115,7 +115,7 @@ class CameraParamsView: AbsCameraParamView {
 
     fun setParamValue(paramID: CameraParamID, value: Any) {
         when (paramID) {
-            CameraParamID.SEC -> updateSecValue(value)
+            CameraParamID.SEC -> setSecValue(value)
             else -> Unit
         }
     }
@@ -135,7 +135,7 @@ class CameraParamsView: AbsCameraParamView {
         secParam.max = max.toLong()
     }
 
-    private fun updateSecValue(value: Any) {
+    private fun setSecValue(value: Any) {
         val mv = value as Long
         val secParam = paramMap[CameraParamID.SEC]!! as SecParam
         secParam.value = mv

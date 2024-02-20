@@ -116,35 +116,6 @@ class CameraInfoActivity : AppCompatActivity() {
         val regularFPSStr = cameraInfo.fpsRanges.toFormattedString()
         addItem("支持的普通FPS", regularFPSStr)
 
-        val formatSizeStr = kotlin.run {
-            val mainFormat = arrayOf(ImageFormat.PRIVATE, ImageFormat.YUV_420_888)
-            val sb = StringBuilder()
-            val iterator = mainFormat.iterator()
-            while (iterator.hasNext()) {
-                val format = iterator.next()
-                val sizes = cameraInfo.formatSizeMap[format]
-                sb.append("${getImageFormatName(format)}:\n")
-
-                if (sizes != null) {
-                    for (i in sizes.indices) {
-                        val size = sizes[i]
-                        sb.append("$size, ${size.toRational()}")
-                        if (i < sizes.size - 1) {
-                            sb.append("\n")
-                        }
-                    }
-                } else {
-                    sb.append("不支持")
-                }
-
-                if (iterator.hasNext()) {
-                    sb.append("\n\n")
-                }
-            }
-            sb.toString()
-        }
-        addItem("关键格式及对应的输出尺寸", formatSizeStr)
-
         val highSpeedFpsStr = kotlin.run {
             val fpsRanges = ArrayList<Range<Int>>().apply {
                 addAll(cameraInfo.highSpeedFpsSizeMap.keys)
@@ -175,6 +146,35 @@ class CameraInfoActivity : AppCompatActivity() {
             sb.toString()
         }
         addItem("高速fps及尺寸", highSpeedFpsStr)
+
+        val formatSizeStr = kotlin.run {
+            val mainFormat = arrayOf(ImageFormat.YUV_420_888, ImageFormat.JPEG)
+            val sb = StringBuilder()
+            val iterator = mainFormat.iterator()
+            while (iterator.hasNext()) {
+                val format = iterator.next()
+                val sizes = cameraInfo.formatSizeMap[format]
+                sb.append("${getImageFormatName(format)}:\n")
+
+                if (sizes != null) {
+                    for (i in sizes.indices) {
+                        val size = sizes[i]
+                        sb.append("$size, ${size.toRational()}")
+                        if (i < sizes.size - 1) {
+                            sb.append("\n")
+                        }
+                    }
+                } else {
+                    sb.append("不支持")
+                }
+
+                if (iterator.hasNext()) {
+                    sb.append("\n\n")
+                }
+            }
+            sb.toString()
+        }
+        addItem("关键格式及对应的输出尺寸", formatSizeStr)
 
         kotlin.run {
             val classes = arrayOf(

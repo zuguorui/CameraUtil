@@ -6,6 +6,7 @@ import android.graphics.drawable.ColorDrawable
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import com.zu.camerautil.R
+import com.zu.camerautil.bean.AutoModeListener
 import com.zu.camerautil.bean.RangeListener
 import com.zu.camerautil.bean.RangeParam
 import com.zu.camerautil.bean.ValueListener
@@ -32,6 +33,10 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
         refreshView()
     }
 
+    private val autoModeListener: AutoModeListener = { isAuto ->
+        binding.swAuto.isChecked = isAuto
+    }
+
     var param: RangeParam<Any>? = null
         set(value) {
             if (field == value) {
@@ -40,14 +45,15 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
             field?.run {
                 removeRangeListener(rangeListener)
                 removeValueListener(valueListener)
+                removeAutoModeListener(autoModeListener)
             }
             value?.run {
                 addRangeListener(rangeListener)
                 addValueListener(valueListener)
+                addAutoModeListener(autoModeListener)
             }
             field = value
             refreshView()
-
         }
 
     constructor(context: Context): super(context) {
@@ -58,6 +64,14 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
 
         binding.swAuto.setOnCheckedChangeListener { _, isChecked ->
             param?.autoMode = isChecked
+            binding.slider.isEnabled = !isChecked
+            if (isChecked) {
+                refreshView()
+            }
+        }
+
+        binding.slider.addOnChangeListener { slider, value, fromUser ->
+            if ()
         }
 
         isOutsideTouchable = true
