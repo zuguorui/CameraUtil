@@ -5,7 +5,6 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import com.zu.camerautil.R
 import com.zu.camerautil.bean.AutoModeListener
 import com.zu.camerautil.bean.RangeListener
 import com.zu.camerautil.bean.RangeParam
@@ -20,12 +19,15 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
     private lateinit var binding: ParamRangeBinding
 
     private val valueListener: ValueListener<Any> = { value ->
+
         value?.let {
             val param = param ?: return@let
             val uiValue = param.valueToUiValue(it)
             val uiName = param.valueToUiName(it)
             binding.tvValue.text = uiName
-            binding.slider.value = uiValue
+            if (param?.isAutoMode == true) {
+                binding.slider.value = uiValue
+            }
         }
     }
 
@@ -63,7 +65,7 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
         contentView = binding.root
 
         binding.swAuto.setOnCheckedChangeListener { _, isChecked ->
-            param?.autoMode = isChecked
+            param?.isAutoMode = isChecked
             binding.slider.isEnabled = !isChecked
             if (isChecked) {
                 refreshView()
@@ -71,7 +73,11 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
         }
 
         binding.slider.addOnChangeListener { slider, value, fromUser ->
-            if ()
+            param?.let {
+                if (!it.isAutoMode && fromUser) {
+                    it.value = it.uiValueToValue(value)
+                }
+            }
         }
 
         isOutsideTouchable = true
@@ -109,7 +115,7 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
             }
 
 
-            binding.swAuto.isChecked = it.autoMode
+            binding.swAuto.isChecked = it.isAutoMode
             if (it.isDiscrete) {
                 binding.slider.stepSize = it.uiStep
             }

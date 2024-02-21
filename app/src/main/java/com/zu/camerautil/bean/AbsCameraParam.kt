@@ -21,7 +21,7 @@ abstract class AbsCameraParam<T> {
             }
         }
 
-    open var autoMode: Boolean = true
+    open var isAutoMode: Boolean = true
         set(value) {
             val diff = field != value
             field = value
@@ -44,7 +44,7 @@ abstract class AbsCameraParam<T> {
         val iterator = autoModeListeners.iterator()
         while (iterator.hasNext()) {
             val ref = iterator.next()
-            ref.get()?.invoke(autoMode) ?: kotlin.run {
+            ref.get()?.invoke(isAutoMode) ?: kotlin.run {
                 iterator.remove()
             }
         }

@@ -105,12 +105,12 @@ class CameraParamsView: AbsCameraParamView {
 
     fun isParamAuto(paramID: CameraParamID): Boolean {
         val param = paramMap[paramID] ?: return true
-        return param.autoMode
+        return param.isAutoMode
     }
 
     fun setParamAuto(paramID: CameraParamID, auto: Boolean) {
         val param = paramMap[paramID] ?: return
-        param.autoMode = auto
+        param.isAutoMode = auto
     }
 
     fun setParamValue(paramID: CameraParamID, value: Any) {

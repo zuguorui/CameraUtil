@@ -177,48 +177,12 @@ class SecAndIsoActivity : AppCompatActivity() {
             binding.cameraParams.setCameraConfig(camera, size, fps)
         }
 
+        binding.cameraParams.addValueListener(CameraParamID.SEC) {
+            val sec = it as? Long ?: return@addValueListener
 
-
-        binding.sbSec.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-
-                if (fromUser) {
-                    cameraLogic.updateCaptureRequestParams()
-                }
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {
-
-            }
-
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {
-
-            }
-        })
-
-        binding.sbIso.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-
-                if (fromUser) {
-                    cameraLogic.updateCaptureRequestParams()
-                }
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {
-
-            }
-
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {
-
-            }
-        })
-
+        }
     }
 
-
-    private fun updateCameraData(camera: CameraInfoWrapper) {
-
-    }
 
 
 

@@ -5,12 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".SecAndIsoActivity">
-    <androidx.constraintlayout.widget.Guideline
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        app:layout_constraintGuide_percent="0.8"
-        android:orientation="horizontal"
-        android:id="@+id/gl1"/>
+
 
 
 
@@ -19,7 +14,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/gl1"
+        app:layout_constraintBottom_toBottomOf="parent"
         android:id="@+id/surface_main"/>
 
     <com.zu.camerautil.view.CameraLensView
@@ -35,198 +30,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintBottom_toTopOf="@+id/gl1"
+        app:layout_constraintBottom_toBottomOf="parent"
         android:orientation="horizontal"
         app:paramPanelPopupGravity="top"
         android:id="@+id/camera_params"/>
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/gl1"
-        app:layout_constraintBottom_toBottomOf="parent">
 
-        <androidx.constraintlayout.widget.Guideline
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:orientation="horizontal"
-            app:layout_constraintGuide_percent="0.5"
-            android:id="@+id/gl2"/>
-
-        <CheckBox
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toTopOf="@id/gl2"
-            app:layout_constraintLeft_toLeftOf="parent"
-            android:layout_marginLeft="10dp"
-            android:id="@+id/cb_mode"
-            android:text="手动"/>
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            app:layout_constraintLeft_toRightOf="@id/cb_mode"
-            app:layout_constraintRight_toRightOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="@id/gl2"
-            android:layout_marginLeft="20dp"
-            android:orientation="horizontal">
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="6"
-                android:orientation="vertical"
-                android:gravity="center_vertical">
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Sec(输入): "/>
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="5000"
-                        android:id="@+id/tv_sec_input"/>
-                </LinearLayout>
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Sec(解析): "/>
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="5000"
-                        android:id="@+id/tv_sec_output"/>
-                </LinearLayout>
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="5"
-                android:orientation="vertical"
-                android:gravity="center_vertical">
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="ISO(输入): "/>
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="5000"
-                        android:id="@+id/tv_iso_input"/>
-                </LinearLayout>
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="ISO(解析): "/>
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="5000"
-                        android:id="@+id/tv_iso_output"/>
-                </LinearLayout>
-            </LinearLayout>
-        </LinearLayout>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintTop_toTopOf="@id/sb_sec"
-            app:layout_constraintBottom_toBottomOf="@id/sb_sec"
-            android:id="@+id/label_sec"
-            android:text="Sec: "/>
-
-        <SeekBar
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            app:layout_constraintTop_toBottomOf="@id/gl2"
-            app:layout_constraintBottom_toTopOf="@id/sb_iso"
-            app:layout_constraintLeft_toRightOf="@id/tv_min_sec"
-            app:layout_constraintRight_toLeftOf="@id/tv_max_sec"
-            android:layout_marginLeft="10dp"
-            android:layout_marginRight="10dp"
-            android:max="100"
-            android:progress="50"
-            android:id="@+id/sb_sec"/>
-
-        <TextView
-            android:layout_width="45dp"
-            android:layout_height="wrap_content"
-            app:layout_constraintLeft_toRightOf="@id/label_sec"
-            app:layout_constraintTop_toTopOf="@id/sb_sec"
-            app:layout_constraintBottom_toBottomOf="@id/sb_sec"
-            android:text="2000"
-            android:gravity="right"
-            android:id="@+id/tv_min_sec"/>
-
-        <TextView
-            android:layout_width="45dp"
-            android:layout_height="wrap_content"
-            app:layout_constraintRight_toRightOf="parent"
-            app:layout_constraintTop_toTopOf="@id/sb_sec"
-            app:layout_constraintBottom_toBottomOf="@id/sb_sec"
-            android:text="10000"
-            android:gravity="left"
-            android:id="@+id/tv_max_sec"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintTop_toTopOf="@id/sb_iso"
-            app:layout_constraintBottom_toBottomOf="@id/sb_iso"
-            android:id="@+id/label_iso"
-            android:text="ISO: "/>
-
-        <SeekBar
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            app:layout_constraintTop_toBottomOf="@id/sb_sec"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintLeft_toRightOf="@id/tv_min_iso"
-            app:layout_constraintRight_toLeftOf="@id/tv_max_iso"
-            android:layout_marginLeft="10dp"
-            android:layout_marginRight="10dp"
-            android:max="100"
-            android:progress="50"
-            android:id="@+id/sb_iso"/>
-
-        <TextView
-            android:layout_width="45dp"
-            android:layout_height="wrap_content"
-            app:layout_constraintLeft_toRightOf="@id/label_iso"
-            app:layout_constraintTop_toTopOf="@id/sb_iso"
-            app:layout_constraintBottom_toBottomOf="@id/sb_iso"
-            android:text="2000"
-            android:gravity="right"
-            android:id="@+id/tv_min_iso"/>
-
-        <TextView
-            android:layout_width="45dp"
-            android:layout_height="wrap_content"
-            app:layout_constraintRight_toRightOf="parent"
-            app:layout_constraintTop_toTopOf="@id/sb_iso"
-            app:layout_constraintBottom_toBottomOf="@id/sb_iso"
-            android:text="10000"
-            android:gravity="left"
-            android:id="@+id/tv_max_iso"/>
-    </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

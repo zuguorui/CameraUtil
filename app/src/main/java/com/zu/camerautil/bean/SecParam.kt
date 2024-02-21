@@ -2,8 +2,7 @@ package com.zu.camerautil.bean
 
 import com.zu.camerautil.copyToArray
 import timber.log.Timber
-import kotlin.math.ceil
-import kotlin.math.exp
+import kotlin.math.roundToInt
 
 class SecParam: RangeParam<Long>(CameraParamID.SEC) {
 
@@ -58,19 +57,20 @@ class SecParam: RangeParam<Long>(CameraParamID.SEC) {
             "1/${it.shutterSpeed}"
         } ?: "N/A"
     override val modeName: String
-        get() = if (autoMode) "A" else "M"
+        get() = if (isAutoMode) "A" else "M"
     override val isDiscrete: Boolean
         get() = true
-    override val uiStep: Float
-        get() = 1.0f / (values.size - 1)
+    override val uiStep: Float = 1.0f
 
     override fun uiValueToValue(uiValue: Float): Long {
-        val index = (uiValue / uiStep).toInt()
+        val index = uiValue.roundToInt()
+        Timber.d("uiValueToValue: uiValue = $uiValue, uiStep = $uiStep, index = $index, values.size = ${values.size}")
         return values[index].exposureTime
     }
 
     override fun valueToUiValue(value: Long): Float {
         val index = findNearestSecIndex(value, values)
+        Timber.d("valueToUiValue: value = $value, index = $index, uiValue = ${index * uiStep}")
         return index * uiStep
     }
 
