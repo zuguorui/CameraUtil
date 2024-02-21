@@ -5,7 +5,7 @@ import java.lang.ref.WeakReference
 typealias RangeListener<A> = ((min: A?, max: A?) -> Unit)
 abstract class RangeParam<T>(val id: CameraParamID): AbsCameraParam<T>(){
 
-    protected val rangeListeners = ArrayList<WeakReference<RangeListener<T>>>()
+    protected val rangeListeners = ArrayList<RangeListener<T>>()
 
     open var max: T? = null
         set(value) {
@@ -27,21 +27,18 @@ abstract class RangeParam<T>(val id: CameraParamID): AbsCameraParam<T>(){
     protected fun notifyRangeChanged() {
         val iterator = rangeListeners.iterator()
         while (iterator.hasNext()) {
-            val ref = iterator.next()
-            ref.get()?.invoke(min, max) ?: kotlin.run {
-                iterator.remove()
-            }
+            val listener = iterator.next()
+            listener.invoke(min, max)
         }
     }
 
     fun addRangeListener(listener: RangeListener<T>) {
-        val ref = WeakReference(listener)
-        rangeListeners.add(ref)
+        rangeListeners.add(listener)
     }
 
     fun removeRangeListener(listener: RangeListener<T>) {
         rangeListeners.removeIf {
-            it.get() == null || it.get() == listener
+            it == listener
         }
     }
 

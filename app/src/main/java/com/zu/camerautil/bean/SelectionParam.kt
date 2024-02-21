@@ -6,7 +6,7 @@ import java.lang.ref.WeakReference
 
 typealias ValuesListener<A> = ((values: List<A>) -> Unit)
 abstract class SelectionParam<T>(val id: CameraParamID): AbsCameraParam<T>() {
-    protected val valuesListeners = ArrayList<WeakReference<ValuesListener<out T>>>()
+    protected val valuesListeners = ArrayList<ValuesListener<out T>>()
 
     protected val valueLiveData = MutableListLiveData<T>().apply {
         observeForever {
@@ -18,21 +18,18 @@ abstract class SelectionParam<T>(val id: CameraParamID): AbsCameraParam<T>() {
     protected fun notifyValuesChanged() {
         val iterator = valuesListeners.iterator()
         while (iterator.hasNext()) {
-            val weakRef = iterator.next()
-            weakRef.get()?.invoke(values) ?: kotlin.run {
-                iterator.remove()
-            }
+            val listener = iterator.next()
+            listener.invoke(values)
         }
     }
 
     fun addOnValuesChangedListener(listener: ValuesListener<T>) {
-        val ref = WeakReference(listener)
-        valuesListeners.add(ref)
+        valuesListeners.add(listener)
     }
 
     fun removeOnValuesChangedListener(listener: ValuesListener<T>) {
         valuesListeners.removeIf {
-            it.get() == null || it.get() == listener
+            it == listener
         }
     }
 

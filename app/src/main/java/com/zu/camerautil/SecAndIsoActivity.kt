@@ -12,6 +12,7 @@ import android.hardware.camera2.params.RggbChannelVector
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Range
+import android.util.Rational
 import android.util.Size
 import android.view.Surface
 import android.view.View
@@ -177,9 +178,26 @@ class SecAndIsoActivity : AppCompatActivity() {
             binding.cameraParams.setCameraConfig(camera, size, fps)
         }
 
-        binding.cameraParams.addValueListener(CameraParamID.SEC) {
-            val sec = it as? Long ?: return@addValueListener
+        binding.cameraParams.addAutoModeListener(CameraParamID.SEC) {
+            cameraLogic.updateCaptureRequestParams { builder ->
+                val mode = if (it) {
+                    CaptureRequest.CONTROL_AE_MODE_ON
+                } else {
+                    CaptureRequest.CONTROL_AE_MODE_OFF
+                }
+                builder.set(CaptureRequest.CONTROL_AE_MODE, mode)
+            }
+        }
 
+        binding.cameraParams.addValueListener(CameraParamID.SEC) {
+            if (!binding.cameraParams.isParamAuto(CameraParamID.SEC)) {
+                val sec = it as? Long ?: return@addValueListener
+                val rational = Rational(1_000_000_000, sec.toInt())
+                Timber.d("secChange: $rational")
+                cameraLogic.updateCaptureRequestParams { builder ->
+                    builder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, sec)
+                }
+            }
         }
     }
 

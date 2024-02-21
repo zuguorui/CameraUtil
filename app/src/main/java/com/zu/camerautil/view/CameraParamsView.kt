@@ -6,9 +6,11 @@ import android.util.Size
 import android.view.LayoutInflater
 import android.view.View
 import com.zu.camerautil.bean.AbsCameraParam
+import com.zu.camerautil.bean.AutoModeListener
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraParamID
 import com.zu.camerautil.bean.FPS
+import com.zu.camerautil.bean.ISOParam
 import com.zu.camerautil.bean.RangeParam
 import com.zu.camerautil.bean.SecParam
 import com.zu.camerautil.bean.ValueListener
@@ -19,7 +21,8 @@ class CameraParamsView: AbsCameraParamView {
     private val viewMap = HashMap<CameraParamID, ParamView>()
     private val panelMap = HashMap<CameraParamID, EasyLayoutPopupWindow>()
     private val paramMap = HashMap<CameraParamID, AbsCameraParam<Any>>()
-    private val listenerMap = HashMap<CameraParamID, ArrayList<WeakReference<ValueListener<Any>>>>()
+    private val valueListenerMap = HashMap<CameraParamID, ArrayList<ValueListener<Any>>>()
+    private val autoModeListenerMap = HashMap<CameraParamID, ArrayList<AutoModeListener>>()
 
     private val layoutInflater: LayoutInflater
 
@@ -40,7 +43,7 @@ class CameraParamsView: AbsCameraParamView {
 
     private fun initParamViews() {
         initSecParam()
-
+        initISOParam()
         val viewList = ArrayList<View>().apply {
             addAll(viewMap.values)
         }
@@ -60,13 +63,20 @@ class CameraParamsView: AbsCameraParamView {
         val popupWindow = RangeParamPopupWindow(context)
         val param = SecParam().apply {
             addValueListener {
-                val listeners = listenerMap[CameraParamID.SEC] ?: return@addValueListener
+                val listeners = valueListenerMap[CameraParamID.SEC] ?: return@addValueListener
                 val iterator = listeners.iterator()
                 while (iterator.hasNext()) {
-                    val ref = iterator.next()
-                    ref.get()?.invoke(it) ?: kotlin.run {
-                        iterator.remove()
-                    }
+                    val listener = iterator.next()
+                    listener.invoke(it)
+                }
+            }
+
+            addAutoModeListener {
+                val listeners = autoModeListenerMap[CameraParamID.SEC] ?: return@addAutoModeListener
+                val iterator = listeners.iterator()
+                while (iterator.hasNext()) {
+                    val listener = iterator.next()
+                    listener.invoke(it)
                 }
             }
         }
@@ -79,20 +89,73 @@ class CameraParamsView: AbsCameraParamView {
         paramMap[CameraParamID.SEC] = param
     }
 
+    private fun initISOParam() {
+        val paramView = ParamView(context).apply {
+            setOnClickListener {
+                panelMap[CameraParamID.ISO]?.let {
+                    it.show(this, paramPanelPopupGravity)
+                }
+            }
+        }
+
+        val popupWindow = RangeParamPopupWindow(context)
+        val param = ISOParam().apply {
+            addValueListener {
+                val listeners = valueListenerMap[CameraParamID.ISO] ?: return@addValueListener
+                val iterator = listeners.iterator()
+                while (iterator.hasNext()) {
+                    val listener = iterator.next()
+                    listener.invoke(it)
+                }
+            }
+
+            addAutoModeListener {
+                val listeners = autoModeListenerMap[CameraParamID.ISO] ?: return@addAutoModeListener
+                val iterator = listeners.iterator()
+                while (iterator.hasNext()) {
+                    val listener = iterator.next()
+                    listener.invoke(it)
+                }
+            }
+        }
+
+        paramView.param = param as AbsCameraParam<Any>
+        popupWindow.param = param as RangeParam<Any>
+
+        viewMap[CameraParamID.ISO] = paramView
+        panelMap[CameraParamID.ISO] = popupWindow
+        paramMap[CameraParamID.ISO] = param
+    }
+
     fun addValueListener(paramID: CameraParamID, listener: ValueListener<Any>) {
-        val ref = WeakReference(listener)
-        val list = listenerMap[paramID] ?: kotlin.run {
-            val list = ArrayList<WeakReference<ValueListener<Any>>>()
-            listenerMap[paramID] = list
+        val list = valueListenerMap[paramID] ?: kotlin.run {
+            val list = ArrayList<ValueListener<Any>>()
+            valueListenerMap[paramID] = list
             list
         }
-        list.add(ref)
+        list.add(listener)
     }
 
     fun removeValueListener(paramID: CameraParamID, listener: ValueListener<Any>) {
-        val list = listenerMap[paramID] ?: return
+        val list = valueListenerMap[paramID] ?: return
         list.removeIf {
-            it.get() == null || it.get() == listener
+            it == listener
+        }
+    }
+
+    fun addAutoModeListener(paramID: CameraParamID, listener: AutoModeListener) {
+        val list = autoModeListenerMap[paramID] ?: kotlin.run {
+            val list = ArrayList<AutoModeListener>()
+            autoModeListenerMap[paramID] = list
+            list
+        }
+        list.add(listener)
+    }
+
+    fun removeAutoModeListener(paramID: CameraParamID, listener: AutoModeListener) {
+        val list = autoModeListenerMap[paramID] ?: return
+        list.removeIf {
+            it == listener
         }
     }
 
@@ -122,6 +185,7 @@ class CameraParamsView: AbsCameraParamView {
 
     private fun updateParams() {
         updateSecParam()
+        updateISOParam()
     }
 
     private fun updateSecParam() {
@@ -133,6 +197,16 @@ class CameraParamsView: AbsCameraParamView {
         val secParam = paramMap[CameraParamID.SEC]!! as SecParam
         secParam.min = lens.exposureRange!!.lower
         secParam.max = max.toLong()
+    }
+
+    private fun updateISOParam() {
+        val lens = currentLens ?: return
+        val isoParam = paramMap[CameraParamID.ISO]!! as ISOParam
+        if (isoParam.value == null || isoParam.value!! < lens.isoRange!!.lower) {
+            isoParam.value = lens.isoRange!!.lower
+        }
+        isoParam.max = lens.isoRange!!.upper
+        isoParam.min = lens.isoRange!!.lower
     }
 
     private fun setSecValue(value: Any) {

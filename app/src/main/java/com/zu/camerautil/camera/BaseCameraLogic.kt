@@ -398,6 +398,20 @@ open class BaseCameraLogic(val context: Context) {
     }
 
     /**
+     * 更新一些参数到session，不会重启相机和session。
+     * @param func 操作builder的函数，在这里对builder进行操作
+     * */
+    fun updateCaptureRequestParams(func: ((CaptureRequest.Builder) -> Unit)) {
+        cameraOperationExecutor.execute {
+            captureRequestBuilder?.let {
+                func.invoke(it)
+                startRepeating()
+            }
+        }
+    }
+
+
+    /**
      * 相机配置回调，在相应时刻，会向客户端请求配置。
      * */
     interface ConfigCallback {

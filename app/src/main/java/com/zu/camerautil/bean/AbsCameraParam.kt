@@ -5,8 +5,8 @@ import java.lang.ref.WeakReference
 typealias ValueListener<A> = ((value: A?) -> Unit)
 typealias AutoModeListener = ((isAuto: Boolean) -> Unit)
 abstract class AbsCameraParam<T> {
-    protected val valueListeners = ArrayList<WeakReference<ValueListener<T>>>()
-    protected val autoModeListeners = ArrayList<WeakReference<AutoModeListener>>()
+    protected val valueListeners = ArrayList<ValueListener<T>>()
+    protected val autoModeListeners = ArrayList<AutoModeListener>()
 
     abstract val name: String
     abstract val isModal: Boolean
@@ -33,42 +33,36 @@ abstract class AbsCameraParam<T> {
     protected open fun notifyValueChanged() {
         val iterator = valueListeners.iterator()
         while (iterator.hasNext()) {
-            val weakRef = iterator.next()
-            weakRef.get()?.invoke(value) ?: kotlin.run {
-                iterator.remove()
-            }
+            val listener = iterator.next()
+            listener.invoke(value)
         }
     }
 
     protected open fun notifyAutoModeChanged() {
         val iterator = autoModeListeners.iterator()
         while (iterator.hasNext()) {
-            val ref = iterator.next()
-            ref.get()?.invoke(isAutoMode) ?: kotlin.run {
-                iterator.remove()
-            }
+            val listener = iterator.next()
+            listener.invoke(isAutoMode)
         }
     }
 
     open fun addValueListener(listener: ValueListener<in T>) {
-        val listenerRef = WeakReference(listener)
-        valueListeners.add(listenerRef)
+        valueListeners.add(listener)
     }
 
     open fun removeValueListener(listener: ValueListener<T>) {
         valueListeners.removeIf {
-            it.get() == null || it.get() == listener
+            it == listener
         }
     }
 
     open fun addAutoModeListener(listener: AutoModeListener) {
-        val ref = WeakReference(listener)
-        autoModeListeners.add(ref)
+        autoModeListeners.add(listener)
     }
 
     open fun removeAutoModeListener(listener: AutoModeListener) {
         autoModeListeners.removeIf {
-            it.get() == null || it.get() == listener
+            it == listener
         }
     }
 }
