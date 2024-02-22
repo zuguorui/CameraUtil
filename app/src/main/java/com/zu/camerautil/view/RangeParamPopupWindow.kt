@@ -19,7 +19,6 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
     private lateinit var binding: ParamRangeBinding
 
     private val valueListener: ValueListener<Any> = { value ->
-
         value?.let {
             val param = param ?: return@let
             val uiValue = param.valueToUiValue(it)
@@ -88,7 +87,6 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
     private fun refreshView() {
         param?.let {
             it.min?.let { min ->
-
                 val uiMin = it.valueToUiValue(min)
                 val minName = it.valueToUiName(min)
                 Timber.d("param.min = $min, uiMin = $uiMin, minName = $minName")
@@ -97,7 +95,6 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
             }
 
             it.max?.let { max ->
-
                 val uiMax = it.valueToUiValue(max)
                 val maxName = it.valueToUiName(max)
                 Timber.d("param.max = $max, uiMax = $uiMax, maxName = $maxName")
@@ -106,7 +103,6 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
             }
 
             it.value?.let { value ->
-
                 val uiValue = it.valueToUiValue(value)
                 val valueName = it.valueToUiName(value)
                 Timber.d("param.value = $value, uiValue = $uiValue, valueName = $valueName")

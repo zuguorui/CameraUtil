@@ -2,37 +2,25 @@ package com.zu.camerautil
 
 import android.annotation.SuppressLint
 import android.hardware.camera2.CameraCaptureSession
-import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.TotalCaptureResult
-import android.hardware.camera2.params.ColorSpaceTransform
-import android.hardware.camera2.params.RggbChannelVector
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.util.Range
 import android.util.Rational
 import android.util.Size
 import android.view.Surface
-import android.view.View
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
-import android.widget.SeekBar
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraParamID
 import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
-import com.zu.camerautil.bean.FpsParam
-import com.zu.camerautil.bean.SelectionParam
 import com.zu.camerautil.camera.BaseCameraLogic
-import com.zu.camerautil.camera.WbUtil
 import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.databinding.ActivitySecAndIsoBinding
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
 import timber.log.Timber
-import kotlin.math.roundToInt
 
 @SuppressLint("MissingPermission")
 class SecAndIsoActivity : AppCompatActivity() {
@@ -136,6 +124,14 @@ class SecAndIsoActivity : AppCompatActivity() {
                     }
                 }
 
+                if (binding.cameraParams.isParamAuto(CameraParamID.ISO)) {
+                    result.get(CaptureResult.SENSOR_SENSITIVITY)?.let { iso ->
+                        runOnUiThread {
+                            binding.cameraParams.setParamValue(CameraParamID.ISO, iso)
+                        }
+                    }
+                }
+
             }
         }
     }
@@ -178,14 +174,11 @@ class SecAndIsoActivity : AppCompatActivity() {
             binding.cameraParams.setCameraConfig(camera, size, fps)
         }
 
-        binding.cameraParams.addAutoModeListener(CameraParamID.SEC) {
-            cameraLogic.updateCaptureRequestParams { builder ->
-                val mode = if (it) {
-                    CaptureRequest.CONTROL_AE_MODE_ON
-                } else {
-                    CaptureRequest.CONTROL_AE_MODE_OFF
-                }
-                builder.set(CaptureRequest.CONTROL_AE_MODE, mode)
+        binding.cameraParams.addAutoModeListener(CameraParamID.SEC) { secAuto ->
+            val isoAuto = binding.cameraParams.isParamAuto(CameraParamID.ISO)
+            if (secAuto != isoAuto) {
+                binding.cameraParams.setParamAuto(CameraParamID.ISO, secAuto)
+                setSecAndISOAuto(secAuto)
             }
         }
 
@@ -197,6 +190,35 @@ class SecAndIsoActivity : AppCompatActivity() {
                 cameraLogic.updateCaptureRequestParams { builder ->
                     builder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, sec)
                 }
+            }
+        }
+
+        binding.cameraParams.addAutoModeListener(CameraParamID.ISO) { isoAuto ->
+            val secAuto = binding.cameraParams.isParamAuto(CameraParamID.SEC)
+            if (secAuto != isoAuto) {
+                binding.cameraParams.setParamAuto(CameraParamID.SEC, isoAuto)
+                setSecAndISOAuto(isoAuto)
+            }
+        }
+
+        binding.cameraParams.addValueListener(CameraParamID.ISO) {
+            if (!binding.cameraParams.isParamAuto(CameraParamID.ISO)) {
+                val iso = it as? Int ?: return@addValueListener
+                cameraLogic.updateCaptureRequestParams { builder ->
+                    builder.set(CaptureRequest.SENSOR_SENSITIVITY, iso)
+                }
+            }
+        }
+    }
+
+    private fun setSecAndISOAuto(auto: Boolean) {
+        if (auto) {
+            cameraLogic.updateCaptureRequestParams { builder ->
+                builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+            }
+        } else {
+            cameraLogic.updateCaptureRequestParams { builder ->
+                builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
             }
         }
     }
