@@ -3,6 +3,7 @@ package com.zu.camerautil
 import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CaptureRequest
 import android.media.MediaCodec
@@ -118,6 +119,7 @@ class RecordActivity : AppCompatActivity() {
             }
 
             override fun configBuilder(requestBuilder: CaptureRequest.Builder) {
+
             }
         }
 
@@ -195,6 +197,9 @@ class RecordActivity : AppCompatActivity() {
     private fun startRecord() {
         val size = currentSize ?: return
         val fps = currentFps ?: return
+        val camera = openedCameraID?.let {
+            cameraInfoMap[it] ?: return
+        } ?: return
         val title = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis())) + ".mp4"
         val dcim = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
 
@@ -210,7 +215,9 @@ class RecordActivity : AppCompatActivity() {
             fps.value,
             44100,
             File(path),
-            binding.root.display.rotation
+            binding.root.display.rotation,
+            camera.sensorOrientation!!,
+            cameraInfoMap[openedCameraID!!]!!.lensFacing
         )
 
         if (!recorder.prepare(params)) {

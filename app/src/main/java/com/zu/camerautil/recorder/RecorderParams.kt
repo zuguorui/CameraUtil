@@ -15,7 +15,9 @@ data class RecorderParams(
     val inputFps: Int,
     val sampleRate: Int,
     val outputFile: File,
-    val rotation: Int
+    val viewOrientation: Int,
+    val sensorOrientation: Int,
+    val facing: Int
 ) {
     override fun toString(): String {
         return """

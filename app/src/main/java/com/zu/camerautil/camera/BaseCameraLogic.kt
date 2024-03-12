@@ -340,6 +340,9 @@ open class BaseCameraLogic(val context: Context) {
                         Timber.w("camera${info.cameraID} belong to logical camera${info.logicalID}, set physical camera")
                         outputConfiguration.setPhysicalCameraId(info.cameraID)
                     }
+//                    if (Build.VERSION.SDK_INT >= 33) {
+//                        outputConfiguration.mirrorMode = OutputConfiguration.MIRROR_MODE_NONE
+//                    }
                     outputConfigurations.add(outputConfiguration)
                 }
                 val sessionType = if (isHighSpeed) {

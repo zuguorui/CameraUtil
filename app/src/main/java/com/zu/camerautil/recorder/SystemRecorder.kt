@@ -1,5 +1,6 @@
 package com.zu.camerautil.recorder
 
+import android.hardware.camera2.CameraCharacteristics
 import android.media.EncoderProfiles
 import android.media.EncoderProfiles.VideoProfile
 import android.media.MediaRecorder
@@ -9,6 +10,7 @@ import android.media.MediaRecorder.OutputFormat
 import android.media.MediaRecorder.VideoEncoder
 import android.media.MediaRecorder.VideoSource
 import android.view.Surface
+import androidx.core.graphics.scaleMatrix
 
 /**
  * @author zuguorui
@@ -51,8 +53,13 @@ class SystemRecorder: IRecorder {
             } else {
                 setVideoEncoder(VideoEncoder.H264)
             }
-
-            setOrientationHint(90)
+            val isFront = params.facing == CameraCharacteristics.LENS_FACING_FRONT
+            val rotationSign = if (isFront) 1 else -1
+            val rotation = (params.sensorOrientation - params.viewOrientation * rotationSign + 360) % 360
+            setOrientationHint(rotation)
+            if (isFront) {
+                scaleMatrix(-1f, 1f)
+            }
             setVideoSize(params.resolution.width, params.resolution.height)
             setVideoEncodingBitRate(computeVideoBitRate(params.resolution.width, params.resolution.height, params.outputFps, 24))
 
