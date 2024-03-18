@@ -31,7 +31,7 @@ object WbUtil {
     val TINT_RANGE = Range<Int>(-50, 50)
 
     // 色温占颜色增强的比例，则色调占1 - A
-    private const val A = 0.7f
+    private const val A = 0.5f
 
     var previousCST: ColorSpaceTransform? = null
         set(value) {
@@ -91,8 +91,12 @@ object WbUtil {
     }
 
     fun computeTempAndTint(vector: RggbChannelVector): Pair<Int, Int> {
-        var rGain = vector.red
-        var bGain = vector.blue
+        return computeTempAndTint(vector.red, vector.blue)
+    }
+
+    fun computeTempAndTint(red: Float, blue: Float): Pair<Int, Int> {
+        var rGain = red
+        var bGain = blue
 
         rGain = transformToRange(1.0f, 3.0f, 0.0f, 255.0f, rGain)
         bGain = transformToRange(1.0f, 3.0f, 0.0f, 255.0f, bGain)

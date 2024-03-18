@@ -126,7 +126,7 @@ class WbActivity : AppCompatActivity() {
                     requestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, currentMode)
                     if (currentMode == CameraCharacteristics.CONTROL_AWB_MODE_OFF  && WbUtil.previousCST != null) {
                         requestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
-                        requestBuilder.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, WbUtil.previousCST)
+                        requestBuilder.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, WbUtil.DEFAULT_CST)
                         requestBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector)
                     } else {
                         // 不处于OFF模式下，手动给设置一下色彩校正模式，否则有的手机无法切换到自动白平衡或者其他模式
@@ -203,11 +203,15 @@ class WbActivity : AppCompatActivity() {
                 result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let {
                     if (debugGain == null || !isColorGainEqual(debugGain!!, it)) {
                         debugGain = it
-                        Timber.d("ColorGain: [${String.format(formatText, it.red)}, ${String.format(formatText, it.greenOdd)}, ${String.format(formatText, it.greenEven)}, ${String.format(formatText, it.blue)}]")
+                        Timber.d("ColorGain: [red = ${String.format(formatText, it.red)}, greenEven = ${String.format(formatText, it.greenEven)}, greenOdd = ${String.format(formatText, it.greenOdd)}, blue = ${String.format(formatText, it.blue)}]")
                         Timber.d("ColorGain baseLine: ${String.format(formatText, (it.red + it.blue) / 2)}")
                     }
-
-                    val (temp, tint) = WbUtil.computeTempAndTint(it)
+                    val isAwbOff = result.get(CaptureResult.CONTROL_AWB_MODE) == CaptureResult.CONTROL_AWB_MODE_OFF
+                    val (temp, tint) = if (isAwbOff) {
+                        WbUtil.computeTempAndTint(it.red, it.blue)
+                    } else {
+                        WbUtil.computeTempAndTint(it.red, it.greenEven)
+                    }
                     runOnUiThread {
                         binding.tvTempAnalyze.text = "$temp"
                         binding.tvTintAnalyze.text = "$tint"
