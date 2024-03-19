@@ -2,6 +2,7 @@ package com.zu.camerautil
 
 import android.annotation.SuppressLint
 import android.content.ContentValues
+import android.content.Context
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
@@ -203,23 +204,25 @@ class RecordActivity : AppCompatActivity() {
             cameraInfoMap[it] ?: return
         } ?: return
         val title = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis())) + ".mp4"
-        val dcim = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-        //val dcim = "sdcard/DCIM/"
-        val folder = File(dcim, "CameraUtil")
-        if (!folder.exists()) {
-            folder.mkdirs()
+
+        val saveUri = createVideoUri(this, title) ?: kotlin.run {
+            Timber.e("create uri failed")
+            recording = false
+            return
         }
-        val path = "${folder.absolutePath}/$title"
+
+
         val params = RecorderParams(
-            title,
-            size,
-            fps.value,
-            fps.value,
-            44100,
-            File(path),
-            binding.root.display.rotation,
-            camera.sensorOrientation!!,
-            cameraInfoMap[openedCameraID!!]!!.lensFacing
+            title = title,
+            resolution = size,
+            inputFps = fps.value,
+            outputFps = fps.value,
+            sampleRate = 44100,
+            outputFile = null,
+            outputUri = saveUri,
+            viewOrientation = binding.root.display.rotation,
+            sensorOrientation = camera.sensorOrientation!!,
+            facing = cameraInfoMap[openedCameraID!!]!!.lensFacing
         )
 
         if (!recorder.prepare(params)) {
@@ -234,6 +237,42 @@ class RecordActivity : AppCompatActivity() {
 
     }
 
+    private fun createVideoUri(context: Context, name: String, isPending: Boolean = false): Uri? {
+        val DCIM = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
+        val folderPath = "$DCIM/CameraUtil/"
+        val relativePath = folderPath.substring(folderPath.indexOf("DCIM"))
+        val contentValues = ContentValues().apply {
+            put(MediaStore.Video.Media.DISPLAY_NAME, name)
+            put(MediaStore.Video.Media.TITLE, name)
+            put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+            put(MediaStore.Video.Media.DATA, "$folderPath$name")
+            put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
+            if (isPending) {
+                put(MediaStore.Video.Media.IS_PENDING, 1)
+            }
+        }
+
+        contentValues.run {
+            Timber.d("""
+                    saveVideo:
+                        display_name = ${get(MediaStore.Video.Media.DISPLAY_NAME)}
+                        title = ${get(MediaStore.Video.Media.TITLE)}
+                        mime_type = ${get(MediaStore.Video.Media.MIME_TYPE)}
+                        data = ${get(MediaStore.Video.Media.DATA)}
+                        relative_path = ${get(MediaStore.Video.Media.RELATIVE_PATH)}
+                """.trimIndent())
+        }
+        var collectionUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Video.Media.getContentUri(
+                MediaStore.VOLUME_EXTERNAL_PRIMARY
+            )
+        } else {
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        }
+        val uri = context.contentResolver.insert(collectionUri, contentValues)
+        return uri
+    }
+
     private fun stopRecord() {
         val previousParams = recordParams
         cameraLogic.closeSession()
@@ -242,31 +281,13 @@ class RecordActivity : AppCompatActivity() {
         recording = false
         cameraLogic.createSession()
         previousParams?.let { params ->
+            if (params.outputUri == null) {
+                return@let
+            }
             val contentValues = ContentValues().apply {
-                put(MediaStore.Video.Media.DISPLAY_NAME, params.title)
-                put(MediaStore.Video.Media.TITLE, params.title)
-                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                put(MediaStore.Video.Media.DATA, params.outputFile.absolutePath)
-                val path = params.outputFile.absolutePath
-                val relativePath = "DCIM/CameraUtil/"
-                put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
-                Timber.d("""
-                    saveVideo:
-                        display_name = ${get(MediaStore.Video.Media.DISPLAY_NAME)}
-                        title = ${get(MediaStore.Video.Media.TITLE)}
-                        mime_type = ${get(MediaStore.Video.Media.MIME_TYPE)}
-                        data = ${get(MediaStore.Video.Media.DATA)}
-                        relative_path = ${get(MediaStore.Video.Media.RELATIVE_PATH)}
-                """.trimIndent())
+                put(MediaStore.Video.Media.IS_PENDING, 0)
             }
-            var collectionUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                MediaStore.Video.Media.getContentUri(
-                    MediaStore.VOLUME_EXTERNAL_PRIMARY
-                )
-            } else {
-                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-            }
-            contentResolver.insert(collectionUri, contentValues)
+            contentResolver.update(params.outputUri!!, contentValues, null, null)
         }
     }
 
