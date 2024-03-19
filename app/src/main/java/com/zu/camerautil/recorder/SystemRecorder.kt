@@ -11,6 +11,7 @@ import android.media.MediaRecorder.VideoEncoder
 import android.media.MediaRecorder.VideoSource
 import android.view.Surface
 import androidx.core.graphics.scaleMatrix
+import timber.log.Timber
 
 /**
  * @author zuguorui
@@ -33,6 +34,12 @@ class SystemRecorder: IRecorder {
             return false
         }
         mediaRecorder = MediaRecorder()
+
+        Timber.d("""
+            inputFps: ${params.inputFps}
+            outputFps: ${params.outputFps}
+            resolution: ${params.resolution}
+        """.trimIndent())
 
         mediaRecorder?.apply {
             setAudioSource(AudioSource.MIC)
@@ -61,7 +68,9 @@ class SystemRecorder: IRecorder {
                 scaleMatrix(-1f, 1f)
             }
             setVideoSize(params.resolution.width, params.resolution.height)
-            setVideoEncodingBitRate(computeVideoBitRate(params.resolution.width, params.resolution.height, params.outputFps, 24))
+            val bitrate = computeVideoBitRate(params.resolution.width, params.resolution.height, params.outputFps, 8)
+            Timber.d("bitrate = ${bitrate / 1000_000}Mbps")
+            setVideoEncodingBitRate(48 * 1024 * 1024)
 
             setOutputFile(params.outputFile.absolutePath)
         }

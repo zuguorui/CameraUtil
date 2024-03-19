@@ -7,6 +7,8 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CaptureRequest
 import android.media.MediaCodec
+import android.net.Uri
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Environment
@@ -202,7 +204,7 @@ class RecordActivity : AppCompatActivity() {
         } ?: return
         val title = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis())) + ".mp4"
         val dcim = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-
+        //val dcim = "sdcard/DCIM/"
         val folder = File(dcim, "CameraUtil")
         if (!folder.exists()) {
             folder.mkdirs()
@@ -242,13 +244,29 @@ class RecordActivity : AppCompatActivity() {
         previousParams?.let { params ->
             val contentValues = ContentValues().apply {
                 put(MediaStore.Video.Media.DISPLAY_NAME, params.title)
-                put(MediaStore.Video.Media.DATA, params.outputFile.absolutePath)
-                put(MediaStore.Video.Media.DATE_ADDED, System.currentTimeMillis())
-                put(MediaStore.Video.Media.WIDTH, params.resolution.width)
-                put(MediaStore.Video.Media.HEIGHT, params.resolution.height)
+                put(MediaStore.Video.Media.TITLE, params.title)
                 put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                put(MediaStore.Video.Media.DATA, params.outputFile.absolutePath)
+                val path = params.outputFile.absolutePath
+                val relativePath = "DCIM/CameraUtil/"
+                put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
+                Timber.d("""
+                    saveVideo:
+                        display_name = ${get(MediaStore.Video.Media.DISPLAY_NAME)}
+                        title = ${get(MediaStore.Video.Media.TITLE)}
+                        mime_type = ${get(MediaStore.Video.Media.MIME_TYPE)}
+                        data = ${get(MediaStore.Video.Media.DATA)}
+                        relative_path = ${get(MediaStore.Video.Media.RELATIVE_PATH)}
+                """.trimIndent())
             }
-            contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, contentValues)
+            var collectionUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                MediaStore.Video.Media.getContentUri(
+                    MediaStore.VOLUME_EXTERNAL_PRIMARY
+                )
+            } else {
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            }
+            contentResolver.insert(collectionUri, contentValues)
         }
     }
 

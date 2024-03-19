@@ -6,7 +6,9 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".RggbChannelActivity">
+    tools:context=".RggbChannelActivity"
+    android:paddingHorizontal="10dp"
+    android:paddingBottom="10dp">
     <androidx.constraintlayout.widget.Guideline
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -36,6 +38,16 @@
         android:text="绑定green"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintTop_toBottomOf="@id/gl1"/>
+    
+    <Switch
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/sw_auto"
+        android:text="自动"
+        app:layout_constraintLeft_toRightOf="@id/sw_bind_green"
+        app:layout_constraintTop_toBottomOf="@id/gl1"
+        android:layout_marginLeft="10dp"
+        android:checked="true"/>
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -50,13 +62,15 @@
             android:layout_height="wrap_content"
             android:text="R:"
             />
-        <SeekBar
+        <com.google.android.material.slider.Slider
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:id="@+id/sb_red"/>
+            android:id="@+id/slider_red"
+            app:labelBehavior="gone"
+            app:tickVisible="false"/>
         <TextView
-            android:layout_width="20dp"
+            android:layout_width="30dp"
             android:layout_height="wrap_content"
             android:text="1.0"
             android:id="@+id/tv_value_red"/>
@@ -74,13 +88,15 @@
             android:layout_height="wrap_content"
             android:text="G_E:"
             />
-        <SeekBar
+        <com.google.android.material.slider.Slider
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:id="@+id/sb_green_even"/>
+            android:id="@+id/slider_green_even"
+            app:labelBehavior="gone"
+            app:tickVisible="false"/>
         <TextView
-            android:layout_width="20dp"
+            android:layout_width="30dp"
             android:layout_height="wrap_content"
             android:text="1.0"
             android:id="@+id/tv_value_green_even"/>
@@ -98,13 +114,15 @@
             android:layout_height="wrap_content"
             android:text="G_O:"
             />
-        <SeekBar
+        <com.google.android.material.slider.Slider
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:id="@+id/sb_green_odd"/>
+            android:id="@+id/slider_green_odd"
+            app:labelBehavior="gone"
+            app:tickVisible="false"/>
         <TextView
-            android:layout_width="20dp"
+            android:layout_width="30dp"
             android:layout_height="wrap_content"
             android:text="1.0"
             android:id="@+id/tv_value_green_odd"/>
@@ -122,13 +140,15 @@
             android:layout_height="wrap_content"
             android:text="B:"
             />
-        <SeekBar
+        <com.google.android.material.slider.Slider
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:id="@+id/sb_blue"/>
+            android:id="@+id/slider_blue"
+            app:labelBehavior="gone"
+            app:tickVisible="false"/>
         <TextView
-            android:layout_width="20dp"
+            android:layout_width="30dp"
             android:layout_height="wrap_content"
             android:text="1.0"
             android:id="@+id/tv_value_blue"/>

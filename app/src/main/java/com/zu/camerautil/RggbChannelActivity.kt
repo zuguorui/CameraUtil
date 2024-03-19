@@ -1,6 +1,7 @@
 package com.zu.camerautil
 
 import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CaptureResult
@@ -11,6 +12,8 @@ import android.os.Bundle
 import android.util.Rational
 import android.util.Size
 import android.view.Surface
+import android.widget.SeekBar
+import android.widget.SeekBar.OnSeekBarChangeListener
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -27,6 +30,7 @@ import com.zu.camerautil.databinding.ActivitySecAndIsoBinding
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
 import timber.log.Timber
+import kotlin.math.roundToInt
 
 class RggbChannelActivity : AppCompatActivity() {
 
@@ -40,6 +44,41 @@ class RggbChannelActivity : AppCompatActivity() {
     private var currentSize: Size? = null
     private var currentFps: FPS? = null
 
+    private var red: Float
+        get() = binding.sliderRed.value
+        set(value) {
+            binding.sliderRed.value = value
+        }
+
+    private var greenEven: Float
+        get() = binding.sliderGreenEven.value
+        set(value) {
+            binding.sliderGreenEven.value = value
+        }
+
+    private var greenOdd: Float
+        get() = binding.sliderGreenOdd.value
+        set(value) {
+            binding.sliderGreenOdd.value = value
+        }
+
+    private var blue: Float
+        get() = binding.sliderBlue.value
+        set(value) {
+            binding.sliderBlue.value = value
+        }
+
+    private var bindGreen: Boolean
+        get() = binding.swBindGreen.isChecked
+        set(value) {
+            binding.swBindGreen.isChecked = value
+        }
+
+    private var isAuto: Boolean
+        get() = binding.swAuto.isChecked
+        set(value) {
+            binding.swAuto.isChecked = value
+        }
 
     private val surfaceStateListener = object : PreviewViewImplementation.SurfaceStateListener {
         override fun onSurfaceCreated(surface: Surface) {
@@ -99,7 +138,15 @@ class RggbChannelActivity : AppCompatActivity() {
             }
 
             override fun configBuilder(requestBuilder: CaptureRequest.Builder) {
-
+                if (!isAuto) {
+                    cameraLogic.updateCaptureRequestParams {
+                        it.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+                        it.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, WbUtil.previousCST)
+                        it.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF)
+                        val rggbChannelVector = RggbChannelVector(red, greenEven, greenOdd, blue)
+                        it.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector)
+                    }
+                }
             }
         }
 
@@ -148,6 +195,22 @@ class RggbChannelActivity : AppCompatActivity() {
 
                     WbUtil.previousCST = it
                 }
+
+                result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let {
+                    if (debugGain == null || !isColorGainEqual(debugGain!!, it)) {
+                        debugGain = it
+                        Timber.d("ColorGain: [red = ${String.format(formatText, it.red)}, greenEven = ${String.format(formatText, it.greenEven)}, greenOdd = ${String.format(formatText, it.greenOdd)}, blue = ${String.format(formatText, it.blue)}]")
+                        Timber.d("ColorGain baseLine: ${String.format(formatText, (it.red + it.blue) / 2)}")
+                    }
+                    if (isAuto) {
+                        runOnUiThread {
+                            red = it.red
+                            greenEven = it.greenEven
+                            greenOdd = it.greenOdd
+                            blue = it.blue
+                        }
+                    }
+                }
             }
         }
     }
@@ -187,5 +250,108 @@ class RggbChannelActivity : AppCompatActivity() {
                 }
             }
         }
+
+        binding.sliderRed.apply {
+            value = (MIN + MAX) / 2
+            valueFrom = MIN
+            valueTo = MAX
+            addOnChangeListener { _, value, fromUser ->
+                binding.tvValueRed.text = String.format("%.2f", value)
+                if (fromUser) {
+                    updateRggbChannel(value, greenEven, greenOdd, blue)
+                }
+            }
+        }
+
+
+        binding.sliderGreenEven.apply {
+            value = (MIN + MAX) / 2
+            valueFrom = MIN
+            valueTo = MAX
+            addOnChangeListener { _, value, fromUser ->
+                binding.tvValueGreenEven.text = String.format("%.2f", value)
+                if (fromUser) {
+                    if (bindGreen) {
+                        greenOdd = value
+                    }
+                    updateRggbChannel(red, value, greenOdd, blue)
+                }
+            }
+        }
+
+        binding.sliderGreenOdd.apply {
+            value = (MIN + MAX) / 2
+            valueFrom = MIN
+            valueTo = MAX
+            addOnChangeListener { _, value, fromUser ->
+                binding.tvValueGreenOdd.text = String.format("%.2f", value)
+                if (fromUser) {
+                    if (bindGreen) {
+                        greenEven = value
+                    }
+                    updateRggbChannel(red, greenEven, value, blue)
+                }
+            }
+        }
+
+        binding.sliderBlue.apply {
+            value = (MIN + MAX) / 2
+            valueFrom = MIN
+            valueTo = MAX
+            addOnChangeListener { _, value, fromUser ->
+                binding.tvValueBlue.text = String.format("%.2f", value)
+                if (fromUser) {
+                    updateRggbChannel(red, greenEven, greenOdd, value)
+                }
+            }
+        }
+
+        binding.swBindGreen.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                if (greenEven != greenOdd) {
+                    greenOdd = greenEven
+                }
+            }
+        }
+
+        binding.swAuto.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                cameraLogic.updateCaptureRequestParams {
+                    it.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
+                    it.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_HIGH_QUALITY)
+                }
+            } else {
+                cameraLogic.updateCaptureRequestParams {
+                    it.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+                    it.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, WbUtil.previousCST)
+                    it.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF)
+                    val rggbChannelVector = RggbChannelVector(red, greenEven, greenOdd, blue)
+                    it.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector)
+                }
+            }
+
+            binding.sliderRed.isEnabled = !isChecked
+            binding.sliderGreenEven.isEnabled = !isChecked
+            binding.sliderGreenOdd.isEnabled = !isChecked
+            binding.sliderBlue.isEnabled = !isChecked
+        }
+
+        binding.sliderRed.isEnabled = !isAuto
+        binding.sliderGreenEven.isEnabled = !isAuto
+        binding.sliderGreenOdd.isEnabled = !isAuto
+        binding.sliderBlue.isEnabled = !isAuto
+
+    }
+
+    private fun updateRggbChannel(red: Float, greenEven: Float, greenOdd: Float, blue: Float) {
+        cameraLogic.updateCaptureRequestParams {
+            val rggbChannelVector = RggbChannelVector(red, greenEven, greenOdd, blue)
+            it.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector)
+        }
+    }
+
+    companion object {
+        private val MAX = 4.0f
+        private val MIN = 0.0f
     }
 }
