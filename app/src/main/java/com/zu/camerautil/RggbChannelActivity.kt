@@ -307,10 +307,8 @@ class RggbChannelActivity : AppCompatActivity() {
         }
 
         binding.swBindGreen.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                if (greenEven != greenOdd) {
-                    greenOdd = greenEven
-                }
+            if (isChecked && !isAuto) {
+                greenOdd = greenEven
             }
         }
 
@@ -321,6 +319,9 @@ class RggbChannelActivity : AppCompatActivity() {
                     it.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_HIGH_QUALITY)
                 }
             } else {
+                if (bindGreen) {
+                    greenOdd = greenEven
+                }
                 cameraLogic.updateCaptureRequestParams {
                     it.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
                     it.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, WbUtil.previousCST)

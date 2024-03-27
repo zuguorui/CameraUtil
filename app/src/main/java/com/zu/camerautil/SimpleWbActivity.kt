@@ -67,10 +67,8 @@ class SimpleWbActivity : AppCompatActivity() {
                 val cameraInfo = cameraInfoMap[id]
                 val index = binding.spWbMode.selectedItemPosition
                 cameraInfo!!.awbModes!![index]
-            } ?: CameraCharacteristics.CONTROL_AWB_MODE_OFF
+            } ?: CameraCharacteristics.CONTROL_AWB_MODE_AUTO
         }
-
-    private var justOpenCamera = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -110,41 +108,35 @@ class SimpleWbActivity : AppCompatActivity() {
             }
 
             override fun configBuilder(requestBuilder: CaptureRequest.Builder) {
-                Timber.w("configBuilder: justOpenCamera = $justOpenCamera")
-                if (!justOpenCamera) {
-                    val currentMode = currentMode
-                    requestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, currentMode)
-                    if (currentMode == CameraCharacteristics.CONTROL_AWB_MODE_OFF && WbUtil.previousCST != null) {
-                        requestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
-                        requestBuilder.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, WbUtil.previousCST)
-                        requestBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector)
-                    } else {
-                        // 不处于OFF模式下，手动给设置一下色彩校正模式，否则有的手机无法切换到自动白平衡或者其他模式
-                        requestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_FAST)
-                    }
-                } else {
-                    requestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
-                }
 
-                if (justOpenCamera) {
-                    justOpenCamera = false
-                    cameraLogic.updateCaptureRequestParams()
-                }
             }
         }
 
         cameraLogic.cameraStateCallback = object : CameraDevice.StateCallback() {
             override fun onOpened(camera: CameraDevice) {
+                Timber.w("onOpened: camera${camera.id}")
                 openedCameraID = camera.id
-                justOpenCamera = true
+            }
+
+            override fun onClosed(camera: CameraDevice) {
+                Timber.w("onClosed: camera${camera.id}")
+                openedCameraID = null
+                WbUtil.previousCST = null
+                WbUtil.previousTint = with(WbUtil.TINT_RANGE) {
+                    (upper + lower) / 2
+                }
             }
 
             override fun onDisconnected(camera: CameraDevice) {
+                Timber.w("onDisconnected: camera${camera.id}")
                 openedCameraID = null
+                WbUtil.previousCST = null
             }
 
             override fun onError(camera: CameraDevice, error: Int) {
+                Timber.e("onError: camera${camera.id}, error = $error")
                 openedCameraID = null
+                WbUtil.previousCST = null
             }
         }
 
@@ -161,9 +153,7 @@ class SimpleWbActivity : AppCompatActivity() {
             ) {
 
                 val currentMode = currentMode
-
-                var needUpdate = false
-
+                var newSetCST = false
                 result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM)?.let {
                     if (debugTransform == null || it != debugTransform) {
                         debugTransform = it
@@ -182,7 +172,7 @@ class SimpleWbActivity : AppCompatActivity() {
                         Timber.d(sb.toString())
                     }
                     if (WbUtil.previousCST == null) {
-                        needUpdate = true
+                        newSetCST = true
                     }
                     WbUtil.previousCST = it
                 }
@@ -195,9 +185,11 @@ class SimpleWbActivity : AppCompatActivity() {
 //                        Timber.d("ColorGain baseLine: ${String.format(formatText, (it.red - 1 + it.blue - 1) / 2)}")
                     }
 
-                    val temp = WbUtil.computeTemp(it)
+                    val (temp, tint) = WbUtil.computeTempAndTint(it)
+                    WbUtil.previousTint = tint
                     runOnUiThread {
                         binding.tvTempAnalyze.text = "$temp"
+                        binding.tvTintAnalyze.text = "$tint"
                     }
 
 
@@ -212,9 +204,19 @@ class SimpleWbActivity : AppCompatActivity() {
                     }
                 }
 
-                if (needUpdate) {
-                    Timber.d("first get CST, needUpdate")
-                    cameraLogic.updateCaptureRequestParams()
+                if (newSetCST && currentMode == CameraCharacteristics.CONTROL_AWB_MODE_OFF && WbUtil.previousCST != null) {
+                    Timber.w("mode is off, and newly set CST, update wb to off")
+                    Timber.d("tint = ${WbUtil.previousTint}")
+                    updateRggbChannelVector()
+                    cameraLogic.updateCaptureRequestParams {
+                        Timber.d("update to wb mode")
+                        it.apply {
+                            set(CaptureRequest.CONTROL_AWB_MODE, CameraCharacteristics.CONTROL_AWB_MODE_OFF)
+                            set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+                            set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, WbUtil.previousCST)
+                            set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector)
+                        }
+                    }
                 }
 
             }
@@ -273,7 +275,16 @@ class SimpleWbActivity : AppCompatActivity() {
                 val isManual = mode == CameraCharacteristics.CONTROL_AWB_MODE_OFF
                 binding.sbTemp.isEnabled = isManual
                 binding.sbTint.isEnabled = isManual
-                cameraLogic.updateCaptureRequestParams()
+                cameraLogic.updateCaptureRequestParams {
+                    it.set(CaptureRequest.CONTROL_AWB_MODE, mode)
+                    if (isManual) {
+                        it.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+                        it.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, WbUtil.previousCST)
+                        it.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector)
+                    } else {
+                        it.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_HIGH_QUALITY)
+                    }
+                }
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -289,9 +300,13 @@ class SimpleWbActivity : AppCompatActivity() {
         binding.sbTemp.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 updateRggbChannelVector()
-                Timber.d("temp changed, from user = $fromUser")
+                //Timber.d("temp changed, from user = $fromUser")
                 if (fromUser) {
-                    cameraLogic.updateCaptureRequestParams()
+                    cameraLogic.updateCaptureRequestParams {
+                        it.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+                        it.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, WbUtil.previousCST)
+                        it.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector)
+                    }
                 }
             }
 
@@ -309,7 +324,11 @@ class SimpleWbActivity : AppCompatActivity() {
                 updateRggbChannelVector()
                 Timber.d("tint changed, from user = $fromUser")
                 if (fromUser) {
-                    cameraLogic.updateCaptureRequestParams()
+                    cameraLogic.updateCaptureRequestParams {
+                        it.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+                        it.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, WbUtil.previousCST)
+                        it.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbChannelVector)
+                    }
                 }
             }
 
@@ -340,7 +359,11 @@ class SimpleWbActivity : AppCompatActivity() {
         wbModeAdapter.clear()
         wbModeAdapter.addAll(nameList)
 
-        val initMode = CameraCharacteristics.CONTROL_AWB_MODE_AUTO
+        val initMode = if (cameraInfo.awbModes!!.contains(currentMode)) {
+            currentMode
+        } else {
+            CameraCharacteristics.CONTROL_AWB_MODE_AUTO
+        }
         val index = cameraInfo.awbModes!!.indexOf(initMode)
         binding.spWbMode.setSelection(index)
         binding.sbTemp.isEnabled = (initMode == CameraCharacteristics.CONTROL_AWB_MODE_OFF)

@@ -55,11 +55,11 @@ object WbUtil {
                     }
                     Timber.d(sb.toString())
                 }
-                field = it
             }
+            field = value
         }
 
-    private var previousTint: Int = (TINT_RANGE.lower + TINT_RANGE.upper) / 2
+    var previousTint: Int = (TINT_RANGE.lower + TINT_RANGE.upper) / 2
 
     private fun combineArrayByRatio(fromArray: FloatArray, toArray: FloatArray, ratio: Float): FloatArray {
         assert(fromArray.size == toArray.size)
@@ -116,7 +116,9 @@ object WbUtil {
     }
 
     fun computeTemp(vector: RggbChannelVector): Int {
-        return computeTempAndTint(vector).first
+        val (temp, tint) = computeTempAndTint(vector)
+        previousTint = tint
+        return temp
     }
 
     fun getWbModeName(wbMode: Int): String? = WB_MODE_NAME_MAP[wbMode]

@@ -234,6 +234,11 @@ open class BaseCameraLogic(val context: Context) {
                     it.resume(true)
                 }
 
+                override fun onClosed(pCamera: CameraDevice) {
+                    Timber.d("camera ${pCamera.id} closed")
+                    cameraStateCallback?.onClosed(pCamera)
+                }
+
                 override fun onDisconnected(pCamera: CameraDevice) {
                     cameraStateCallback?.onDisconnected(pCamera)
                     Timber.e("camera ${pCamera.id} disconnected")
@@ -409,7 +414,7 @@ open class BaseCameraLogic(val context: Context) {
             captureRequestBuilder?.let {
                 func.invoke(it)
                 startRepeating()
-            }
+            } ?: Timber.e("requestBuilder is null")
         }
     }
 
