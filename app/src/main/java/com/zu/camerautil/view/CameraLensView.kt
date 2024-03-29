@@ -280,8 +280,18 @@ class CameraLensView: AbsCameraParamView {
         } ?: sizeParam.values[0]
 
         if (size == currentSize) {
-            if (configChanged) {
-                notifyConfigChanged()
+            // 如果fps是空或者当前镜头当前size没有之前的fps，都要更新一下。
+            // 但是由于size和之前一样，所以不能依赖view回调去更新fps，只能手动更新
+            currentFps?.let {
+                if (sizeFpsMap[size]?.contains(it) == true) {
+                    if (configChanged) {
+                        notifyConfigChanged()
+                    }
+                } else {
+                    updateFpsBySize()
+                }
+            } ?: kotlin.run {
+                updateFpsBySize()
             }
         } else {
             configChanged = true
