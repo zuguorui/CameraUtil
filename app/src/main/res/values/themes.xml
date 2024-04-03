@@ -25,4 +25,9 @@
         <item name="android:textAllCaps">false</item>
         <item name="android:windowFullscreen">true</item>
     </style>
+
+    <style name="FullScreen" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="textAllCaps">false</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
 </resources>

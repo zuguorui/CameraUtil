@@ -11,6 +11,9 @@ import android.os.Bundle
 import android.util.Rational
 import android.util.Size
 import android.view.Surface
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraParamID
 import com.zu.camerautil.bean.CameraUsage
@@ -58,6 +61,10 @@ class SecAndIsoActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivitySecAndIsoBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        val windowInsetsController =
+            WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         initCameraLogic()
         initViews()
     }

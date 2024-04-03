@@ -11,6 +11,7 @@ import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.TotalCaptureResult
 import android.hardware.camera2.params.OutputConfiguration
 import android.hardware.camera2.params.SessionConfiguration
+import android.media.Image
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
@@ -415,6 +416,13 @@ open class BaseCameraLogic(val context: Context) {
                 func.invoke(it)
                 startRepeating()
             } ?: Timber.e("requestBuilder is null")
+        }
+    }
+
+    fun updateSession(func: ((CameraCaptureSession) -> Unit)) {
+        val session = session ?: return
+        cameraOperationExecutor.execute {
+            func.invoke(session)
         }
     }
 

@@ -6,6 +6,9 @@ import android.view.View
 import android.view.View.MeasureSpec
 import android.view.ViewGroup
 import android.widget.PopupWindow
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import timber.log.Timber
 
 open class EasyLayoutPopupWindow: PopupWindow {
@@ -19,6 +22,11 @@ open class EasyLayoutPopupWindow: PopupWindow {
     constructor(context: Context): super(context) {
         this.context = context
         isFocusable = true
+        animationStyle = 0
+//        val windowInsetsController =
+//            WindowCompat.getInsetsController(getWin, window.decorView)
+//        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+//        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 
     override fun setContentView(contentView: View?) {

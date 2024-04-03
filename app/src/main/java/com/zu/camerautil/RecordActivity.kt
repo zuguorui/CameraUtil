@@ -3,16 +3,22 @@ package com.zu.camerautil
 import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.Context
+import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CaptureRequest
+import android.media.Image
+import android.media.ImageReader
+import android.media.ImageReader.OnImageAvailableListener
 import android.media.MediaCodec
 import android.net.Uri
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.HandlerThread
 import android.provider.MediaStore
 import android.util.Size
 import android.view.Surface
@@ -30,6 +36,8 @@ import com.zu.camerautil.recorder.RecorderParams
 import com.zu.camerautil.recorder.SystemRecorder
 import timber.log.Timber
 import java.io.File
+import java.io.FileOutputStream
+import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -67,6 +75,8 @@ class RecordActivity : AppCompatActivity() {
     }
     // camera objects end
 
+    private var imageReader: ImageReader? = null
+
     private var recorder: IRecorder = SystemRecorder()
     private var recording = false
         set(value) {
@@ -76,15 +86,22 @@ class RecordActivity : AppCompatActivity() {
         }
     private lateinit var binding: ActivityRecordBinding
 
+    private lateinit var handlerThread: HandlerThread
+    private lateinit var handler: Handler
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityRecordBinding.inflate(layoutInflater)
+        handlerThread = HandlerThread("RecordActivity-capture")
+        handlerThread.start()
+        handler = Handler(handlerThread.looper)
         setContentView(binding.root)
         initCameraLogic()
         initViews()
     }
 
     override fun onDestroy() {
+        handlerThread.quitSafely()
         cameraLogic.closeCamera()
         recorder.release()
         super.onDestroy()
@@ -114,11 +131,18 @@ class RecordActivity : AppCompatActivity() {
                 if (recorder.isReady) {
                     surfaceList.add(recorder.getSurface()!!)
                 }
+                imageReader?.let {
+                    surfaceList.add(it.surface)
+                }
                 return surfaceList
             }
 
             override fun getCaptureSurfaceList(): List<Surface> {
-                return getSessionSurfaceList()
+                var surfaceList = arrayListOf(binding.surfaceMain.surface)
+                if (recorder.isReady) {
+                    surfaceList.add(recorder.getSurface()!!)
+                }
+                return surfaceList
             }
 
             override fun configBuilder(requestBuilder: CaptureRequest.Builder) {
@@ -164,6 +188,10 @@ class RecordActivity : AppCompatActivity() {
             }
         }
 
+        binding.btnTakePicture.setOnClickListener {
+            takePicture()
+        }
+
         binding.cameraSelector.onConfigChangedListener = {camera, fps, size ->
             var reopenCamera = false
 
@@ -175,6 +203,20 @@ class RecordActivity : AppCompatActivity() {
                 currentSize = size
                 binding.surfaceMain.previewSize = size
                 reopenCamera = true
+                if (imageReader != null && (imageReader!!.width != size.width || imageReader!!.height != size.height)) {
+                    imageReader?.close()
+                    imageReader = null
+                }
+                if (imageReader == null) {
+                    imageReader = ImageReader.newInstance(size.width, size.height, ImageFormat.JPEG, 1).apply {
+                        setOnImageAvailableListener({ reader ->
+                            val image = reader.acquireLatestImage()
+                            savePicture(image)
+                            image.close()
+                        }, handler)
+                    }
+
+                }
             }
 
             if (fps != currentFps) {
@@ -239,7 +281,7 @@ class RecordActivity : AppCompatActivity() {
 
     private fun createVideoUri(context: Context, name: String, isPending: Boolean = false): Uri? {
         val DCIM = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-        val folderPath = "$DCIM/CameraUtil/"
+        val folderPath = "$DCIM/CameraUtil/video/"
         val relativePath = folderPath.substring(folderPath.indexOf("DCIM"))
         val contentValues = ContentValues().apply {
             put(MediaStore.Video.Media.DISPLAY_NAME, name)
@@ -254,7 +296,7 @@ class RecordActivity : AppCompatActivity() {
 
         contentValues.run {
             Timber.d("""
-                    saveVideo:
+                    createVideoUri:
                         display_name = ${get(MediaStore.Video.Media.DISPLAY_NAME)}
                         title = ${get(MediaStore.Video.Media.TITLE)}
                         mime_type = ${get(MediaStore.Video.Media.MIME_TYPE)}
@@ -268,6 +310,42 @@ class RecordActivity : AppCompatActivity() {
             )
         } else {
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        }
+        val uri = context.contentResolver.insert(collectionUri, contentValues)
+        return uri
+    }
+
+    private fun createPictureUri(context: Context, name: String, isPending: Boolean = false): Uri? {
+        val DCIM = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
+        val folderPath = "$DCIM/CameraUtil/picture/"
+        val relativePath = folderPath.substring(folderPath.indexOf("DCIM"))
+        val contentValues = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, name)
+            put(MediaStore.Images.Media.TITLE, name)
+            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+            put(MediaStore.Images.Media.DATA, "$folderPath$name")
+            put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
+            if (isPending) {
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+            }
+        }
+
+        contentValues.run {
+            Timber.d("""
+                    createPictureUri:
+                        display_name = ${get(MediaStore.Images.Media.DISPLAY_NAME)}
+                        title = ${get(MediaStore.Images.Media.TITLE)}
+                        mime_type = ${get(MediaStore.Images.Media.MIME_TYPE)}
+                        data = ${get(MediaStore.Images.Media.DATA)}
+                        relative_path = ${get(MediaStore.Images.Media.RELATIVE_PATH)}
+                """.trimIndent())
+        }
+        var collectionUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Images.Media.getContentUri(
+                MediaStore.VOLUME_EXTERNAL_PRIMARY
+            )
+        } else {
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         }
         val uri = context.contentResolver.insert(collectionUri, contentValues)
         return uri
@@ -288,6 +366,35 @@ class RecordActivity : AppCompatActivity() {
                 put(MediaStore.Video.Media.IS_PENDING, 0)
             }
             contentResolver.update(params.outputUri!!, contentValues, null, null)
+        }
+    }
+
+    private fun takePicture() {
+        val size = currentSize ?: return
+        val reader = imageReader ?: return
+
+        cameraLogic.updateSession {
+            val request = it.device.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
+            request.addTarget(reader.surface)
+            it.capture(request.build(), null, null)
+        }
+    }
+
+    private fun savePicture(image: Image) {
+        val data = image.planes[0].buffer
+        val title = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis())) + ".jpg"
+        val uri = createPictureUri(this, title) ?: kotlin.run {
+            Timber.e("create uri failed")
+            return
+        }
+        val descriptor = contentResolver.openFileDescriptor(uri, "w", null) ?: kotlin.run {
+            Timber.e("open file descriptor failed")
+            return
+        }
+        FileOutputStream(descriptor.fileDescriptor).use {
+            val buffer = ByteArray(data.limit())
+            data.get(buffer)
+            it.write(buffer)
         }
     }
 
