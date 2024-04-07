@@ -5,28 +5,32 @@ import android.content.ContentValues
 import android.content.Context
 import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CameraCaptureSession.CaptureCallback
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
+import android.hardware.camera2.CaptureFailure
 import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.CaptureResult
+import android.hardware.camera2.TotalCaptureResult
 import android.media.Image
 import android.media.ImageReader
-import android.media.ImageReader.OnImageAvailableListener
-import android.media.MediaCodec
 import android.net.Uri
 import android.os.Build
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.HandlerThread
 import android.provider.MediaStore
+import android.util.Rational
 import android.util.Size
 import android.view.Surface
+import androidx.appcompat.app.AppCompatActivity
 import com.zu.camerautil.bean.CameraInfoWrapper
+import com.zu.camerautil.bean.CameraParamID
 import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
-import com.zu.camerautil.camera.CoroutineCameraLogic
+import com.zu.camerautil.camera.FlashUtil
 import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.databinding.ActivityRecordBinding
 import com.zu.camerautil.preview.Camera2PreviewView
@@ -35,9 +39,7 @@ import com.zu.camerautil.recorder.IRecorder
 import com.zu.camerautil.recorder.RecorderParams
 import com.zu.camerautil.recorder.SystemRecorder
 import timber.log.Timber
-import java.io.File
 import java.io.FileOutputStream
-import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -61,7 +63,7 @@ class RecordActivity : AppCompatActivity() {
     private val surfaceStateListener = object : PreviewViewImplementation.SurfaceStateListener {
         override fun onSurfaceCreated(surface: Surface) {
             Timber.d("surfaceCreated: Thread = ${Thread.currentThread().name}")
-            binding.cameraSelector.setCameras(cameraInfoMap.values)
+            binding.cameraLens.setCameras(cameraInfoMap.values)
         }
 
         override fun onSurfaceSizeChanged(surface: Surface, surfaceWidth: Int, surfaceHeight: Int) {
@@ -82,7 +84,7 @@ class RecordActivity : AppCompatActivity() {
         set(value) {
             field = value
             binding.btnRecord.text = if (value) "停止录制" else "开始录制"
-            binding.cameraSelector.setEnable(!value)
+            binding.cameraLens.setEnable(!value)
         }
     private lateinit var binding: ActivityRecordBinding
 
@@ -146,7 +148,9 @@ class RecordActivity : AppCompatActivity() {
             }
 
             override fun configBuilder(requestBuilder: CaptureRequest.Builder) {
-
+                binding.cameraParams.getParamValue(CameraParamID.WB_MODE)?.let {
+                    requestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, it as Int)
+                }
             }
         }
 
@@ -164,12 +168,36 @@ class RecordActivity : AppCompatActivity() {
             }
         }
 
-        cameraLogic.sessionStateCallback = object : CameraCaptureSession.StateCallback() {
-            override fun onConfigured(session: CameraCaptureSession) {
-                currentFps = binding.cameraSelector.currentFps
-            }
+        cameraLogic.captureCallback = object : CameraCaptureSession.CaptureCallback() {
 
-            override fun onConfigureFailed(session: CameraCaptureSession) {
+            override fun onCaptureCompleted(
+                session: CameraCaptureSession,
+                request: CaptureRequest,
+                result: TotalCaptureResult
+            ) {
+                if (binding.cameraParams.isParamAuto(CameraParamID.SEC)) {
+                    result.get(CaptureResult.SENSOR_EXPOSURE_TIME)?.let { sec ->
+                        runOnUiThread {
+                            binding.cameraParams.setParamValue(CameraParamID.SEC, sec)
+                        }
+                    }
+                }
+
+                if (binding.cameraParams.isParamAuto(CameraParamID.ISO)) {
+                    result.get(CaptureResult.SENSOR_SENSITIVITY)?.let { iso ->
+                        runOnUiThread {
+                            binding.cameraParams.setParamValue(CameraParamID.ISO, iso)
+                        }
+                    }
+                }
+
+//                result.get(CaptureResult.CONTROL_AWB_MODE)?.let { wbMode ->
+//                    if (wbMode != binding.cameraParams.getParamValue(CameraParamID.WB_MODE)) {
+//                        runOnUiThread {
+//                            binding.cameraParams.setParamValue(CameraParamID.WB_MODE, wbMode)
+//                        }
+//                    }
+//                }
 
             }
         }
@@ -192,7 +220,7 @@ class RecordActivity : AppCompatActivity() {
             takePicture()
         }
 
-        binding.cameraSelector.onConfigChangedListener = {camera, fps, size ->
+        binding.cameraLens.onConfigChangedListener = {camera, fps, size ->
             var reopenCamera = false
 
             if (camera.cameraID != openedCameraID) {
@@ -235,8 +263,96 @@ class RecordActivity : AppCompatActivity() {
                     cameraLogic.openCamera(camera)
                 }
             }
+
+            binding.cameraParams.setCameraConfig(camera, size, fps)
         }
 
+        binding.cameraParams.addAutoModeListener(CameraParamID.SEC) { secAuto ->
+            val isoAuto = binding.cameraParams.isParamAuto(CameraParamID.ISO)
+            if (secAuto != isoAuto) {
+                binding.cameraParams.setParamAuto(CameraParamID.ISO, secAuto)
+                setSecAndISOAuto(secAuto)
+            }
+        }
+
+        binding.cameraParams.addValueListener(CameraParamID.SEC) {
+            if (!binding.cameraParams.isParamAuto(CameraParamID.SEC)) {
+                val sec = it as? Long ?: return@addValueListener
+                val rational = Rational(1_000_000_000, sec.toInt())
+                Timber.d("secChange: $rational")
+                cameraLogic.updateCaptureRequestParams { builder ->
+                    builder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, sec)
+                }
+            }
+        }
+
+        binding.cameraParams.addAutoModeListener(CameraParamID.ISO) { isoAuto ->
+            val secAuto = binding.cameraParams.isParamAuto(CameraParamID.SEC)
+            if (secAuto != isoAuto) {
+                binding.cameraParams.setParamAuto(CameraParamID.SEC, isoAuto)
+                setSecAndISOAuto(isoAuto)
+            }
+        }
+
+        binding.cameraParams.addValueListener(CameraParamID.ISO) {
+            if (!binding.cameraParams.isParamAuto(CameraParamID.ISO)) {
+                val iso = it as? Int ?: return@addValueListener
+                cameraLogic.updateCaptureRequestParams { builder ->
+                    builder.set(CaptureRequest.SENSOR_SENSITIVITY, iso)
+                }
+            }
+        }
+
+        binding.cameraParams.addValueListener(CameraParamID.WB_MODE) { mode ->
+            val wbMode = mode as? Int ?: return@addValueListener
+            val isManual = mode == CameraCharacteristics.CONTROL_AWB_MODE_OFF
+            cameraLogic.updateCaptureRequestParams { requestBuilder ->
+                requestBuilder.apply {
+                    set(CaptureRequest.CONTROL_AWB_MODE, wbMode)
+                }
+            }
+        }
+
+        binding.cameraParams.addValueListener(CameraParamID.FLASH_MODE) { mode ->
+            val flashMode = mode as? FlashUtil.FlushMode ?: return@addValueListener
+            cameraLogic.updateCaptureRequestParams { builder ->
+                setFlushMode(flashMode, builder)
+            }
+        }
+
+    }
+
+    private fun setFlushMode(flashMode: FlashUtil.FlushMode, builder: CaptureRequest.Builder) {
+        when (flashMode) {
+            FlashUtil.FlushMode.OFF -> {
+                builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+                builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF)
+            }
+            FlashUtil.FlushMode.ON -> {
+                builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_ALWAYS_FLASH)
+                builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF)
+            }
+            FlashUtil.FlushMode.AUTO -> {
+                builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH)
+                builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF)
+            }
+            FlashUtil.FlushMode.TORCH -> {
+                builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+                builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH)
+            }
+        }
+    }
+
+    private fun setSecAndISOAuto(auto: Boolean) {
+        if (auto) {
+            cameraLogic.updateCaptureRequestParams { builder ->
+                builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+            }
+        } else {
+            cameraLogic.updateCaptureRequestParams { builder ->
+                builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+            }
+        }
     }
 
     private fun startRecord() {
@@ -375,8 +491,36 @@ class RecordActivity : AppCompatActivity() {
 
         cameraLogic.updateSession {
             val request = it.device.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
+            request.set(
+                CaptureRequest.CONTROL_CAPTURE_INTENT,
+                CaptureRequest.CONTROL_CAPTURE_INTENT_STILL_CAPTURE)
             request.addTarget(reader.surface)
-            it.capture(request.build(), null, null)
+            request.addTarget(binding.surfaceMain.surface)
+            recorder.getSurface()?.let { surface ->
+                request.addTarget(surface)
+            }
+            setFlushMode(binding.cameraParams.getParamValue(CameraParamID.FLASH_MODE) as FlashUtil.FlushMode, request)
+            it.stopRepeating()
+            it.capture(
+                request.build(),
+                object : CaptureCallback() {
+                    override fun onCaptureCompleted(
+                        session: CameraCaptureSession,
+                        request: CaptureRequest,
+                        result: TotalCaptureResult
+                    ) {
+                        super.onCaptureCompleted(session, request, result)
+                    }
+
+                    override fun onCaptureFailed(
+                        session: CameraCaptureSession,
+                        request: CaptureRequest,
+                        failure: CaptureFailure
+                    ) {
+                        super.onCaptureFailed(session, request, failure)
+                    }
+                },
+                handler)
         }
     }
 

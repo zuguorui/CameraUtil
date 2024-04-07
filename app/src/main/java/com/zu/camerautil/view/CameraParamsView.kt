@@ -1,6 +1,7 @@
 package com.zu.camerautil.view
 
 import android.content.Context
+import android.hardware.camera2.CameraCharacteristics
 import android.util.AttributeSet
 import android.util.Size
 import android.view.LayoutInflater
@@ -10,12 +11,14 @@ import com.zu.camerautil.bean.AutoModeListener
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraParamID
 import com.zu.camerautil.bean.FPS
+import com.zu.camerautil.bean.FlashParam
 import com.zu.camerautil.bean.ISOParam
 import com.zu.camerautil.bean.RangeParam
 import com.zu.camerautil.bean.SecParam
 import com.zu.camerautil.bean.SelectionParam
 import com.zu.camerautil.bean.ValueListener
-import java.lang.ref.WeakReference
+import com.zu.camerautil.bean.WbModeParam
+import com.zu.camerautil.camera.FlashUtil
 
 class CameraParamsView: AbsCameraParamView {
 
@@ -43,12 +46,19 @@ class CameraParamsView: AbsCameraParamView {
     }
 
     private fun initParamViews() {
+        val viewList = ArrayList<View>()
         initParam(CameraParamID.SEC, SecParam::class.java)
-        initParam(CameraParamID.ISO, ISOParam::class.java)
+        viewList.add(viewMap[CameraParamID.SEC]!!)
 
-        val viewList = ArrayList<View>().apply {
-            addAll(viewMap.values)
-        }
+        initParam(CameraParamID.ISO, ISOParam::class.java)
+        viewList.add(viewMap[CameraParamID.ISO]!!)
+
+        initParam(CameraParamID.WB_MODE, WbModeParam::class.java)
+        viewList.add(viewMap[CameraParamID.WB_MODE]!!)
+
+        initParam(CameraParamID.FLASH_MODE, FlashParam::class.java)
+        viewList.add(viewMap[CameraParamID.FLASH_MODE]!!)
+
         setItems(viewList)
     }
 
@@ -91,7 +101,19 @@ class CameraParamsView: AbsCameraParamView {
             popupWindow.param = param as RangeParam<Any>
             panelMap[paramID] = popupWindow
         } else if (param is SelectionParam<*>) {
-
+            val popupWindow = SelectionParamPopupWindow(context)
+            param.apply {
+                addValueListener {
+                    val listeners = valueListenerMap[paramID] ?: return@addValueListener
+                    val iterator = listeners.iterator()
+                    while (iterator.hasNext()) {
+                        val listener = iterator.next();
+                        listener.invoke(it)
+                    }
+                }
+            }
+            popupWindow.param = param as SelectionParam<Any>
+            panelMap[paramID] = popupWindow
         }
 
         paramView.param = param as AbsCameraParam<Any>
@@ -100,85 +122,6 @@ class CameraParamsView: AbsCameraParamView {
         paramMap[paramID] = param
 
     }
-
-
-    private fun initSecParam() {
-        val paramView = ParamView(context).apply {
-            setOnClickListener {
-                panelMap[CameraParamID.SEC]?.let {
-                    it.show(this, paramPanelPopupGravity)
-                }
-            }
-        }
-
-        val popupWindow = RangeParamPopupWindow(context)
-        val param = SecParam().apply {
-            addValueListener {
-                val listeners = valueListenerMap[CameraParamID.SEC] ?: return@addValueListener
-                val iterator = listeners.iterator()
-                while (iterator.hasNext()) {
-                    val listener = iterator.next()
-                    listener.invoke(it)
-                }
-            }
-
-            addAutoModeListener {
-                val listeners = autoModeListenerMap[CameraParamID.SEC] ?: return@addAutoModeListener
-                val iterator = listeners.iterator()
-                while (iterator.hasNext()) {
-                    val listener = iterator.next()
-                    listener.invoke(it)
-                }
-            }
-        }
-
-        paramView.param = param as AbsCameraParam<Any>
-        popupWindow.param = param as RangeParam<Any>
-
-        viewMap[CameraParamID.SEC] = paramView
-        panelMap[CameraParamID.SEC] = popupWindow
-        paramMap[CameraParamID.SEC] = param
-    }
-
-    private fun initISOParam() {
-        val paramView = ParamView(context).apply {
-            setOnClickListener {
-                panelMap[CameraParamID.ISO]?.let {
-                    it.show(this, paramPanelPopupGravity)
-                }
-            }
-        }
-
-        val popupWindow = RangeParamPopupWindow(context)
-        val param = ISOParam().apply {
-            addValueListener {
-                val listeners = valueListenerMap[CameraParamID.ISO] ?: return@addValueListener
-                val iterator = listeners.iterator()
-                while (iterator.hasNext()) {
-                    val listener = iterator.next()
-                    listener.invoke(it)
-                }
-            }
-
-            addAutoModeListener {
-                val listeners = autoModeListenerMap[CameraParamID.ISO] ?: return@addAutoModeListener
-                val iterator = listeners.iterator()
-                while (iterator.hasNext()) {
-                    val listener = iterator.next()
-                    listener.invoke(it)
-                }
-            }
-        }
-
-        paramView.param = param as AbsCameraParam<Any>
-        popupWindow.param = param as RangeParam<Any>
-
-        viewMap[CameraParamID.ISO] = paramView
-        panelMap[CameraParamID.ISO] = popupWindow
-        paramMap[CameraParamID.ISO] = param
-    }
-
-
 
     fun addValueListener(paramID: CameraParamID, listener: ValueListener<Any>) {
         val list = valueListenerMap[paramID] ?: kotlin.run {
@@ -230,12 +173,21 @@ class CameraParamsView: AbsCameraParamView {
     }
 
     fun setParamValue(paramID: CameraParamID, value: Any) {
-        paramMap[paramID]?.value = value
+        val current = paramMap[paramID]
+        if (value != current) {
+            paramMap[paramID]?.value = value
+        }
+    }
+
+    fun getParamValue(paramID: CameraParamID): Any? {
+        return paramMap[paramID]?.value
     }
 
     private fun updateParams() {
         updateSecParam()
         updateISOParam()
+        updateWbModeParam()
+        updateFlashModeParam()
     }
 
     private fun updateSecParam() {
@@ -257,6 +209,42 @@ class CameraParamsView: AbsCameraParamView {
         }
         isoParam.max = lens.isoRange!!.upper
         isoParam.min = lens.isoRange!!.lower
+    }
+
+    private fun updateWbModeParam() {
+        val lens = currentLens ?: return
+        val wbModeParam = paramMap[CameraParamID.WB_MODE]!! as WbModeParam
+
+        val currentMode = wbModeParam.value
+        val modeList = ArrayList<Int>()
+        lens.awbModes!!.forEach {
+            modeList.add(it)
+        }
+
+        wbModeParam.values.clear()
+        wbModeParam.values.addAll(modeList)
+        if (!modeList.contains(currentMode)) {
+            wbModeParam.value = CameraCharacteristics.CONTROL_AWB_MODE_AUTO
+        }
+    }
+
+    private fun updateFlashModeParam() {
+        val lens = currentLens ?: return
+        val flashModeParam = paramMap[CameraParamID.FLASH_MODE]!! as FlashParam
+
+        val currentMode = flashModeParam.value
+
+        val modeList = ArrayList<FlashUtil.FlushMode>()
+        lens.flashModes!!.forEach {
+            modeList.add(it)
+        }
+
+        flashModeParam.values.clear()
+        flashModeParam.values.addAll(modeList)
+
+        if (!modeList.contains(currentMode)) {
+            flashModeParam.value = FlashUtil.FlushMode.OFF
+        }
     }
 
 }

@@ -9,5 +9,7 @@ enum class CameraParamID {
     TEMP,
     TINT,
     ZOOM,
-    CROP
+    CROP,
+    WB_MODE,
+    FLASH_MODE,
 }

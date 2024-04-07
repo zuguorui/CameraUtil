@@ -12,6 +12,7 @@ import android.util.Range
 import android.util.Size
 import android.util.SizeF
 import android.view.SurfaceHolder
+import com.zu.camerautil.camera.FlashUtil
 import kotlin.math.floor
 
 /**
@@ -123,6 +124,19 @@ open class CameraInfoWrapper(
         result
     }
 
+    val flashModes by lazy {
+        val list = ArrayList<FlashUtil.FlushMode>()
+        list.add(FlashUtil.FlushMode.OFF)
+        characteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE)?.let {
+            if (it) {
+                list.add(FlashUtil.FlushMode.ON)
+                list.add(FlashUtil.FlushMode.AUTO)
+                list.add(FlashUtil.FlushMode.TORCH)
+            }
+        }
+        list
+    }
+
     val formatSizeMap by lazy {
         val configurationMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!
         val map = HashMap<Int, Array<Size>>()
@@ -190,8 +204,6 @@ open class CameraInfoWrapper(
             CameraCharacteristics.LENS_FACING_EXTERNAL -> "external"
             else -> "unknown"
         }
-
-
 
         val str = """
             camera: $cameraID {

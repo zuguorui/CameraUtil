@@ -11,7 +11,6 @@ import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.TotalCaptureResult
 import android.hardware.camera2.params.OutputConfiguration
 import android.hardware.camera2.params.SessionConfiguration
-import android.media.Image
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
@@ -23,7 +22,6 @@ import com.zu.camerautil.Settings
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
-import com.zu.camerautil.recorder.FakeMediaEncoderSurfaceProvider
 import com.zu.camerautil.recorder.FakeMediaRecorderSurfaceProvider
 import com.zu.camerautil.util.waitCallbackResult
 import timber.log.Timber
@@ -154,6 +152,18 @@ open class BaseCameraLogic(val context: Context) {
         }
     }
 
+    open fun startRepeating() {
+        cameraOperationExecutor.execute {
+            startRepeatingInternal()
+        }
+    }
+
+    open fun stopRepeating() {
+        cameraOperationExecutor.execute {
+            stopRepeatingInternal()
+        }
+    }
+
     private fun configRequestBuilder() {
         Timber.d("configRequestBuilder")
         val camera = this.camera ?: return
@@ -184,27 +194,7 @@ open class BaseCameraLogic(val context: Context) {
         configCallback?.configBuilder(captureRequestBuilder!!)
     }
 
-    private fun startRepeating() {
-        val isHighSpeed = currentFps?.type?.let {
-            it == FPS.Type.HIGH_SPEED
-        } ?: return
-        Timber.w("startRepeating, isHighSpeed = $isHighSpeed")
-        if (!isHighSpeed) {
-            session?.run {
-                setRepeatingRequest(captureRequestBuilder!!.build(), internalCaptureCallback, cameraHandler)
-            }
-        } else {
-            if (Build.VERSION.SDK_INT >= 28) {
-                highSpeedSession?.run {
-                    val highSpeedRequest = createHighSpeedRequestList(captureRequestBuilder!!.build())
-                    //setRepeatingBurstRequests(highSpeedRequest, cameraExecutor, internalCaptureCallback)
-                    setRepeatingBurst(highSpeedRequest, internalCaptureCallback, cameraHandler)
-                }
-            } else {
-                Timber.e("SDK ${Build.VERSION.SDK_INT} can't create high speed preview")
-            }
-        }
-    }
+
 
 
 
@@ -379,7 +369,7 @@ open class BaseCameraLogic(val context: Context) {
     private fun startPreviewInternal() {
         Timber.d("startPreviewInternal ${camera?.id}")
         configRequestBuilder()
-        startRepeating()
+        startRepeatingInternal()
     }
 
     private fun stopPreviewInternal() {
@@ -388,6 +378,32 @@ open class BaseCameraLogic(val context: Context) {
         highSpeedSession?.stopRepeating()
         fakeSurfaceProvider.stop()
         fakeSurfaceProvider.release()
+    }
+
+    private fun startRepeatingInternal() {
+        val isHighSpeed = currentFps?.type?.let {
+            it == FPS.Type.HIGH_SPEED
+        } ?: return
+        Timber.w("startRepeating, isHighSpeed = $isHighSpeed")
+        if (!isHighSpeed) {
+            session?.run {
+                setRepeatingRequest(captureRequestBuilder!!.build(), internalCaptureCallback, cameraHandler)
+            }
+        } else {
+            if (Build.VERSION.SDK_INT >= 28) {
+                highSpeedSession?.run {
+                    val highSpeedRequest = createHighSpeedRequestList(captureRequestBuilder!!.build())
+                    //setRepeatingBurstRequests(highSpeedRequest, cameraExecutor, internalCaptureCallback)
+                    setRepeatingBurst(highSpeedRequest, internalCaptureCallback, cameraHandler)
+                }
+            } else {
+                Timber.e("SDK ${Build.VERSION.SDK_INT} can't create high speed preview")
+            }
+        }
+    }
+
+    private fun stopRepeatingInternal() {
+        session?.stopRepeating()
     }
 
 
@@ -402,7 +418,7 @@ open class BaseCameraLogic(val context: Context) {
             val builder = captureRequestBuilder ?: return@execute
             val configCallback = configCallback ?: return@execute
             configCallback.configBuilder(builder)
-            startRepeating()
+            startRepeatingInternal()
         }
     }
 
@@ -414,7 +430,7 @@ open class BaseCameraLogic(val context: Context) {
         cameraOperationExecutor.execute {
             captureRequestBuilder?.let {
                 func.invoke(it)
-                startRepeating()
+                startRepeatingInternal()
             } ?: Timber.e("requestBuilder is null")
         }
     }
