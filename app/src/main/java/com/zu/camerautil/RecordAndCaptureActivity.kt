@@ -1,19 +1,20 @@
 package com.zu.camerautil
 
-import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCaptureSession
-import android.hardware.camera2.CameraCaptureSession.CaptureCallback
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CaptureFailure
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.TotalCaptureResult
+import android.media.Image
+import android.media.ImageReader
 import android.net.Uri
 import android.os.Build
+import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
@@ -22,7 +23,6 @@ import android.provider.MediaStore
 import android.util.Rational
 import android.util.Size
 import android.view.Surface
-import androidx.appcompat.app.AppCompatActivity
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraParamID
 import com.zu.camerautil.bean.CameraUsage
@@ -30,6 +30,7 @@ import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.FlashUtil
 import com.zu.camerautil.camera.queryCameraInfo
+import com.zu.camerautil.databinding.ActivityRecordAndCaptureBinding
 import com.zu.camerautil.databinding.ActivityRecordBinding
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
@@ -41,8 +42,7 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 
-@SuppressLint("MissingPermission")
-class RecordActivity : AppCompatActivity() {
+class RecordAndCaptureActivity : AppCompatActivity() {
 
     // camera objects start
 
@@ -75,6 +75,8 @@ class RecordActivity : AppCompatActivity() {
     }
     // camera objects end
 
+    private var imageReader: ImageReader? = null
+
     private var recorder: IRecorder = SystemRecorder()
     private var recording = false
         set(value) {
@@ -82,14 +84,14 @@ class RecordActivity : AppCompatActivity() {
             binding.btnRecord.text = if (value) "停止录制" else "开始录制"
             binding.cameraLens.setEnable(!value)
         }
-    private lateinit var binding: ActivityRecordBinding
+
+    private lateinit var binding: ActivityRecordAndCaptureBinding
 
     private lateinit var handlerThread: HandlerThread
     private lateinit var handler: Handler
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityRecordBinding.inflate(layoutInflater)
+        binding = ActivityRecordAndCaptureBinding.inflate(layoutInflater)
         handlerThread = HandlerThread("RecordActivity-capture")
         handlerThread.start()
         handler = Handler(handlerThread.looper)
@@ -128,6 +130,9 @@ class RecordActivity : AppCompatActivity() {
                 var surfaceList = arrayListOf(binding.surfaceMain.surface)
                 if (recorder.isReady) {
                     surfaceList.add(recorder.getSurface()!!)
+                }
+                imageReader?.let {
+                    surfaceList.add(it.surface)
                 }
                 return surfaceList
             }
@@ -183,6 +188,15 @@ class RecordActivity : AppCompatActivity() {
                         }
                     }
                 }
+
+//                result.get(CaptureResult.CONTROL_AWB_MODE)?.let { wbMode ->
+//                    if (wbMode != binding.cameraParams.getParamValue(CameraParamID.WB_MODE)) {
+//                        runOnUiThread {
+//                            binding.cameraParams.setParamValue(CameraParamID.WB_MODE, wbMode)
+//                        }
+//                    }
+//                }
+
             }
         }
     }
@@ -200,6 +214,9 @@ class RecordActivity : AppCompatActivity() {
             }
         }
 
+        binding.btnTakePicture.setOnClickListener {
+            takePicture()
+        }
 
         binding.cameraLens.onConfigChangedListener = {camera, fps, size ->
             var reopenCamera = false
@@ -212,6 +229,20 @@ class RecordActivity : AppCompatActivity() {
                 currentSize = size
                 binding.surfaceMain.previewSize = size
                 reopenCamera = true
+                if (imageReader != null && (imageReader!!.width != size.width || imageReader!!.height != size.height)) {
+                    imageReader?.close()
+                    imageReader = null
+                }
+                if (imageReader == null) {
+                    imageReader = ImageReader.newInstance(size.width, size.height, ImageFormat.JPEG, 1).apply {
+                        setOnImageAvailableListener({ reader ->
+                            val image = reader.acquireLatestImage()
+                            savePicture(image)
+                            image.close()
+                        }, handler)
+                    }
+
+                }
             }
 
             if (fps != currentFps) {
@@ -452,5 +483,60 @@ class RecordActivity : AppCompatActivity() {
         }
     }
 
+    private fun takePicture() {
+        val size = currentSize ?: return
+        val reader = imageReader ?: return
 
+        cameraLogic.updateSession {
+            val request = it.device.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
+            request.set(
+                CaptureRequest.CONTROL_CAPTURE_INTENT,
+                CaptureRequest.CONTROL_CAPTURE_INTENT_STILL_CAPTURE)
+            request.addTarget(reader.surface)
+            request.addTarget(binding.surfaceMain.surface)
+            recorder.getSurface()?.let { surface ->
+                request.addTarget(surface)
+            }
+            setFlushMode(binding.cameraParams.getParamValue(CameraParamID.FLASH_MODE) as FlashUtil.FlushMode, request)
+            it.stopRepeating()
+            it.capture(
+                request.build(),
+                object : CameraCaptureSession.CaptureCallback() {
+                    override fun onCaptureCompleted(
+                        session: CameraCaptureSession,
+                        request: CaptureRequest,
+                        result: TotalCaptureResult
+                    ) {
+                        super.onCaptureCompleted(session, request, result)
+                    }
+
+                    override fun onCaptureFailed(
+                        session: CameraCaptureSession,
+                        request: CaptureRequest,
+                        failure: CaptureFailure
+                    ) {
+                        super.onCaptureFailed(session, request, failure)
+                    }
+                },
+                handler)
+        }
+    }
+
+    private fun savePicture(image: Image) {
+        val data = image.planes[0].buffer
+        val title = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis())) + ".jpg"
+        val uri = createPictureUri(this, title) ?: kotlin.run {
+            Timber.e("create uri failed")
+            return
+        }
+        val descriptor = contentResolver.openFileDescriptor(uri, "w", null) ?: kotlin.run {
+            Timber.e("open file descriptor failed")
+            return
+        }
+        FileOutputStream(descriptor.fileDescriptor).use {
+            val buffer = ByteArray(data.limit())
+            data.get(buffer)
+            it.write(buffer)
+        }
+    }
 }

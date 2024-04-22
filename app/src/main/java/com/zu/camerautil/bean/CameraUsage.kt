@@ -2,5 +2,6 @@ package com.zu.camerautil.bean
 
 enum class CameraUsage {
     PREVIEW,
-    RECORD
+    RECORD,
+    STILL_CAPTURE
 }

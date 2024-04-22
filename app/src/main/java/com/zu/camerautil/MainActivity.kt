@@ -42,8 +42,16 @@ class MainActivity : AppCompatActivity() {
             startActivity(CropActivity::class.java)
         }
 
-        binding.btnSystemRecorder.setOnClickListener {
+        binding.btnRecord.setOnClickListener {
             startActivity(RecordActivity::class.java)
+        }
+
+        binding.btnCapture.setOnClickListener {
+            startActivity(CaptureActivity::class.java)
+        }
+
+        binding.btnRecordCapture.setOnClickListener {
+            startActivity(RecordAndCaptureActivity::class.java)
         }
 
         binding.btnWb.setOnClickListener {
