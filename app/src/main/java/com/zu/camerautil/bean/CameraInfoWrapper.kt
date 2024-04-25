@@ -125,13 +125,13 @@ open class CameraInfoWrapper(
     }
 
     val flashModes by lazy {
-        val list = ArrayList<FlashUtil.FlushMode>()
-        list.add(FlashUtil.FlushMode.OFF)
+        val list = ArrayList<FlashUtil.FlashMode>()
+        list.add(FlashUtil.FlashMode.OFF)
         characteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE)?.let {
             if (it) {
-                list.add(FlashUtil.FlushMode.ON)
-                list.add(FlashUtil.FlushMode.AUTO)
-                list.add(FlashUtil.FlushMode.TORCH)
+                list.add(FlashUtil.FlashMode.ON)
+                list.add(FlashUtil.FlashMode.AUTO)
+                list.add(FlashUtil.FlashMode.TORCH)
             }
         }
         list

@@ -283,29 +283,29 @@ class CaptureActivity : AppCompatActivity() {
         }
 
         binding.cameraParams.addValueListener(CameraParamID.FLASH_MODE) { mode ->
-            val flashMode = mode as? FlashUtil.FlushMode ?: return@addValueListener
+            val flashMode = mode as? FlashUtil.FlashMode ?: return@addValueListener
             cameraLogic.updateCaptureRequestParams { builder ->
-                setFlushMode(flashMode, builder)
+                setFlashMode(flashMode, builder)
             }
         }
 
     }
 
-    private fun setFlushMode(flashMode: FlashUtil.FlushMode, builder: CaptureRequest.Builder) {
+    private fun setFlashMode(flashMode: FlashUtil.FlashMode, builder: CaptureRequest.Builder) {
         when (flashMode) {
-            FlashUtil.FlushMode.OFF -> {
+            FlashUtil.FlashMode.OFF -> {
                 builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
                 builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF)
             }
-            FlashUtil.FlushMode.ON -> {
+            FlashUtil.FlashMode.ON -> {
                 builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_ALWAYS_FLASH)
                 builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF)
             }
-            FlashUtil.FlushMode.AUTO -> {
+            FlashUtil.FlashMode.AUTO -> {
                 builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH)
                 builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF)
             }
-            FlashUtil.FlushMode.TORCH -> {
+            FlashUtil.FlashMode.TORCH -> {
                 builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
                 builder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH)
             }
@@ -373,7 +373,7 @@ class CaptureActivity : AppCompatActivity() {
             request.set(CaptureRequest.JPEG_ORIENTATION, getRotation())
             request.addTarget(reader.surface)
             request.addTarget(binding.surfaceMain.surface)
-            setFlushMode(binding.cameraParams.getParamValue(CameraParamID.FLASH_MODE) as FlashUtil.FlushMode, request)
+            setFlashMode(binding.cameraParams.getParamValue(CameraParamID.FLASH_MODE) as FlashUtil.FlashMode, request)
             it.stopRepeating()
             it.capture(
                 request.build(),
