@@ -6,6 +6,7 @@ import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraConstrainedHighSpeedCaptureSession
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
+import android.hardware.camera2.CaptureFailure
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.TotalCaptureResult
@@ -17,6 +18,7 @@ import android.os.HandlerThread
 import android.util.Range
 import android.util.Size
 import android.view.Surface
+import androidx.annotation.RequiresApi
 import com.zu.camerautil.OpenCameraMethod
 import com.zu.camerautil.Settings
 import com.zu.camerautil.bean.CameraInfoWrapper
@@ -72,6 +74,46 @@ open class BaseCameraLogic(val context: Context) {
             result: TotalCaptureResult
         ) {
             captureCallback?.onCaptureCompleted(session, request, result)
+        }
+
+        override fun onCaptureBufferLost(
+            session: CameraCaptureSession,
+            request: CaptureRequest,
+            target: Surface,
+            frameNumber: Long
+        ) {
+            Timber.w("onCaptureBufferLost: target = %s, frameNumber = %s", target.toString(), frameNumber)
+            captureCallback?.onCaptureBufferLost(session, request, target, frameNumber)
+        }
+
+        override fun onCaptureFailed(
+            session: CameraCaptureSession,
+            request: CaptureRequest,
+            failure: CaptureFailure
+        ) {
+            captureCallback?.onCaptureFailed(session, request, failure)
+        }
+
+        override fun onCaptureSequenceAborted(session: CameraCaptureSession, sequenceId: Int) {
+            captureCallback?.onCaptureSequenceAborted(session, sequenceId)
+        }
+
+        override fun onCaptureSequenceCompleted(
+            session: CameraCaptureSession,
+            sequenceId: Int,
+            frameNumber: Long
+        ) {
+            captureCallback?.onCaptureSequenceCompleted(session, sequenceId, frameNumber)
+        }
+
+        @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+        override fun onReadoutStarted(
+            session: CameraCaptureSession,
+            request: CaptureRequest,
+            timestamp: Long,
+            frameNumber: Long
+        ) {
+            captureCallback?.onReadoutStarted(session, request, timestamp, frameNumber)
         }
     }
 
@@ -326,6 +368,8 @@ open class BaseCameraLogic(val context: Context) {
                 target.add(fakeSurfaceProvider.getSurface()!!)
                 fakeSurfaceProvider.start()
             }
+
+            Timber.d("total session surface count: ${target.size}")
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 val info = currentCameraInfo!!

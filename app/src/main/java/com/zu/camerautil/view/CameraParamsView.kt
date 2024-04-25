@@ -234,7 +234,7 @@ class CameraParamsView: AbsCameraParamView {
 
         val currentMode = flashModeParam.value
 
-        val modeList = ArrayList<FlashUtil.FlushMode>()
+        val modeList = ArrayList<FlashUtil.FlashMode>()
         lens.flashModes!!.forEach {
             modeList.add(it)
         }
@@ -243,7 +243,7 @@ class CameraParamsView: AbsCameraParamView {
         flashModeParam.values.addAll(modeList)
 
         if (!modeList.contains(currentMode)) {
-            flashModeParam.value = FlashUtil.FlushMode.OFF
+            flashModeParam.value = FlashUtil.FlashMode.OFF
         }
     }
 

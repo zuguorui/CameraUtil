@@ -6,14 +6,14 @@ package com.zu.camerautil.camera
  * @description
  */
 object FlashUtil {
-    enum class FlushMode(val id: Int) {
+    enum class FlashMode(val id: Int) {
         OFF(0),
         ON(1),
         AUTO(2),
         TORCH(3);
 
         companion object {
-            fun valueOf(id: Int): FlushMode? {
+            fun valueOf(id: Int): FlashMode? {
                 for (v in values()) {
                     if (v.id == id) {
                         return v
@@ -24,12 +24,12 @@ object FlashUtil {
         }
     }
 
-    fun getFlushModeName(mode: FlushMode): String {
+    fun getFlushModeName(mode: FlashMode): String {
         return when (mode) {
-            FlushMode.OFF -> "关"
-            FlushMode.ON -> "开"
-            FlushMode.AUTO -> "自动"
-            FlushMode.TORCH -> "常亮"
+            FlashMode.OFF -> "关"
+            FlashMode.ON -> "开"
+            FlashMode.AUTO -> "自动"
+            FlashMode.TORCH -> "常亮"
         }
     }
 
