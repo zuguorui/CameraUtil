@@ -10,14 +10,20 @@ class OutputSurface {
     var eglSurface: EGLSurface = EGL.EGL_NO_SURFACE
         private set
 
+    val isReady: Boolean
+        get() = eglSurface != EGL.EGL_NO_SURFACE
+
     constructor(eglCore: EGLCore, surface: Any) {
         this.eglCore = eglCore
         this.surface = surface
-        val attrArray = IntArray(1)
-        if (!EGL.eglGetConfigAttrib(eglCore.eglDisplay, eglCore.eglConfig, EGL.EGL_NATIVE_VISUAL_ID, attrArray, 0)) {
-            Timber.e("get config attrib failed, error = %x", EGL.eglGetError())
-            return
-        }
+//        val attrArray = IntArray(1)
+//        if (!EGL.eglGetConfigAttrib(eglCore.eglDisplay, eglCore.eglConfig, EGL.EGL_NATIVE_VISUAL_ID, attrArray, 0)) {
+//            Timber.e("get config attrib failed, error = %x", EGL.eglGetError())
+//            return
+//        }
+        val attrArray = intArrayOf(
+            EGL.EGL_NONE
+        )
         eglSurface = EGL.eglCreateWindowSurface(eglCore.eglDisplay, eglCore.eglConfig!!, surface, attrArray, 0)
         if (eglSurface == EGL.EGL_NO_SURFACE) {
             Timber.e("create windowSurface failed, error = %x", EGL.eglGetError())
@@ -31,6 +37,13 @@ class OutputSurface {
         }
         if (!EGL.eglSwapBuffers(eglCore.eglDisplay, eglSurface)) {
             Timber.e("swapBuffers failed, error = %x", EGL.eglGetError())
+        }
+    }
+
+    fun release() {
+        if (eglSurface != EGL.EGL_NO_SURFACE) {
+            EGL.eglDestroySurface(eglCore.eglDisplay, eglSurface)
+            eglSurface = EGL.EGL_NO_SURFACE
         }
     }
 }
