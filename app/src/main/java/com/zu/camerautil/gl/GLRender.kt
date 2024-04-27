@@ -6,7 +6,6 @@ import android.opengl.GLES11Ext
 import android.opengl.GLES30
 import android.os.Handler
 import android.os.HandlerThread
-import android.os.Message
 import android.view.Surface
 import timber.log.Timber
 
@@ -17,51 +16,34 @@ class GLRender {
 
     val context: Context
 
-    private val glCallback = Handler.Callback {
-        when (it.what) {
-            GL_MSG_INIT -> {
-                initInner()
-            }
-            GL_MSG_ADD_SURFACE -> {
-                val surface = it.obj
-                addSurfaceInner(surface)
-            }
-            GL_MSG_REMOVE_SURFACE -> {
-                val surface = it.obj
-                removeSurfaceInner(surface)
-            }
-            GL_MSG_CHANGE_SIZE -> {
-                changeSizeInner()
-            }
-        }
-        true
-    }
-
     private val glThread = HandlerThread("gl-thread").apply {
         start()
     }
-    private val glHandler = Handler(glThread.looper, glCallback)
+    private val glHandler = Handler(glThread.looper)
 
-    private var width: Int = 1920
-    private var height: Int = 1080
+    var inputSurface: InputSurface? = null
+        private set
 
-    private var inputSurface: InputSurface? = null
     private var outputSurfaceList = ArrayList<OutputSurface>()
 
     private var eglCore: EGLCore? = null
+    private var oesShader: Shader = Shader()
 
     var inputSurfaceListener: InputSurfaceListener? = null
 
+    private var VAO: Int = 0
+    private var VBO: Int = 0
+    private var EBO: Int = 0
+
     constructor(context: Context) {
         this.context = context
-        glHandler.sendMessage(
-            Message.obtain().apply {
-                what = GL_MSG_INIT
-            }
-        )
+        glHandler.post {
+            initInner()
+        }
     }
 
     private fun initInner() {
+        Timber.d("initInner")
         eglCore = EGLCore()
         val eglCore = eglCore!!
         if (!eglCore.isReady) {
@@ -69,13 +51,18 @@ class GLRender {
             return
         }
 
+        if (!oesShader.compile(vertShaderCode, oesFragShaderCode)) {
+            Timber.e("compile oes shader failed")
+            return
+        }
+
         inputSurface = createInputSurface()
-        inputSurfaceListener?.onSurfaceAvailable(inputSurface!!.surface, width, height)
+        inputSurfaceListener?.onSurfaceAvailable(inputSurface!!.surface, inputSurface!!.width, inputSurface!!.height)
     }
 
-    private fun addSurfaceInner(surfaceObj: Any) {
+    private fun addOutputSurfaceInner(surfaceObj: Any, width: Int, height: Int) {
         val eglCore = eglCore ?: return
-        val outputSurface = OutputSurface(eglCore, surfaceObj)
+        val outputSurface = OutputSurface(eglCore, surfaceObj, width, height)
         if (!outputSurface.isReady) {
             Timber.e("addSurfaceInner failed")
             return
@@ -83,18 +70,22 @@ class GLRender {
         outputSurfaceList.add(outputSurface)
     }
 
-    private fun removeSurfaceInner(surfaceObj: Any) {
+    private fun removeOutputSurfaceInner(surfaceObj: Any) {
         outputSurfaceList.removeIf {
             it.surface == surfaceObj
         }
     }
 
-    private fun changeSizeInner() {
-
+    private fun changeOutputSurfaceSizeInner(surfaceObj: Any, width: Int, height: Int) {
+        val target = outputSurfaceList.find {
+            it.surface == surfaceObj
+        }
+        target?.setSize(width, height)
     }
 
-
-
+    private fun changeInputSizeInner(width: Int, height: Int) {
+        inputSurface?.setSize(width, height)
+    }
 
     private fun createInputSurface(): InputSurface {
         val tex = IntArray(1)
@@ -132,15 +123,21 @@ class GLRender {
     }
 
     private fun draw() {
-
+        if (!oesShader.isReady) {
+            return
+        }
+        oesShader.use()
+        for (outputSurface in outputSurfaceList) {
+            eglCore!!.makeCurrent(outputSurface)
+        }
     }
 
 
     companion object {
-        private const val GL_MSG_INIT = 0
-        private const val GL_MSG_ADD_SURFACE = 1
-        private const val GL_MSG_REMOVE_SURFACE = 2
-        private const val GL_MSG_CHANGE_SIZE = 3
+        private val VERTEX_INDICES = intArrayOf(
+            0, 3, 2,
+            2, 1, 0
+        )
     }
 
     interface InputSurfaceListener {

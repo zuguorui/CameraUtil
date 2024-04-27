@@ -7,15 +7,23 @@ class OutputSurface {
     val eglCore: EGLCore
     val surface: Any
 
+    var width: Int = 1920
+        private set
+
+    var height: Int = 1080
+        private set
+
     var eglSurface: EGLSurface = EGL.EGL_NO_SURFACE
         private set
 
     val isReady: Boolean
         get() = eglSurface != EGL.EGL_NO_SURFACE
 
-    constructor(eglCore: EGLCore, surface: Any) {
+    constructor(eglCore: EGLCore, surface: Any, width: Int, height: Int) {
         this.eglCore = eglCore
         this.surface = surface
+        this.width = width
+        this.height = height
 //        val attrArray = IntArray(1)
 //        if (!EGL.eglGetConfigAttrib(eglCore.eglDisplay, eglCore.eglConfig, EGL.EGL_NATIVE_VISUAL_ID, attrArray, 0)) {
 //            Timber.e("get config attrib failed, error = %x", EGL.eglGetError())
@@ -31,13 +39,9 @@ class OutputSurface {
         }
     }
 
-    fun swapBuffers() {
-        if (!eglCore.isReady) {
-            return
-        }
-        if (!EGL.eglSwapBuffers(eglCore.eglDisplay, eglSurface)) {
-            Timber.e("swapBuffers failed, error = %x", EGL.eglGetError())
-        }
+    fun setSize(width: Int, height: Int) {
+        this.width = width
+        this.height = height
     }
 
     fun release() {

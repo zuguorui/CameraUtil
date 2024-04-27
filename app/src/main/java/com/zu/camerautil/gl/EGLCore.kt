@@ -84,6 +84,15 @@ class EGLCore {
         }
     }
 
+    fun swapBuffers(surface: OutputSurface) {
+        if (!isReady) {
+            return
+        }
+        if (!EGL.eglSwapBuffers(eglDisplay, surface.eglSurface)) {
+            Timber.e("swapBuffers failed, error = %x", EGL.eglGetError())
+        }
+    }
+
     companion object {
         private val EGL_CONFIG_ATTRS = intArrayOf(
             EGL.EGL_BLUE_SIZE, 8,

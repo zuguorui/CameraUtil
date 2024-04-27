@@ -13,9 +13,23 @@ class InputSurface {
     val surfaceTexture: SurfaceTexture
     val textureId: Int
 
+    var width = 1920
+        private set
+
+    var height = 1080
+        private set
+
+    var sizeModified = false
     constructor(textureId: Int) {
         this.textureId = textureId
         surfaceTexture = SurfaceTexture(textureId)
+        surfaceTexture.setDefaultBufferSize(width, height)
         surface = Surface(surfaceTexture)
+    }
+
+    fun setSize(width: Int, height: Int) {
+        this.width = width
+        this.height = height
+        surfaceTexture.setDefaultBufferSize(width, height)
     }
 }
