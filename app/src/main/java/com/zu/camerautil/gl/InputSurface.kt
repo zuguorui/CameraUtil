@@ -19,7 +19,6 @@ class InputSurface {
     var height = 1080
         private set
 
-    var sizeModified = false
     constructor(textureId: Int) {
         this.textureId = textureId
         surfaceTexture = SurfaceTexture(textureId)

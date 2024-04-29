@@ -13,16 +13,17 @@ val vertShaderCode = """
 
 val fragShaderCode = """
     #version 300 se
-    uniform sampler2D tex_rgb;
+    uniform sampler2D tex;
     in vec2 TexCoord;
     out vec4 FragColor;
     void main() {
-        FragColor = texture(tex_rgb, TexCoord);
+        FragColor = texture(tex, TexCoord);
     }
 """.trimIndent()
 
 val oesFragShaderCode = """
     #version 300 se
+    #extension GL_OES_EGL_image_external : require
     uniform samplerExternalOES tex;
     in vec2 TexCoord;
     out vec4 FragColor;

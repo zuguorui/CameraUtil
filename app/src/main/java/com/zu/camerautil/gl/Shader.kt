@@ -86,6 +86,12 @@ class Shader {
         }
     }
 
+    fun endUse() {
+        if (id > 0) {
+            GLES.glUseProgram(0)
+        }
+    }
+
     fun setBool(name: String, value: Boolean) {
         if (id > 0) {
             GLES.glUniform1i(GLES.glGetUniformLocation(id, name), if (value) 1 else 0)
