@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.util.Rational
 import android.util.Size
 import android.view.Surface
+import android.view.SurfaceHolder
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -22,6 +23,7 @@ import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.FlashUtil
 import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.databinding.ActivityGlBinding
+import com.zu.camerautil.gl.GLRender
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
 import com.zu.camerautil.recorder.RecorderParams
@@ -36,12 +38,11 @@ class GLActivity : AppCompatActivity() {
     }
 
     private lateinit var cameraLogic: BaseCameraLogic
+    private lateinit var glRender: GLRender
 
     private var openedCameraID: String? = null
     private var currentSize: Size? = null
     private var currentFps: FPS? = null
-
-    private var recordParams: RecorderParams? = null
 
     private val surfaceStateListener = object : PreviewViewImplementation.SurfaceStateListener {
         override fun onSurfaceCreated(surface: Surface) {
@@ -60,6 +61,38 @@ class GLActivity : AppCompatActivity() {
     }
     // camera objects end
 
+    private val surfaceListener = object : SurfaceHolder.Callback {
+        override fun surfaceCreated(holder: SurfaceHolder) {
+            Timber.d("surfaceCreated")
+
+        }
+
+        override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+            glRender = GLRender(this@GLActivity)
+            glRender.addOutputSurface(holder.surface, width, height)
+            val surfaceSize = Size(width, height)
+            Timber.d("surfaceChanged: surfaceSize = $surfaceSize, ratio = ${surfaceSize.toRational()}")
+            glRender.inputSurfaceListener = object : GLRender.InputSurfaceListener {
+                override fun onSurfaceCreated(surface: Surface, width: Int, height: Int) {
+                    Timber.d("gl surface created, width = $width, height = $height")
+                    runOnUiThread {
+                        Timber.w("thread = ${Thread.currentThread().name}")
+                        binding.cameraLens.setCameras(cameraInfoMap.values)
+                    }
+                }
+
+                override fun onSizeChanged(surface: Surface, width: Int, height: Int) {
+                    Timber.d("gl surface size changed, width = $width, height = $height")
+                }
+            }
+
+        }
+
+        override fun surfaceDestroyed(holder: SurfaceHolder) {
+            glRender.removeOutputSurface(holder.surface)
+        }
+    }
+
     private lateinit var binding: ActivityGlBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,6 +105,7 @@ class GLActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         cameraLogic.closeCamera()
+        glRender.release()
         super.onDestroy()
     }
 
@@ -83,7 +117,9 @@ class GLActivity : AppCompatActivity() {
             }
 
             override fun getSize(): Size {
-                return currentSize!!
+                val size = currentSize!!
+                glRender.changeInputSize(size.width, size.height)
+                return size
             }
 
             override fun getUsage(): CameraUsage {
@@ -91,7 +127,7 @@ class GLActivity : AppCompatActivity() {
             }
 
             override fun getSessionSurfaceList(): List<Surface> {
-                var surfaceList = arrayListOf(binding.surface.holder.surface)
+                var surfaceList = arrayListOf(glRender.inputSurface!!.surface)
                 return surfaceList
             }
 
@@ -156,7 +192,7 @@ class GLActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-
+        binding.surface.holder.addCallback(surfaceListener)
 
         binding.cameraLens.onConfigChangedListener = {camera, fps, size ->
             var reopenCamera = false
@@ -167,7 +203,6 @@ class GLActivity : AppCompatActivity() {
 
             if (size != currentSize) {
                 currentSize = size
-                binding.surfaceMain.previewSize = size
                 reopenCamera = true
             }
 

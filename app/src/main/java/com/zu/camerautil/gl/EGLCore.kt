@@ -4,10 +4,11 @@ import android.opengl.EGL14
 import android.opengl.EGLConfig
 import android.opengl.EGLContext
 import android.opengl.EGLDisplay
+import android.view.Surface
 import timber.log.Timber
 import java.lang.Exception
 
-typealias EGL = EGL14
+
 class EGLCore {
     var eglContext: EGLContext = EGL.EGL_NO_CONTEXT
         private set
@@ -15,13 +16,16 @@ class EGLCore {
     var eglDisplay: EGLDisplay = EGL.EGL_NO_DISPLAY
         private set
 
-    var sharedEglContext: EGLContext? = null
+    var sharedEglContext: EGLContext = EGL.EGL_NO_CONTEXT
         private set
 
     var eglConfig: EGLConfig? = null
 
     val isReady: Boolean
         get() = eglContext != EGL.EGL_NO_CONTEXT && eglDisplay != EGL.EGL_NO_DISPLAY && eglConfig != null
+
+    var isReleased = false
+        private set
 
     constructor() {
         init()
@@ -44,22 +48,31 @@ class EGLCore {
                 Timber.e("init display failed, error = %x", EGL.eglGetError())
                 return
             }
-            var configArray = Array<EGLConfig?>(20) {
-                null
-            }
-            var numConfigArray = IntArray(1) {
-                0
-            }
-            if (!EGL.eglChooseConfig(eglDisplay, EGL_CONFIG_ATTRS, 0, configArray, 0, 20, numConfigArray, 0)) {
+            val numConfigs = intArrayOf(0)
+            if (!EGL.eglChooseConfig(eglDisplay, EGL_CONFIG_ATTRS, 0, null, 0, 0, numConfigs, 0)) {
                 Timber.e("chooseConfig failed, error = %x", EGL.eglGetError())
                 return
             }
 
-            if (numConfigArray[0] > 0) {
-                Timber.d("egl config count = %d", numConfigArray[0])
-                eglConfig = configArray[0]
+            if (numConfigs[0] > 0) {
+                Timber.d("egl config count = %d", numConfigs[0])
             } else {
                 Timber.e("egl config count = 0, error = %x", EGL.eglGetError())
+                return
+            }
+
+            val configs = Array<EGLConfig?>(numConfigs[0]) {
+                null
+            }
+
+            if (!EGL.eglChooseConfig(eglDisplay, EGL_CONFIG_ATTRS, 0, configs, 0, numConfigs[0], numConfigs, 0)) {
+                Timber.e("egl choose config failed, error = %s", EGL.eglGetError())
+                return
+            }
+
+            eglConfig = chooseConfig(eglDisplay, configs)
+            if (eglConfig == null) {
+                Timber.e("choose config failed")
                 return
             }
 
@@ -68,11 +81,36 @@ class EGLCore {
                 Timber.e("create context failed, sharedContext = $sharedEglContext, error = %s", EGL.eglGetError());
                 return
             }
+            EGL.eglMakeCurrent(eglDisplay, EGL.EGL_NO_SURFACE, EGL.EGL_NO_SURFACE, eglContext)
         } catch (e: Exception) {
             e.printStackTrace()
             Timber.e("init failed")
         }
 
+    }
+
+    private fun chooseConfig(display: EGLDisplay, configs: Array<EGLConfig?>): EGLConfig? {
+        for (config in configs) {
+            if (config == null) {
+                continue
+            }
+            val redBits = findConfigAttr(display, config!!, EGL.EGL_RED_SIZE, 0)
+            val greenBits = findConfigAttr(display, config!!, EGL.EGL_GREEN_SIZE, 0)
+            val blueBits = findConfigAttr(display, config!!, EGL.EGL_BLUE_SIZE, 0)
+            if (redBits == 8 && greenBits == 8 && blueBits == 8) {
+                return config
+            }
+        }
+        return null
+    }
+
+    private val attrTemp = intArrayOf(0)
+
+    private fun findConfigAttr(display: EGLDisplay, config: EGLConfig, attr: Int, defaultValue: Int): Int {
+        if (EGL.eglGetConfigAttrib(display, config, attr, attrTemp, 0)) {
+            return attrTemp[0]
+        }
+        return defaultValue
     }
 
     fun makeCurrent(surface: OutputSurface) {
@@ -90,6 +128,17 @@ class EGLCore {
         }
         if (!EGL.eglSwapBuffers(eglDisplay, surface.eglSurface)) {
             Timber.e("swapBuffers failed, error = %x", EGL.eglGetError())
+        }
+    }
+
+    fun release() {
+        if (eglContext != null) {
+            EGL.eglDestroyContext(eglDisplay, eglContext)
+            eglContext = EGL.EGL_NO_CONTEXT
+        }
+        if (eglDisplay != EGL.EGL_NO_DISPLAY) {
+            EGL.eglMakeCurrent(eglDisplay, EGL.EGL_NO_SURFACE, EGL.EGL_NO_SURFACE, EGL.EGL_NO_CONTEXT)
+            eglDisplay = EGL.EGL_NO_DISPLAY
         }
     }
 

@@ -15,7 +15,9 @@ class Shader {
         var vertexShader: Int = 0
         var fragmentShader: Int = 0
 
-        val status = IntArray(0)
+        val status = IntArray(1) {
+            GLES.GL_TRUE
+        }
         var result = true
 
         try {
@@ -24,7 +26,7 @@ class Shader {
             GLES.glCompileShader(vertexShader)
             GLES.glGetShaderiv(vertexShader, GLES.GL_COMPILE_STATUS, status, 0)
             if (status[0] != GLES.GL_TRUE) {
-                val message = "compile vertex shader failed, info = ${GLES.glGetShaderInfoLog(vertexShader)}"
+                val message = "compile vertex shader failed, info = ${GLES.glGetShaderInfoLog(vertexShader)}\ncode = \n$vertexShaderCode"
                 throw RuntimeException(message)
             }
 
@@ -33,7 +35,7 @@ class Shader {
             GLES.glCompileShader(fragmentShader)
             GLES.glGetShaderiv(fragmentShader, GLES.GL_COMPILE_STATUS, status, 0)
             if (status[0] != GLES.GL_TRUE) {
-                val message = "compile fragment shader failed, info = ${GLES.glGetShaderInfoLog(fragmentShader)}"
+                val message = "compile fragment shader failed, info = ${GLES.glGetShaderInfoLog(fragmentShader)}\ncode = $fragmentShaderCode"
                 throw RuntimeException(message)
             }
 
@@ -63,7 +65,7 @@ class Shader {
         }
 
         if (result) {
-            Timber.d("compile shader succeed")
+            Timber.d("compile shader succeed, program = $id")
         } else {
             Timber.e("compile shader failed")
         }

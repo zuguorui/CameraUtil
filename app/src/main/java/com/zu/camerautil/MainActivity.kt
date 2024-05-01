@@ -77,6 +77,9 @@ class MainActivity : AppCompatActivity() {
         binding.btnSetting.setOnClickListener {
             startActivity(SettingActivity::class.java)
         }
+        binding.btnOpengl.setOnClickListener {
+            startActivity(GLActivity::class.java)
+        }
     }
 
     private fun <T> startActivity(target: Class<T>) {

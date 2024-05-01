@@ -9,6 +9,7 @@ import android.view.Surface
  * @description
  */
 class InputSurface {
+    var isReleased = false
     val surface: Surface
     val surfaceTexture: SurfaceTexture
     val textureId: Int
@@ -24,11 +25,23 @@ class InputSurface {
         surfaceTexture = SurfaceTexture(textureId)
         surfaceTexture.setDefaultBufferSize(width, height)
         surface = Surface(surfaceTexture)
+        isReleased = false
     }
 
     fun setSize(width: Int, height: Int) {
+        if (isReleased) {
+            return
+        }
         this.width = width
         this.height = height
         surfaceTexture.setDefaultBufferSize(width, height)
+    }
+
+    fun release() {
+        if (isReleased) {
+            return
+        }
+        surfaceTexture.release()
+        surface.release()
     }
 }

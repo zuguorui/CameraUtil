@@ -3,8 +3,7 @@ package com.zu.camerautil.gl
 import android.content.Context
 import android.graphics.SurfaceTexture
 import android.graphics.SurfaceTexture.OnFrameAvailableListener
-import android.opengl.GLES11Ext
-import android.opengl.GLES30
+import android.opengl.Matrix
 import android.os.Handler
 import android.os.HandlerThread
 import android.view.Surface
@@ -12,12 +11,12 @@ import timber.log.Timber
 import java.nio.FloatBuffer
 import java.nio.IntBuffer
 
-typealias GLES = GLES30
-typealias GLESExt = GLES11Ext
 
 class GLRender {
 
     val context: Context
+    var isReleased = false
+        private set
 
     private val glThread = HandlerThread("gl-thread").apply {
         start()
@@ -35,6 +34,15 @@ class GLRender {
     var scaleType = ScaleType.INSIDE
         private set
 
+
+    var inputSurfaceListener: InputSurfaceListener? = null
+        set(value) {
+            field = value
+            if (inputSurface != null) {
+                field?.onSurfaceCreated(inputSurface!!.surface, inputSurface!!.width, inputSurface!!.height)
+            }
+        }
+
     private var VAO: Int = 0
     private var VBO: Int = 0
     private var EBO: Int = 0
@@ -46,8 +54,16 @@ class GLRender {
         -1f,  1f, 0f, 0f, 0f  // 左上
     )
 
+    // 输入纹理的坐标转换矩阵
+    private var inputTexVertexTransMat = floatArrayOf(
+        1f, 0f, 0f,
+        0f, 1f, 0f,
+        0f, 0f, 1f
+    )
+
     constructor(context: Context) {
         this.context = context
+        isReleased = false
         glHandler.post {
             initInner()
         }
@@ -62,12 +78,14 @@ class GLRender {
             return
         }
 
+        inputSurface = createInputSurface()
+        inputSurfaceListener?.onSurfaceCreated(inputSurface!!.surface, inputSurface!!.width, inputSurface!!.height)
+
         if (!oesShader.compile(vertShaderCode, oesFragShaderCode)) {
             Timber.e("compile oes shader failed")
             return
         }
 
-        inputSurface = createInputSurface()
         initVertex()
     }
 
@@ -85,18 +103,33 @@ class GLRender {
 
         GLES.glBindVertexArray(VAO)
         GLES.glBindBuffer(GLES.GL_ARRAY_BUFFER, VBO)
-        val vboBuffer = FloatBuffer.allocate(vertices.size).put(vertices)
+        val vboBuffer = FloatBuffer.allocate(vertices.size).put(vertices).position(0)
         GLES.glBufferData(GLES.GL_ARRAY_BUFFER, vertices.size * Float.SIZE_BYTES, vboBuffer, GLES.GL_STATIC_DRAW)
         GLES.glVertexAttribPointer(0, 3, GLES.GL_FLOAT, false, 5 * Float.SIZE_BYTES, 0)
         GLES.glEnableVertexAttribArray(0)
         GLES.glVertexAttribPointer(1, 2, GLES.GL_FLOAT, false, 5 * Float.SIZE_BYTES, 3 * Float.SIZE_BYTES)
         GLES.glEnableVertexAttribArray(1)
 
-        val eboBuffer = IntBuffer.allocate(VERTEX_INDICES.size).put(VERTEX_INDICES)
+        val eboBuffer = IntBuffer.allocate(VERTEX_INDICES.size).put(VERTEX_INDICES).position(0)
         GLES.glBindBuffer(GLES.GL_ELEMENT_ARRAY_BUFFER, EBO)
         GLES.glBufferData(GLES.GL_ELEMENT_ARRAY_BUFFER, VERTEX_INDICES.size * Int.SIZE_BYTES, eboBuffer, GLES.GL_STATIC_DRAW)
 
         GLES.glBindVertexArray(0)
+    }
+
+    private fun releaseVertex() {
+        if (VAO > 0) {
+            GLES.glDeleteVertexArrays(1, intArrayOf(VAO), 0)
+            VAO = 0
+        }
+        if (VBO > 0) {
+            GLES.glDeleteBuffers(1, intArrayOf(VBO), 0)
+            VBO = 0
+        }
+        if (EBO > 0) {
+            GLES.glDeleteBuffers(1, intArrayOf(EBO), 0)
+            EBO = 0
+        }
     }
 
     private fun updateVertex(texWidth: Int, texHeight: Int, screenWidth: Int, screenHeight: Int, scaleType: ScaleType): Boolean {
@@ -104,6 +137,7 @@ class GLRender {
             Timber.e("size must be >= 0")
             return false
         }
+
         // 初始为整个纹理
         var texLeft = 0f
         var texTop = 1f
@@ -145,13 +179,13 @@ class GLRender {
                     // 纹理比屏幕宽，保持屏幕宽度，裁剪屏幕高度。屏幕上下有黑边
                     val scaledScreenHeight = screenWidth / texW2H
                     val s = scaledScreenHeight / screenHeight
-                    screenTop = s / 2
+                    screenTop = s
                     screenBottom = -screenTop
                 } else {
                     // 纹理比屏幕高，保持屏幕高度，裁剪屏幕宽度，屏幕左右有黑边
                     val scaledScreenWidth = screenHeight * texW2H
                     val s = scaledScreenWidth / screenWidth
-                    screenLeft = -s / 2
+                    screenLeft = -s
                     screenRight = -screenLeft
                 }
             }
@@ -164,6 +198,16 @@ class GLRender {
             screenLeft, screenTop, 0f, texLeft, texBottom
         )
         return true
+    }
+
+    private fun setInputRotationInner(degree: Int) {
+        val inputWidth = inputSurface?.width ?: return
+        val inputHeight = inputSurface?.height ?: return
+        var mat = floatArrayOf(
+            1f, 0f, 0f,
+            0f, 1f, 0f,
+            0f, 0f, 1f
+        )
     }
 
     private fun addOutputSurfaceInner(surfaceObj: Any, width: Int, height: Int) {
@@ -182,6 +226,7 @@ class GLRender {
         }
     }
 
+
     private fun changeOutputSizeInner(surfaceObj: Any, width: Int, height: Int) {
         val target = outputSurfaceList.find {
             it.surface == surfaceObj
@@ -190,9 +235,21 @@ class GLRender {
     }
 
     private fun changeInputSizeInner(width: Int, height: Int) {
-        inputSurface?.setSize(width, height)
+        inputSurface?.let {
+            it.setSize(width, height)
+            inputSurfaceListener?.onSizeChanged(it.surface, it.width, it.height)
+        }
     }
 
+    private fun releaseInner() {
+        outputSurfaceList.clear()
+        inputSurface?.release()
+        oesShader?.release()
+        releaseVertex()
+        eglCore?.release()
+    }
+
+    private var frameLogCount = 0
     private fun createInputSurface(): InputSurface {
         val tex = IntArray(1)
         GLES.glGenTextures(1, tex, 0)
@@ -221,6 +278,12 @@ class GLRender {
         var inputSurface = InputSurface(tex[0])
         inputSurface.surfaceTexture.setOnFrameAvailableListener(
             OnFrameAvailableListener {
+                if (frameLogCount >= 20) {
+                    Timber.d("frame update")
+                    frameLogCount = 0
+                } else {
+                    frameLogCount++
+                }
                 draw()
             },
             glHandler
@@ -232,9 +295,11 @@ class GLRender {
         val eglCore = eglCore ?: return
         val inputSurface = inputSurface ?: return
         if (!eglCore.isReady) {
+            Timber.e("eglCore is not ready")
             return
         }
         if (!oesShader.isReady) {
+            Timber.e("oesShader is not ready")
             return
         }
 
@@ -248,16 +313,19 @@ class GLRender {
         GLES.glBindVertexArray(VAO)
         for (outputSurface in outputSurfaceList) {
             eglCore.makeCurrent(outputSurface)
+            GLES.glViewport(0, 0, outputSurface.width, outputSurface.height)
             if (!updateVertex(inputSurface.width, inputSurface.height, outputSurface.width, outputSurface.height, scaleType)) {
+                Timber.e("updateVertex failed, src.width = ${inputSurface.width}, src.height = ${inputSurface.height}, dst.width = ${outputSurface.width}, dst.height = ${outputSurface.height}")
                 continue
             }
+
             GLES.glBindBuffer(GLES.GL_ARRAY_BUFFER, VBO)
-            val vboBuffer = FloatBuffer.allocate(vertices.size).put(vertices)
+            val vboBuffer = FloatBuffer.allocate(vertices.size).put(vertices).position(0)
             GLES.glBufferData(GLES.GL_ARRAY_BUFFER, vertices.size * Float.SIZE_BYTES, vboBuffer, GLES.GL_STATIC_DRAW)
 
-            GLES.glClearColor(0f, 0f, 0f, 0f)
+            GLES.glClearColor(0f, 0f, 0f, 1f)
             GLES.glClear(GLES.GL_COLOR_BUFFER_BIT)
-            GLES.glDrawElements(GLES.GL_TRIANGLES, 6, GLES.GL_INT, 0)
+            GLES.glDrawElements(GLES.GL_TRIANGLES, 6, GLES.GL_UNSIGNED_INT, 0)
             eglCore.swapBuffers(outputSurface)
         }
         GLES.glBindVertexArray(0)
@@ -297,6 +365,13 @@ class GLRender {
         }
     }
 
+    fun release() {
+        glHandler.post {
+            releaseInner()
+        }
+        glThread.quitSafely()
+    }
+
 
     companion object {
         private val VERTEX_INDICES = intArrayOf(
@@ -312,5 +387,14 @@ class GLRender {
         FULL,
         // 纹理占满整个屏幕，并且缩放成与屏幕一样的宽高比。可能会导致纹理变形
         SCALE_FULL;
+    }
+
+    interface InputSurfaceListener {
+        fun onSurfaceCreated(surface: Surface, width: Int, height: Int)
+        fun onSizeChanged(surface: Surface, width: Int, height: Int)
+    }
+
+    enum class Rotate {
+
     }
 }
