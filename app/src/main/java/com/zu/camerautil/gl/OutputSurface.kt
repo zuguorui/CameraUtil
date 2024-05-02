@@ -13,11 +13,16 @@ class OutputSurface {
     var height: Int = 1080
         private set
 
+    var degree: Int = 0
+        private set
+
     var eglSurface: EGLSurface = EGL.EGL_NO_SURFACE
         private set
 
     val isReady: Boolean
         get() = eglSurface != EGL.EGL_NO_SURFACE
+
+
 
     constructor(eglCore: EGLCore, surface: Any, width: Int, height: Int) {
         this.eglCore = eglCore
@@ -42,6 +47,10 @@ class OutputSurface {
     fun setSize(width: Int, height: Int) {
         this.width = width
         this.height = height
+    }
+
+    fun setRotate(degree: Int) {
+        this.degree = degree / 90 * 90
     }
 
     fun release() {

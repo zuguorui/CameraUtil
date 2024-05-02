@@ -11,10 +11,7 @@ import android.util.Rational
 import android.util.Size
 import android.view.Surface
 import android.view.SurfaceHolder
-import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraParamID
 import com.zu.camerautil.bean.CameraUsage
@@ -24,9 +21,7 @@ import com.zu.camerautil.camera.FlashUtil
 import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.databinding.ActivityGlBinding
 import com.zu.camerautil.gl.GLRender
-import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
-import com.zu.camerautil.recorder.RecorderParams
 import timber.log.Timber
 
 class GLActivity : AppCompatActivity() {
@@ -70,6 +65,7 @@ class GLActivity : AppCompatActivity() {
         override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
             glRender = GLRender(this@GLActivity)
             glRender.addOutputSurface(holder.surface, width, height)
+            glRender.setOutputOrientation(binding.root.display.rotation * 90)
             val surfaceSize = Size(width, height)
             Timber.d("surfaceChanged: surfaceSize = $surfaceSize, ratio = ${surfaceSize.toRational()}")
             glRender.inputSurfaceListener = object : GLRender.InputSurfaceListener {
@@ -118,7 +114,7 @@ class GLActivity : AppCompatActivity() {
 
             override fun getSize(): Size {
                 val size = currentSize!!
-                glRender.changeInputSize(size.width, size.height)
+                glRender.setInputSize(size.width, size.height)
                 return size
             }
 
@@ -145,6 +141,11 @@ class GLActivity : AppCompatActivity() {
         cameraLogic.cameraStateCallback = object : CameraDevice.StateCallback() {
             override fun onOpened(camera: CameraDevice) {
                 openedCameraID = camera.id
+                cameraInfoMap[camera.id]?.let { info ->
+                    glRender.setCameraFacing(info.lensFacing)
+                    glRender.setCameraOrientation(info.sensorOrientation!!)
+                }
+
             }
 
             override fun onDisconnected(camera: CameraDevice) {

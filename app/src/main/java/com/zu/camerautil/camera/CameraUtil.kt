@@ -321,3 +321,10 @@ private fun groupSizeByRatio(sizes: ArrayList<Size>): Map<Rational, ArrayList<Si
     }
     return result
 }
+
+fun computeRotation(sensorOrientation: Int, viewOrientation: Int, cameraFacing: Int): Int {
+    val isFront = cameraFacing == CameraCharacteristics.LENS_FACING_FRONT
+    val rotationSign = if (isFront) -1 else 1
+    val rotation = (sensorOrientation - viewOrientation * rotationSign + 360) % 360
+    return rotation
+}

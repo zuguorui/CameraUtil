@@ -354,7 +354,7 @@ class RecordActivity : AppCompatActivity() {
             sampleRate = 44100,
             outputFile = null,
             outputUri = saveUri,
-            viewOrientation = binding.root.display.rotation,
+            viewOrientation = binding.root.display.rotation * 90,
             sensorOrientation = camera.sensorOrientation!!,
             facing = cameraInfoMap[openedCameraID!!]!!.lensFacing
         )

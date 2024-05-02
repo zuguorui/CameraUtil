@@ -5,10 +5,11 @@ val vertShaderCode = """
     layout (location = 0) in vec3 aPos;
     layout (location = 1) in vec2 aTexCoord;
     out vec2 TexCoord;
-    uniform mat3 coordTransform;
+    uniform mat4 coordTransform;
     void main() {
-        vec3 finalCoord = coordTransform * aPos;
-        gl_Position = vec4(finalCoord, 1.0f);
+        vec4 finalPos = coordTransform * vec4(aPos, 1.0f);
+        gl_Position = finalPos;
+        //gl_Position = vec4(aPos, 1.0f);
         TexCoord = aTexCoord;
     }
 """.trimIndent()

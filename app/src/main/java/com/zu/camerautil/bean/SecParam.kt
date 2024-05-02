@@ -19,7 +19,7 @@ class SecParam: RangeParam<Long>(CameraParamID.SEC) {
             val diff = realValue != field
             field = realValue
             if (diff) {
-                Timber.d("value: $value")
+                //Timber.d("value: $value")
                 notifyValueChanged()
             }
         }
@@ -64,13 +64,13 @@ class SecParam: RangeParam<Long>(CameraParamID.SEC) {
 
     override fun uiValueToValue(uiValue: Float): Long {
         val index = uiValue.roundToInt()
-        Timber.d("uiValueToValue: uiValue = $uiValue, uiStep = $uiStep, index = $index, values.size = ${values.size}")
+        //Timber.d("uiValueToValue: uiValue = $uiValue, uiStep = $uiStep, index = $index, values.size = ${values.size}")
         return values[index].exposureTime
     }
 
     override fun valueToUiValue(value: Long): Float {
         val index = findNearestSecIndex(value, values)
-        Timber.d("valueToUiValue: value = $value, index = $index, uiValue = ${index * uiStep}")
+        //Timber.d("valueToUiValue: value = $value, index = $index, uiValue = ${index * uiStep}")
         return index * uiStep
     }
 

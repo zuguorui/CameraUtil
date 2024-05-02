@@ -3,13 +3,16 @@ package com.zu.camerautil.gl
 import android.content.Context
 import android.graphics.SurfaceTexture
 import android.graphics.SurfaceTexture.OnFrameAvailableListener
-import android.opengl.Matrix
+import android.hardware.camera2.CameraCharacteristics
 import android.os.Handler
 import android.os.HandlerThread
 import android.view.Surface
+import com.zu.camerautil.camera.computeRotation
 import timber.log.Timber
 import java.nio.FloatBuffer
 import java.nio.IntBuffer
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 
 class GLRender {
@@ -31,7 +34,7 @@ class GLRender {
     private var eglCore: EGLCore? = null
     private var oesShader: Shader = Shader()
 
-    var scaleType = ScaleType.INSIDE
+    var scaleType = ScaleType.FULL
         private set
 
 
@@ -46,7 +49,7 @@ class GLRender {
     private var VAO: Int = 0
     private var VBO: Int = 0
     private var EBO: Int = 0
-    // 坐标坐标。屏幕屏幕中间为原点，纹理坐标左下角为原点，向右向上为正。注意纹理与屏幕上下是相反的
+    // 坐标坐标。屏幕中间为原点，纹理坐标左下角为原点，向右向上为正。注意纹理与屏幕上下是相反的
     private var vertices = floatArrayOf(
         -1f, -1f, 0f, 0f, 1f, // 左下
          1f, -1f, 0f, 1f, 1f, // 右下
@@ -55,11 +58,20 @@ class GLRender {
     )
 
     // 输入纹理的坐标转换矩阵
-    private var inputTexVertexTransMat = floatArrayOf(
-        1f, 0f, 0f,
-        0f, 1f, 0f,
-        0f, 0f, 1f
+    private var inputVertexTransformMat = floatArrayOf(
+        1f, 0f, 0f, 0f,
+        0f, 1f, 0f, 0f,
+        0f, 0f, 1f, 0f,
+        0f, 0f, 0f, 1f
     )
+
+    var cameraOrientation: Int = 0
+        private set
+    var cameraFacing: Int = CameraCharacteristics.LENS_FACING_BACK
+        private set
+
+    var outputOrientation: Int = 0
+        private set
 
     constructor(context: Context) {
         this.context = context
@@ -85,7 +97,7 @@ class GLRender {
             Timber.e("compile oes shader failed")
             return
         }
-
+        updateInputVertexTransform()
         initVertex()
     }
 
@@ -132,26 +144,49 @@ class GLRender {
         }
     }
 
-    private fun updateVertex(texWidth: Int, texHeight: Int, screenWidth: Int, screenHeight: Int, scaleType: ScaleType): Boolean {
-        if (texWidth <= 0 || texHeight <= 0 || screenWidth <= 0 || screenHeight <= 0) {
-            Timber.e("size must be >= 0")
-            return false
+    private fun updateViewport(inputSurface: InputSurface, outputSurface: OutputSurface, scaleType: ScaleType): Boolean {
+
+        inputSurface.run {
+            if (width <= 0 || height <= 0) {
+                Timber.e("inputSurface size not correct, width = $width, height = $height")
+                return false
+            }
         }
 
-        // 初始为整个纹理
-        var texLeft = 0f
-        var texTop = 1f
-        var texRight = 1f
-        var texBottom = 0f
+        outputSurface.run {
+            if (width <= 0 || height <= 0) {
+                Timber.e("outputSurface size not correct, width = $width, height = $height")
+                return false
+            }
+        }
 
-        // 初始为整个屏幕
-        var screenLeft = -1f
-        var screenTop = 1f
-        var screenRight = 1f
-        var screenBottom = -1f
+        val rotation = abs(computeRotation(cameraOrientation, outputOrientation, cameraFacing))
+
+        val a = rotation % 180
+
+        val texWidth: Int
+        val texHeight: Int
+
+        if (a == 0) {
+            // 输入和输出的宽高是对应的
+            texWidth = inputSurface.width
+            texHeight = inputSurface.height
+        } else {
+            // 输入的宽高分别对应输出的高宽
+            texWidth = inputSurface.height
+            texHeight = inputSurface.width
+        }
+
+        val screenWidth = outputSurface.width
+        val screenHeight = outputSurface.height
 
         val texW2H = texWidth.toFloat() / texHeight
         val screenW2H = screenWidth.toFloat() / screenHeight
+
+        var left = 0
+        var top = 0
+        var width = outputSurface.width
+        var height = outputSurface.height
 
         when (scaleType) {
             ScaleType.SCALE_FULL -> {
@@ -160,54 +195,39 @@ class GLRender {
             ScaleType.FULL -> {
                 // 全屏显示，保持宽高比
                 if (texW2H >= screenW2H) {
-                    // 纹理比屏幕宽，则保持纹理高度，裁剪纹理宽度。纹理左右有隐藏
-                    val scaledTexWidth = texHeight * screenW2H
-                    val s = scaledTexWidth / texWidth
-                    texLeft = (1 - s) / 2
-                    texRight = texLeft + s
+                    // 纹理比屏幕宽，则纹理高度缩放至与屏幕高度相同
+                    height = screenHeight
+                    width = (screenHeight * texW2H).roundToInt()
+                    top = 0
+                    left = -(width - screenWidth) / 2
                 } else {
-                    // 纹理比屏幕高，则保持纹理宽度，裁剪纹理高度。纹理上下有隐藏
-                    val scaledTexHeight = texWidth / screenW2H
-                    val s = scaledTexHeight / texHeight
-                    texBottom = (1 - s) / 2
-                    texTop = texBottom + s
+                    // 纹理比屏幕高，则纹理宽度缩放至与屏幕宽度相同
+                    width = screenWidth
+                    height = (width / texW2H).roundToInt()
+                    left = 0
+                    top = -(height - screenHeight) / 2
                 }
             }
             ScaleType.INSIDE -> {
                 // 纹理完全显示，保持宽高比
                 if (texW2H >= screenW2H) {
                     // 纹理比屏幕宽，保持屏幕宽度，裁剪屏幕高度。屏幕上下有黑边
-                    val scaledScreenHeight = screenWidth / texW2H
-                    val s = scaledScreenHeight / screenHeight
-                    screenTop = s
-                    screenBottom = -screenTop
+                    width = screenWidth
+                    height = (width / texW2H).roundToInt()
+                    left = 0
+                    top = -(height - screenHeight) / 2
                 } else {
                     // 纹理比屏幕高，保持屏幕高度，裁剪屏幕宽度，屏幕左右有黑边
-                    val scaledScreenWidth = screenHeight * texW2H
-                    val s = scaledScreenWidth / screenWidth
-                    screenLeft = -s
-                    screenRight = -screenLeft
+                    height = screenHeight
+                    width = (screenHeight * texW2H).roundToInt()
+                    top = 0
+                    left = -(width - screenWidth) / 2
                 }
             }
         }
+        GLES.glViewport(left, top, width, height)
 
-        vertices = floatArrayOf(
-            screenLeft, screenBottom, 0f, texLeft, texTop,
-            screenRight, screenBottom, 0f, texRight, texTop,
-            screenRight, screenTop, 0f, texRight, texBottom,
-            screenLeft, screenTop, 0f, texLeft, texBottom
-        )
         return true
-    }
-
-    private fun setInputRotationInner(degree: Int) {
-        val inputWidth = inputSurface?.width ?: return
-        val inputHeight = inputSurface?.height ?: return
-        var mat = floatArrayOf(
-            1f, 0f, 0f,
-            0f, 1f, 0f,
-            0f, 0f, 1f
-        )
     }
 
     private fun addOutputSurfaceInner(surfaceObj: Any, width: Int, height: Int) {
@@ -227,19 +247,56 @@ class GLRender {
     }
 
 
-    private fun changeOutputSizeInner(surfaceObj: Any, width: Int, height: Int) {
+    private fun setOutputSizeInner(surfaceObj: Any, width: Int, height: Int) {
         val target = outputSurfaceList.find {
             it.surface == surfaceObj
         }
         target?.setSize(width, height)
     }
 
-    private fun changeInputSizeInner(width: Int, height: Int) {
+
+    private fun setInputSizeInner(width: Int, height: Int) {
         inputSurface?.let {
             it.setSize(width, height)
             inputSurfaceListener?.onSizeChanged(it.surface, it.width, it.height)
         }
     }
+
+    private fun updateInputVertexTransform() {
+        val rotate = computeRotation(cameraOrientation, outputOrientation, cameraFacing)
+        var ret = eye4()
+        rotate(ret, -rotate, 0f, 0f, 1f)
+        ret.copyInto(inputVertexTransformMat)
+        if (oesShader.isReady) {
+            oesShader.use()
+            oesShader.setMat4("coordTransform", inputVertexTransformMat)
+            oesShader.endUse()
+        }
+        Timber.d("update transform: camOri = $cameraOrientation, camFacing = $cameraFacing, outputOri = $outputOrientation, rotate = $rotate")
+        Timber.d("update transform: mat = \n${matToString(inputVertexTransformMat, 4, 4)}")
+    }
+
+    private fun setCameraOrientationInner(orientation: Int) {
+        if (orientation != cameraOrientation) {
+            cameraOrientation = orientation
+            updateInputVertexTransform()
+        }
+    }
+
+    private fun setCameraFacingInner(facing: Int) {
+        if (facing != cameraFacing) {
+            cameraFacing = facing
+            updateInputVertexTransform()
+        }
+    }
+
+    private fun setOutputOrientationInner(orientation: Int) {
+        if (orientation != outputOrientation) {
+            outputOrientation = orientation
+            updateInputVertexTransform()
+        }
+    }
+
 
     private fun releaseInner() {
         outputSurfaceList.clear()
@@ -279,7 +336,7 @@ class GLRender {
         inputSurface.surfaceTexture.setOnFrameAvailableListener(
             OnFrameAvailableListener {
                 if (frameLogCount >= 20) {
-                    Timber.d("frame update")
+                    //Timber.d("frame update")
                     frameLogCount = 0
                 } else {
                     frameLogCount++
@@ -306,6 +363,7 @@ class GLRender {
         inputSurface.surfaceTexture.updateTexImage()
 
         oesShader.use()
+        oesShader.setMat4("coordTransform", inputVertexTransformMat)
         GLES.glActiveTexture(GLES.GL_TEXTURE0)
         GLES.glBindTexture(GLES.GL_TEXTURE_2D, inputSurface.textureId)
         oesShader.setInt("tex", 0)
@@ -313,15 +371,11 @@ class GLRender {
         GLES.glBindVertexArray(VAO)
         for (outputSurface in outputSurfaceList) {
             eglCore.makeCurrent(outputSurface)
-            GLES.glViewport(0, 0, outputSurface.width, outputSurface.height)
-            if (!updateVertex(inputSurface.width, inputSurface.height, outputSurface.width, outputSurface.height, scaleType)) {
+
+            if (!updateViewport(inputSurface, outputSurface, scaleType)) {
                 Timber.e("updateVertex failed, src.width = ${inputSurface.width}, src.height = ${inputSurface.height}, dst.width = ${outputSurface.width}, dst.height = ${outputSurface.height}")
                 continue
             }
-
-            GLES.glBindBuffer(GLES.GL_ARRAY_BUFFER, VBO)
-            val vboBuffer = FloatBuffer.allocate(vertices.size).put(vertices).position(0)
-            GLES.glBufferData(GLES.GL_ARRAY_BUFFER, vertices.size * Float.SIZE_BYTES, vboBuffer, GLES.GL_STATIC_DRAW)
 
             GLES.glClearColor(0f, 0f, 0f, 1f)
             GLES.glClear(GLES.GL_COLOR_BUFFER_BIT)
@@ -350,20 +404,39 @@ class GLRender {
         }
     }
 
-    fun changeOutputSize(surfaceObj: Any, width: Int, height: Int) {
+    fun setOutputSize(surfaceObj: Any, width: Int, height: Int) {
         if (surfaceObj !is Surface && surfaceObj !is SurfaceTexture) {
             return
         }
         glHandler.post {
-            changeOutputSizeInner(surfaceObj, width, height)
+            setOutputSizeInner(surfaceObj, width, height)
         }
     }
 
-    fun changeInputSize(width: Int, height: Int) {
+    fun setInputSize(width: Int, height: Int) {
         glHandler.post {
-            changeInputSizeInner(width, height)
+            setInputSizeInner(width, height)
         }
     }
+
+    fun setCameraOrientation(orientation: Int) {
+        glHandler.post {
+            setCameraOrientationInner(orientation)
+        }
+    }
+
+    fun setCameraFacing(facing: Int) {
+        glHandler.post {
+            setCameraFacingInner(facing)
+        }
+    }
+
+    fun setOutputOrientation(orientation: Int) {
+        glHandler.post {
+            setOutputOrientationInner(orientation)
+        }
+    }
+
 
     fun release() {
         glHandler.post {
@@ -392,9 +465,5 @@ class GLRender {
     interface InputSurfaceListener {
         fun onSurfaceCreated(surface: Surface, width: Int, height: Int)
         fun onSizeChanged(surface: Surface, width: Int, height: Int)
-    }
-
-    enum class Rotate {
-
     }
 }

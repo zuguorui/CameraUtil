@@ -119,6 +119,9 @@ class Shader {
     }
 
     fun setVec2(name: String, vec: FloatArray) {
+        assert(vec.size == 2) {
+            "<vec> must be 1x2 or 2x1"
+        }
         if (id > 0) {
             GLES.glUniform2fv(GLES.glGetUniformLocation(id, name), 1,  vec, 0)
         }
@@ -131,6 +134,9 @@ class Shader {
     }
 
     fun setVec3(name: String, vec: FloatArray) {
+        assert(vec.size == 3) {
+            "<vec> must be 1x3 or 3x1"
+        }
         if (id > 0) {
             GLES.glUniform3fv(GLES.glGetUniformLocation(id, name), 1,  vec, 0)
         }
@@ -143,8 +149,38 @@ class Shader {
     }
 
     fun setVec4(name: String, vec: FloatArray) {
+        assert(vec.size == 4) {
+            "<vec> must be 1x4 or 4x1"
+        }
         if (id > 0) {
             GLES.glUniform4fv(GLES.glGetUniformLocation(id, name), 1, vec, 0)
+        }
+    }
+
+    fun setMat2(name: String, mat: FloatArray) {
+        assert(mat.size == 4) {
+            "<mat> must be 2x2"
+        }
+        if (id > 0) {
+            GLES.glUniformMatrix2fv(GLES.glGetUniformLocation(id, name), 1, false, mat, 0)
+        }
+    }
+
+    fun setMat3(name: String, mat: FloatArray) {
+        assert(mat.size == 9) {
+            "<mat> must be 3x3"
+        }
+        if (id > 0) {
+            GLES.glUniformMatrix3fv(GLES.glGetUniformLocation(id, name), 1, false, mat, 0)
+        }
+    }
+
+    fun setMat4(name: String, mat: FloatArray) {
+        assert(mat.size == 16) {
+            "<mat> must be 4x4"
+        }
+        if (id > 0) {
+            GLES.glUniformMatrix4fv(GLES.glGetUniformLocation(id, name), 1, false, mat, 0)
         }
     }
 

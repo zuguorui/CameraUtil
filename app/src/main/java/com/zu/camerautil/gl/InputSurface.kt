@@ -20,6 +20,9 @@ class InputSurface {
     var height = 1080
         private set
 
+    var degree = 0
+        private set
+
     constructor(textureId: Int) {
         this.textureId = textureId
         surfaceTexture = SurfaceTexture(textureId)
@@ -35,6 +38,10 @@ class InputSurface {
         this.width = width
         this.height = height
         surfaceTexture.setDefaultBufferSize(width, height)
+    }
+
+    fun setRotate(degree: Int) {
+        this.degree = degree / 90 * 90
     }
 
     fun release() {

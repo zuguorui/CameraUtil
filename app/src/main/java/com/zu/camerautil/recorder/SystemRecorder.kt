@@ -65,8 +65,9 @@ class SystemRecorder: IRecorder {
                 setVideoEncoder(VideoEncoder.H264)
             }
             val isFront = params.facing == CameraCharacteristics.LENS_FACING_FRONT
-            val rotationSign = if (isFront) 1 else -1
+            val rotationSign = if (isFront) -1 else 1
             val rotation = (params.sensorOrientation - params.viewOrientation * rotationSign + 360) % 360
+            Timber.d("sensorOrientation = ${params.sensorOrientation}, viewOrientation = ${params.viewOrientation}, isFront = $isFront, finalRotation = $rotation")
             setOrientationHint(rotation)
             if (isFront) {
                 scaleMatrix(-1f, 1f)
