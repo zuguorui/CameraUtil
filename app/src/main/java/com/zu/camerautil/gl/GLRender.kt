@@ -4,13 +4,12 @@ import android.content.Context
 import android.graphics.SurfaceTexture
 import android.graphics.SurfaceTexture.OnFrameAvailableListener
 import android.hardware.camera2.CameraCharacteristics
+import android.opengl.Matrix
 import android.os.Handler
 import android.os.HandlerThread
 import android.view.Surface
 import com.zu.camerautil.camera.computeRotation
 import timber.log.Timber
-import java.nio.FloatBuffer
-import java.nio.IntBuffer
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -18,26 +17,49 @@ import kotlin.math.roundToInt
 class GLRender {
 
     val context: Context
+    // 是否已被释放的标志
     var isReleased = false
         private set
 
+    // OpenGL的线程，所有关于OpenGL的操作都在这个线程里
     private val glThread = HandlerThread("gl-thread").apply {
         start()
     }
     private val glHandler = Handler(glThread.looper)
 
+    /**
+     * 用于输入的surface，可以给相机使用
+     * */
     var inputSurface: InputSurface? = null
         private set
 
+    private lateinit var frameBuffer: FrameBuffer
+
+    /**
+     * 输出的surface列表
+     * */
     private var outputSurfaceList = ArrayList<OutputSurface>()
 
+    // EGL相关
     private var eglCore: EGLCore? = null
+    // 用于从inputSurface渲染到frameBuffer的shader，由于是给相机使用，因此需要oes采样
     private var oesShader: Shader = Shader()
+    // 用于从frameBuffer渲染到outputSurface的shader
+    private var frameBufferShader: Shader = Shader()
 
-    var scaleType = ScaleType.FULL
+    private var oesVertex = PlaneVertex()
+    private var frameBufferVertex = PlaneVertex()
+
+    /**
+     * 缩放模式。正常情况下，应使用INSIDE模式来确保所有output的宽高比与预览一致
+     * */
+    var scaleType = ScaleType.INSIDE
         private set
 
 
+    /**
+     * inputSurface的监听器。
+     * */
     var inputSurfaceListener: InputSurfaceListener? = null
         set(value) {
             field = value
@@ -46,32 +68,28 @@ class GLRender {
             }
         }
 
-    private var VAO: Int = 0
-    private var VBO: Int = 0
-    private var EBO: Int = 0
-    // 坐标坐标。屏幕中间为原点，纹理坐标左下角为原点，向右向上为正。注意纹理与屏幕上下是相反的
-    private var vertices = floatArrayOf(
-        -1f, -1f, 0f, 0f, 1f, // 左下
-         1f, -1f, 0f, 1f, 1f, // 右下
-         1f,  1f, 0f, 1f, 0f, // 右上
-        -1f,  1f, 0f, 0f, 0f  // 左上
-    )
-
-    // 输入纹理的坐标转换矩阵
-    private var inputVertexTransformMat = floatArrayOf(
-        1f, 0f, 0f, 0f,
-        0f, 1f, 0f, 0f,
-        0f, 0f, 1f, 0f,
-        0f, 0f, 0f, 1f
-    )
-
+    /**
+     * 相机方向，可以通过[CameraCharacteristics.SENSOR_ORIENTATION]获取到。
+     * 有四种取值：0，90，180，270。单位是度
+     * */
     var cameraOrientation: Int = 0
         private set
+
+    /**
+     * 相机朝向，前置还是后置。可以通过[CameraCharacteristics.LENS_FACING]取到
+     * */
     var cameraFacing: Int = CameraCharacteristics.LENS_FACING_BACK
         private set
 
+    /**
+     * 输出方向，是view的方向。这个值可以与相机方向来一起计算相机输出的图像要旋转多少度。
+     * 在inputSurface输出到frameBuffer时进行纹理旋转，使其与输出方向一致
+     * */
     var outputOrientation: Int = 0
         private set
+
+    // 运行统计信息
+    private val renderInfo = RenderInfo()
 
     constructor(context: Context) {
         this.context = context
@@ -83,6 +101,7 @@ class GLRender {
 
     private fun initInner() {
         Timber.d("initInner")
+        // 要先初始化EGL环境，否则OpenGL的函数都不可用
         eglCore = EGLCore()
         val eglCore = eglCore!!
         if (!eglCore.isReady) {
@@ -90,103 +109,94 @@ class GLRender {
             return
         }
 
-        inputSurface = createInputSurface()
+        // 初始化inputSurface和frameBuffer这两个和输入有关的
+        inputSurface = InputSurface()
+        inputSurface!!.surfaceTexture.setOnFrameAvailableListener(
+            OnFrameAvailableListener {
+                draw()
+            },
+            glHandler
+        )
+        frameBuffer = FrameBuffer(inputSurface!!.width, inputSurface!!.height)
         inputSurfaceListener?.onSurfaceCreated(inputSurface!!.surface, inputSurface!!.width, inputSurface!!.height)
 
-        if (!oesShader.compile(vertShaderCode, oesFragShaderCode)) {
-            Timber.e("compile oes shader failed")
-            return
-        }
+        initProgram()
         updateInputVertexTransform()
         initVertex()
     }
 
+    private fun initProgram() {
+        if (!oesShader.compile(vertShaderCode, oesFragShaderCode)) {
+            Timber.e("compile oes shader failed")
+            return
+        }
+        oesShader.use()
+        oesShader.setMat4("coordTransform", eye4())
+        oesShader.endUse()
+
+        if (!frameBufferShader.compile(vertShaderCode, fragShaderCode)) {
+            Timber.e("compile process shader failed")
+            return
+        }
+        frameBufferShader.use()
+        frameBufferShader.setMat4("coordTransform", eye4())
+        frameBufferShader.endUse()
+    }
+
+    private fun releaseProgram() {
+        oesShader.release()
+        frameBufferShader.release()
+    }
+
+    /**
+     * 初始化顶点数据
+     * */
     private fun initVertex() {
-        val vao = IntArray(1)
-        val vbo = IntArray(1)
-        val ebo = IntArray(1)
-        GLES.glGenVertexArrays(1, vao, 0)
-        GLES.glGenBuffers(1, vbo, 0)
-        GLES.glGenBuffers(1, ebo, 0)
+        // inputSurface的顶点数据，屏幕中间为原点，纹理坐标左下角为原点，向右向上为正。注意oes纹理与屏幕上下是相反的
+        val oesVertexData = floatArrayOf(
+            -1f, -1f, 0f, 0f, 1f, // 左下
+            1f, -1f, 0f, 1f, 1f, // 右下
+            1f,  1f, 0f, 1f, 0f, // 右上
+            -1f,  1f, 0f, 0f, 0f  // 左上
+        )
+        oesVertex.init(oesVertexData, VERTEX_INDICES)
 
-        VAO = vao[0]
-        VBO = vbo[0]
-        EBO = ebo[0]
-
-        GLES.glBindVertexArray(VAO)
-        GLES.glBindBuffer(GLES.GL_ARRAY_BUFFER, VBO)
-        val vboBuffer = FloatBuffer.allocate(vertices.size).put(vertices).position(0)
-        GLES.glBufferData(GLES.GL_ARRAY_BUFFER, vertices.size * Float.SIZE_BYTES, vboBuffer, GLES.GL_STATIC_DRAW)
-        GLES.glVertexAttribPointer(0, 3, GLES.GL_FLOAT, false, 5 * Float.SIZE_BYTES, 0)
-        GLES.glEnableVertexAttribArray(0)
-        GLES.glVertexAttribPointer(1, 2, GLES.GL_FLOAT, false, 5 * Float.SIZE_BYTES, 3 * Float.SIZE_BYTES)
-        GLES.glEnableVertexAttribArray(1)
-
-        val eboBuffer = IntBuffer.allocate(VERTEX_INDICES.size).put(VERTEX_INDICES).position(0)
-        GLES.glBindBuffer(GLES.GL_ELEMENT_ARRAY_BUFFER, EBO)
-        GLES.glBufferData(GLES.GL_ELEMENT_ARRAY_BUFFER, VERTEX_INDICES.size * Int.SIZE_BYTES, eboBuffer, GLES.GL_STATIC_DRAW)
-
-        GLES.glBindVertexArray(0)
+        // frameBuffer的顶点数据，它不会将纹理颠倒
+        val fbVertexData = floatArrayOf(
+            -1f, -1f, 0f, 0f, 0f, // 左下
+            1f, -1f, 0f, 1f, 0f, // 右下
+            1f,  1f, 0f, 1f, 1f, // 右上
+            -1f,  1f, 0f, 0f, 1f  // 左上
+        )
+        frameBufferVertex.init(fbVertexData, VERTEX_INDICES)
     }
 
     private fun releaseVertex() {
-        if (VAO > 0) {
-            GLES.glDeleteVertexArrays(1, intArrayOf(VAO), 0)
-            VAO = 0
-        }
-        if (VBO > 0) {
-            GLES.glDeleteBuffers(1, intArrayOf(VBO), 0)
-            VBO = 0
-        }
-        if (EBO > 0) {
-            GLES.glDeleteBuffers(1, intArrayOf(EBO), 0)
-            EBO = 0
-        }
+        oesVertex.release()
+        frameBufferVertex.release()
     }
 
-    private fun updateViewport(inputSurface: InputSurface, outputSurface: OutputSurface, scaleType: ScaleType): Boolean {
-
-        inputSurface.run {
-            if (width <= 0 || height <= 0) {
-                Timber.e("inputSurface size not correct, width = $width, height = $height")
-                return false
-            }
+    /**
+     * 更新viewport。viewport决定了OpenGL在当前surface上绘制的区域。可以超过实际surface区域，
+     * 这会导致纹理被裁切。
+     * */
+    private fun updateViewport(inputWidth: Int, inputHeight: Int, outputWidth: Int, outputHeight: Int, scaleType: ScaleType): Boolean {
+        if (inputWidth <= 0 || inputHeight <= 0 || outputWidth <= 0 || outputHeight <= 0) {
+            return false
         }
-
-        outputSurface.run {
-            if (width <= 0 || height <= 0) {
-                Timber.e("outputSurface size not correct, width = $width, height = $height")
-                return false
-            }
-        }
-
-        val rotation = abs(computeRotation(cameraOrientation, outputOrientation, cameraFacing))
-
-        val a = rotation % 180
-
-        val texWidth: Int
-        val texHeight: Int
-
-        if (a == 0) {
-            // 输入和输出的宽高是对应的
-            texWidth = inputSurface.width
-            texHeight = inputSurface.height
-        } else {
-            // 输入的宽高分别对应输出的高宽
-            texWidth = inputSurface.height
-            texHeight = inputSurface.width
-        }
-
-        val screenWidth = outputSurface.width
-        val screenHeight = outputSurface.height
+        //Timber.d("updateViewport: inputWidth = $inputWidth, inputHeight = $inputHeight, outputWidth = $outputWidth, outputHeight = $outputHeight")
+        val texWidth = inputWidth
+        val texHeight = inputHeight
+        val screenWidth = outputWidth
+        val screenHeight = outputHeight
 
         val texW2H = texWidth.toFloat() / texHeight
         val screenW2H = screenWidth.toFloat() / screenHeight
 
         var left = 0
         var top = 0
-        var width = outputSurface.width
-        var height = outputSurface.height
+        var width = outputWidth
+        var height = outputHeight
 
         when (scaleType) {
             ScaleType.SCALE_FULL -> {
@@ -226,8 +236,39 @@ class GLRender {
             }
         }
         GLES.glViewport(left, top, width, height)
-
         return true
+    }
+
+    private fun updateInputVertexTransform() {
+        val rotate = computeRotation(cameraOrientation, outputOrientation, cameraFacing)
+        var ret = eye4()
+        Matrix.setRotateM(ret, 0, -rotate.toFloat(), 0f, 0f, 1f)
+        if (oesShader.isReady) {
+            oesShader.use()
+            oesShader.setMat4("coordTransform", ret)
+            oesShader.endUse()
+        }
+        Timber.d("update transform: camOri = $cameraOrientation, camFacing = $cameraFacing, outputOri = $outputOrientation, rotate = $rotate")
+        Timber.d("update transform: mat = \n${matToString(ret, 4, 4)}")
+    }
+
+    /**
+     * 更新frameBuffer的尺寸，要求必须和inputSurface尺寸一致。但是方向可以不一样。总之保证frameBuffer的方向
+     * 始终和outputSurface的方向是一致的
+     * */
+    private fun updateFrameBufferSize() {
+        val inputSurface = inputSurface ?: return
+        val rotate = computeRotation(cameraOrientation, outputOrientation, cameraFacing)
+        val width: Int
+        val height: Int
+        if (rotate % 180 == 0) {
+            width = inputSurface.width
+            height = inputSurface.height
+        } else {
+            width = inputSurface.height
+            height = inputSurface.width
+        }
+        frameBuffer.setSize(width, height)
     }
 
     private fun addOutputSurfaceInner(surfaceObj: Any, width: Int, height: Int) {
@@ -256,30 +297,18 @@ class GLRender {
 
 
     private fun setInputSizeInner(width: Int, height: Int) {
-        inputSurface?.let {
-            it.setSize(width, height)
-            inputSurfaceListener?.onSizeChanged(it.surface, it.width, it.height)
-        }
-    }
-
-    private fun updateInputVertexTransform() {
-        val rotate = computeRotation(cameraOrientation, outputOrientation, cameraFacing)
-        var ret = eye4()
-        rotate(ret, -rotate, 0f, 0f, 1f)
-        ret.copyInto(inputVertexTransformMat)
-        if (oesShader.isReady) {
-            oesShader.use()
-            oesShader.setMat4("coordTransform", inputVertexTransformMat)
-            oesShader.endUse()
-        }
-        Timber.d("update transform: camOri = $cameraOrientation, camFacing = $cameraFacing, outputOri = $outputOrientation, rotate = $rotate")
-        Timber.d("update transform: mat = \n${matToString(inputVertexTransformMat, 4, 4)}")
+        val inputSurface = inputSurface ?: return
+        inputSurface.setSize(width, height)
+        frameBuffer.setSize(width, height)
+        updateFrameBufferSize()
+        inputSurfaceListener?.onSizeChanged(inputSurface.surface, inputSurface.width, inputSurface.height)
     }
 
     private fun setCameraOrientationInner(orientation: Int) {
         if (orientation != cameraOrientation) {
             cameraOrientation = orientation
             updateInputVertexTransform()
+            updateFrameBufferSize()
         }
     }
 
@@ -294,6 +323,7 @@ class GLRender {
         if (orientation != outputOrientation) {
             outputOrientation = orientation
             updateInputVertexTransform()
+            updateFrameBufferSize()
         }
     }
 
@@ -301,89 +331,98 @@ class GLRender {
     private fun releaseInner() {
         outputSurfaceList.clear()
         inputSurface?.release()
-        oesShader?.release()
+        releaseProgram()
         releaseVertex()
         eglCore?.release()
     }
 
-    private var frameLogCount = 0
-    private fun createInputSurface(): InputSurface {
-        val tex = IntArray(1)
-        GLES.glGenTextures(1, tex, 0)
-        GLES.glBindTexture(GLESExt.GL_TEXTURE_EXTERNAL_OES, tex[0])
-        GLES.glTexParameteri(
-            GLESExt.GL_TEXTURE_EXTERNAL_OES,
-            GLES.GL_TEXTURE_MIN_FILTER,
-            GLES.GL_LINEAR
-        )
-        GLES.glTexParameteri(
-            GLESExt.GL_TEXTURE_EXTERNAL_OES,
-            GLES.GL_TEXTURE_MAG_FILTER,
-            GLES.GL_LINEAR
-        )
-        GLES.glTexParameteri(
-            GLESExt.GL_TEXTURE_EXTERNAL_OES,
-            GLES.GL_TEXTURE_WRAP_S,
-            GLES.GL_CLAMP_TO_EDGE
-        )
-        GLES.glTexParameteri(
-            GLESExt.GL_TEXTURE_EXTERNAL_OES,
-            GLES.GL_TEXTURE_WRAP_T,
-            GLES.GL_CLAMP_TO_EDGE
-        )
-        GLES.glBindTexture(GLESExt.GL_TEXTURE_EXTERNAL_OES, 0)
-        var inputSurface = InputSurface(tex[0])
-        inputSurface.surfaceTexture.setOnFrameAvailableListener(
-            OnFrameAvailableListener {
-                if (frameLogCount >= 20) {
-                    //Timber.d("frame update")
-                    frameLogCount = 0
-                } else {
-                    frameLogCount++
-                }
-                draw()
-            },
-            glHandler
-        )
-        return inputSurface
-    }
-
-    private fun draw() {
-        val eglCore = eglCore ?: return
-        val inputSurface = inputSurface ?: return
+    private fun isReadyToDraw(): Boolean {
+        val eglCore = eglCore ?: return false
         if (!eglCore.isReady) {
             Timber.e("eglCore is not ready")
-            return
+            return false
         }
         if (!oesShader.isReady) {
             Timber.e("oesShader is not ready")
+            return false
+        }
+        if (!frameBufferShader.isReady) {
+            Timber.e("frameBufferShader is not ready")
+            return false
+        }
+
+        if (!oesVertex.isReady) {
+            Timber.e("oesVertex is not ready")
+            return false
+        }
+
+        if (!frameBufferVertex.isReady) {
+            Timber.e("frameBufferVertex is not ready")
+            return false
+        }
+
+        if (!frameBuffer.isReady) {
+            Timber.e("frameBuffer is not ready")
+            return false
+        }
+        return true
+    }
+
+    private fun draw() {
+        if (renderInfo.fpsStartTime == 0L) {
+            renderInfo.fpsStartTime = System.currentTimeMillis()
+        }
+        val eglCore = eglCore ?: return
+        val inputSurface = inputSurface ?: return
+        if (!isReadyToDraw()) {
+            Timber.e("not ready to draw")
             return
         }
 
+        // 将输入的纹理绘制到frameBuffer上
         inputSurface.surfaceTexture.updateTexImage()
-
+        GLES.glBindFramebuffer(GLES.GL_FRAMEBUFFER, frameBuffer.FBO)
+        GLES.glBindVertexArray(oesVertex.VAO)
         oesShader.use()
-        oesShader.setMat4("coordTransform", inputVertexTransformMat)
         GLES.glActiveTexture(GLES.GL_TEXTURE0)
         GLES.glBindTexture(GLES.GL_TEXTURE_2D, inputSurface.textureId)
         oesShader.setInt("tex", 0)
 
-        GLES.glBindVertexArray(VAO)
+        GLES.glClearColor(0f, 0f, 0f, 1f)
+        GLES.glClear(GLES.GL_COLOR_BUFFER_BIT)
+        GLES.glViewport(0, 0, frameBuffer.width, frameBuffer.height)
+        GLES.glDrawElements(GLES.GL_TRIANGLES, 6, GLES.GL_UNSIGNED_INT, 0)
+        GLES.glBindVertexArray(0)
+        GLES.glBindTexture(GLES.GL_TEXTURE_2D, 0)
+        oesShader.endUse()
+        GLES.glBindFramebuffer(GLES.GL_FRAMEBUFFER, 0)
+
+        // 将frameBuffer再绘制到outputSurface上
+        GLES.glBindVertexArray(frameBufferVertex.VAO)
+        frameBufferShader.use()
+        GLES.glActiveTexture(GLES.GL_TEXTURE0)
+        GLES.glBindTexture(GLES.GL_TEXTURE_2D, frameBuffer.colorTex)
+        frameBufferShader.setInt("tex", 0)
         for (outputSurface in outputSurfaceList) {
             eglCore.makeCurrent(outputSurface)
-
-            if (!updateViewport(inputSurface, outputSurface, scaleType)) {
+            if (!updateViewport(frameBuffer.width, frameBuffer.height, outputSurface.width, outputSurface.height, scaleType)) {
                 Timber.e("updateVertex failed, src.width = ${inputSurface.width}, src.height = ${inputSurface.height}, dst.width = ${outputSurface.width}, dst.height = ${outputSurface.height}")
                 continue
             }
-
             GLES.glClearColor(0f, 0f, 0f, 1f)
             GLES.glClear(GLES.GL_COLOR_BUFFER_BIT)
             GLES.glDrawElements(GLES.GL_TRIANGLES, 6, GLES.GL_UNSIGNED_INT, 0)
             eglCore.swapBuffers(outputSurface)
         }
         GLES.glBindVertexArray(0)
-        oesShader.endUse()
+        frameBufferShader.endUse()
+        renderInfo.frames++
+        renderInfo.fpsEndTime = System.currentTimeMillis()
+        if (renderInfo.fpsEndTime - renderInfo.fpsStartTime >= 1000) {
+            Timber.e("FPS: ${renderInfo.fps}")
+            renderInfo.fpsStartTime = renderInfo.fpsEndTime
+            renderInfo.frames = 0
+        }
     }
 
     fun addOutputSurface(surfaceObj: Any, width: Int, height: Int) {
@@ -465,5 +504,24 @@ class GLRender {
     interface InputSurfaceListener {
         fun onSurfaceCreated(surface: Surface, width: Int, height: Int)
         fun onSizeChanged(surface: Surface, width: Int, height: Int)
+    }
+
+    // 渲染的统计信息
+    private inner class RenderInfo {
+        var fpsStartTime = 0L
+        var fpsEndTime = 0L
+        var frames = 0
+        val fps: Float
+            get() {
+                val seconds = (fpsEndTime - fpsStartTime).toFloat() / 1000
+                return frames / seconds
+            }
+
+        var drawStartTime = 0L
+        var drawEndTime = 0L
+        val drawCost: Int
+            get() {
+                return (drawEndTime - drawStartTime).toInt()
+            }
     }
 }

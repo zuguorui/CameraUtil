@@ -30,7 +30,7 @@
         <activity
             android:name=".GLActivity"
             android:exported="false"
-            android:screenOrientation="landscape"/>
+            android:screenOrientation="portrait"/>
         <activity
             android:name=".CaptureActivity"
             android:exported="false" />

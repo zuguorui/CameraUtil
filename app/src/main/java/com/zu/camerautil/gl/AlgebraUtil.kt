@@ -22,26 +22,6 @@ fun eye(@IntRange(from = 1) n: Int): FloatArray {
     return result
 }
 
-fun rotate(mat: FloatArray, degree: Int, x: Float, y: Float, z: Float) {
-    if (mat.size != 16) {
-        throw IllegalArgumentException("<mat> must be 4x4")
-    }
-    Matrix.rotateM(mat, 0, degree.toFloat(), x, y, z)
-}
-
-fun scale(mat: FloatArray, scaleX: Float, scaleY: Float, scaleZ: Float) {
-    if (mat.size != 16) {
-        throw IllegalArgumentException("<mat> must be 4x4")
-    }
-    Matrix.scaleM(mat, 0, scaleX, scaleY, scaleZ)
-}
-
-fun translate(mat: FloatArray, translateX: Float, translateY: Float, translateZ: Float) {
-    if (mat.size != 16) {
-        throw IllegalArgumentException("<mat> must be 4x4")
-    }
-    Matrix.translateM(mat, 0, translateX, translateY, translateZ)
-}
 
 fun matToString(mat: FloatArray, rows: Int, cols: Int): String {
     val sb = StringBuilder()

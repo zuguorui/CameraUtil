@@ -2,6 +2,8 @@ package com.zu.camerautil.gl
 
 import android.graphics.SurfaceTexture
 import android.view.Surface
+import java.nio.FloatBuffer
+import java.nio.IntBuffer
 
 /**
  * @author zuguorui
@@ -20,11 +22,34 @@ class InputSurface {
     var height = 1080
         private set
 
-    var degree = 0
-        private set
 
-    constructor(textureId: Int) {
-        this.textureId = textureId
+    constructor() {
+        val tex = IntArray(1)
+        GLES.glGenTextures(1, tex, 0)
+        GLES.glBindTexture(GLESExt.GL_TEXTURE_EXTERNAL_OES, tex[0])
+        GLES.glTexParameteri(
+            GLESExt.GL_TEXTURE_EXTERNAL_OES,
+            GLES.GL_TEXTURE_MIN_FILTER,
+            GLES.GL_LINEAR
+        )
+        GLES.glTexParameteri(
+            GLESExt.GL_TEXTURE_EXTERNAL_OES,
+            GLES.GL_TEXTURE_MAG_FILTER,
+            GLES.GL_LINEAR
+        )
+        GLES.glTexParameteri(
+            GLESExt.GL_TEXTURE_EXTERNAL_OES,
+            GLES.GL_TEXTURE_WRAP_S,
+            GLES.GL_CLAMP_TO_EDGE
+        )
+        GLES.glTexParameteri(
+            GLESExt.GL_TEXTURE_EXTERNAL_OES,
+            GLES.GL_TEXTURE_WRAP_T,
+            GLES.GL_CLAMP_TO_EDGE
+        )
+        GLES.glBindTexture(GLESExt.GL_TEXTURE_EXTERNAL_OES, 0)
+
+        textureId = tex[0]
         surfaceTexture = SurfaceTexture(textureId)
         surfaceTexture.setDefaultBufferSize(width, height)
         surface = Surface(surfaceTexture)
@@ -40,9 +65,6 @@ class InputSurface {
         surfaceTexture.setDefaultBufferSize(width, height)
     }
 
-    fun setRotate(degree: Int) {
-        this.degree = degree / 90 * 90
-    }
 
     fun release() {
         if (isReleased) {
@@ -51,4 +73,5 @@ class InputSurface {
         surfaceTexture.release()
         surface.release()
     }
+
 }
