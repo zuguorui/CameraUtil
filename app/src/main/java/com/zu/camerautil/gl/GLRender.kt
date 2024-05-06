@@ -385,7 +385,7 @@ class GLRender {
         GLES.glBindVertexArray(oesVertex.VAO)
         oesShader.use()
         GLES.glActiveTexture(GLES.GL_TEXTURE0)
-        GLES.glBindTexture(GLES.GL_TEXTURE_2D, inputSurface.textureId)
+        GLES.glBindTexture(GLESExt.GL_TEXTURE_EXTERNAL_OES, inputSurface.textureId)
         oesShader.setInt("tex", 0)
 
         GLES.glClearColor(0f, 0f, 0f, 1f)

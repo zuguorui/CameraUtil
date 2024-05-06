@@ -16,6 +16,7 @@ val vertShaderCode = """
 
 val fragShaderCode = """
     #version 300 es
+    precision mediump float;
     uniform sampler2D tex;
     in vec2 TexCoord;
     out vec4 FragColor;
@@ -28,6 +29,7 @@ val fragShaderCode = """
 val oesFragShaderCode = """
     #version 300 es
     #extension GL_OES_EGL_image_external_essl3 : require
+    precision mediump float;
     uniform samplerExternalOES tex;
     in vec2 TexCoord;
     out vec4 FragColor;
