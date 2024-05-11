@@ -16,9 +16,12 @@ import com.zu.camerautil.bean.ISOParam
 import com.zu.camerautil.bean.RangeParam
 import com.zu.camerautil.bean.SecParam
 import com.zu.camerautil.bean.SelectionParam
+import com.zu.camerautil.bean.TempParam
+import com.zu.camerautil.bean.TintParam
 import com.zu.camerautil.bean.ValueListener
 import com.zu.camerautil.bean.WbModeParam
 import com.zu.camerautil.camera.FlashUtil
+import com.zu.camerautil.camera.WbUtil
 
 class CameraParamsView: AbsCameraParamView {
 
@@ -58,6 +61,12 @@ class CameraParamsView: AbsCameraParamView {
 
         initParam(CameraParamID.FLASH_MODE, FlashParam::class.java)
         viewList.add(viewMap[CameraParamID.FLASH_MODE]!!)
+
+        initParam(CameraParamID.TEMP, TempParam::class.java)
+        viewList.add(viewMap[CameraParamID.TEMP]!!)
+
+        initParam(CameraParamID.TINT, TintParam::class.java)
+        viewList.add(viewMap[CameraParamID.TINT]!!)
 
         setItems(viewList)
     }
@@ -188,6 +197,8 @@ class CameraParamsView: AbsCameraParamView {
         updateISOParam()
         updateWbModeParam()
         updateFlashModeParam()
+        updateTempParam()
+        updateTintParam()
     }
 
     private fun updateSecParam() {
@@ -245,6 +256,24 @@ class CameraParamsView: AbsCameraParamView {
         if (!modeList.contains(currentMode)) {
             flashModeParam.value = FlashUtil.FlashMode.OFF
         }
+    }
+
+    private fun updateTempParam() {
+        val tempParam = paramMap[CameraParamID.TEMP]!! as TempParam
+        if (tempParam.value !in WbUtil.TEMP_RANGE) {
+            tempParam.value = WbUtil.TEMP_RANGE.clamp(tempParam.value)
+        }
+        tempParam.max = WbUtil.TEMP_RANGE.upper
+        tempParam.min = WbUtil.TEMP_RANGE.lower
+    }
+
+    private fun updateTintParam() {
+        val tintParam = paramMap[CameraParamID.TINT]!! as TintParam
+        if (tintParam.value !in WbUtil.TINT_RANGE) {
+            tintParam.value = WbUtil.TINT_RANGE.clamp(tintParam.value)
+        }
+        tintParam.max = WbUtil.TINT_RANGE.upper
+        tintParam.min = WbUtil.TINT_RANGE.lower
     }
 
 }

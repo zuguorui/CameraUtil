@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import com.zu.camerautil.bean.AutoModeListener
 import com.zu.camerautil.bean.RangeListener
@@ -110,8 +111,13 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
                 binding.slider.value = uiValue
             }
 
+            if (it.isModal) {
+                binding.swAuto.visibility = View.VISIBLE
+                binding.swAuto.isChecked = it.isAutoMode
+            } else {
+                binding.swAuto.visibility = View.GONE
+            }
 
-            binding.swAuto.isChecked = it.isAutoMode
             if (it.isDiscrete) {
                 binding.slider.stepSize = it.uiStep
             }
