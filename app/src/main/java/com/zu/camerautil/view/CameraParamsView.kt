@@ -22,6 +22,7 @@ import com.zu.camerautil.bean.ValueListener
 import com.zu.camerautil.bean.WbModeParam
 import com.zu.camerautil.camera.FlashUtil
 import com.zu.camerautil.camera.WbUtil
+import timber.log.Timber
 
 class CameraParamsView: AbsCameraParamView {
 
@@ -85,7 +86,7 @@ class CameraParamsView: AbsCameraParamView {
 
         if (param is RangeParam<*>) {
 
-            val popupWindow = RangeParamPopupWindow(context)
+            val popupWindow = RangeParamPopupWindow(context, paramID)
 
             param.apply {
                 addValueListener {
@@ -110,7 +111,7 @@ class CameraParamsView: AbsCameraParamView {
             popupWindow.param = param as RangeParam<Any>
             panelMap[paramID] = popupWindow
         } else if (param is SelectionParam<*>) {
-            val popupWindow = SelectionParamPopupWindow(context)
+            val popupWindow = SelectionParamPopupWindow(context, paramID)
             param.apply {
                 addValueListener {
                     val listeners = valueListenerMap[paramID] ?: return@addValueListener
@@ -179,6 +180,13 @@ class CameraParamsView: AbsCameraParamView {
     fun setParamAuto(paramID: CameraParamID, auto: Boolean) {
         val param = paramMap[paramID] ?: return
         param.isAutoMode = auto
+    }
+
+    fun setParamEnable(paramID: CameraParamID, enable: Boolean) {
+        val paramView = viewMap[paramID] ?: return
+        val paramPanel = panelMap[paramID] ?: return
+        //paramView.isEnabled = enable
+        paramPanel.isEnabled = enable
     }
 
     fun setParamValue(paramID: CameraParamID, value: Any) {
@@ -260,16 +268,18 @@ class CameraParamsView: AbsCameraParamView {
 
     private fun updateTempParam() {
         val tempParam = paramMap[CameraParamID.TEMP]!! as TempParam
-        if (tempParam.value !in WbUtil.TEMP_RANGE) {
+        if (tempParam.value != null && tempParam.value!! !in WbUtil.TEMP_RANGE) {
             tempParam.value = WbUtil.TEMP_RANGE.clamp(tempParam.value)
         }
+        Timber.d("param temp begin set range")
         tempParam.max = WbUtil.TEMP_RANGE.upper
         tempParam.min = WbUtil.TEMP_RANGE.lower
+        Timber.d("param temp end set range")
     }
 
     private fun updateTintParam() {
         val tintParam = paramMap[CameraParamID.TINT]!! as TintParam
-        if (tintParam.value !in WbUtil.TINT_RANGE) {
+        if (tintParam.value != null && tintParam.value!! !in WbUtil.TINT_RANGE) {
             tintParam.value = WbUtil.TINT_RANGE.clamp(tintParam.value)
         }
         tintParam.max = WbUtil.TINT_RANGE.upper

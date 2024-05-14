@@ -19,6 +19,8 @@ open class EasyLayoutPopupWindow: PopupWindow {
     private var contentWidth: Int = ViewGroup.LayoutParams.WRAP_CONTENT
     private var contentHeight: Int = ViewGroup.LayoutParams.WRAP_CONTENT
 
+    open var isEnabled = true
+
     constructor(context: Context): super(context) {
         this.context = context
         isFocusable = true

@@ -23,24 +23,31 @@ import android.provider.MediaStore
 import android.util.Rational
 import android.util.Size
 import android.view.Surface
+import androidx.core.view.get
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraParamID
 import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.FlashUtil
+import com.zu.camerautil.camera.WbUtil
+import com.zu.camerautil.camera.computeRotation
 import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.databinding.ActivityRecordAndCaptureBinding
 import com.zu.camerautil.databinding.ActivityRecordBinding
+import com.zu.camerautil.logic.CameraControlLogic
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
 import com.zu.camerautil.recorder.IRecorder
 import com.zu.camerautil.recorder.RecorderParams
 import com.zu.camerautil.recorder.SystemRecorder
+import com.zu.camerautil.util.createPictureUri
+import com.zu.camerautil.util.createVideoUri
 import timber.log.Timber
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
+import kotlin.math.roundToInt
 
 class RecordAndCaptureActivity : AppCompatActivity() {
 
@@ -57,6 +64,12 @@ class RecordAndCaptureActivity : AppCompatActivity() {
     private var currentFps: FPS? = null
 
     private var recordParams: RecorderParams? = null
+
+    private val isWbModeOff: Boolean
+        get() {
+            val currentWbMode = binding.cameraParams.getParamValue(CameraParamID.WB_MODE) as Int
+            return currentWbMode == CameraCharacteristics.CONTROL_AWB_MODE_OFF
+        }
 
     private val surfaceStateListener = object : PreviewViewImplementation.SurfaceStateListener {
         override fun onSurfaceCreated(surface: Surface) {
@@ -189,14 +202,19 @@ class RecordAndCaptureActivity : AppCompatActivity() {
                     }
                 }
 
-//                result.get(CaptureResult.CONTROL_AWB_MODE)?.let { wbMode ->
-//                    if (wbMode != binding.cameraParams.getParamValue(CameraParamID.WB_MODE)) {
-//                        runOnUiThread {
-//                            binding.cameraParams.setParamValue(CameraParamID.WB_MODE, wbMode)
-//                        }
-//                    }
-//                }
+                result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM)?.let {
+                    WbUtil.previousCST = it
+                }
 
+                if (!isWbModeOff) {
+                    result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let {
+                        val (temp, tint) = WbUtil.computeTempAndTint(it)
+                        runOnUiThread {
+                            binding.cameraParams.setParamValue(CameraParamID.TEMP, temp)
+                            binding.cameraParams.setParamValue(CameraParamID.TINT, tint)
+                        }
+                    }
+                }
             }
         }
     }
@@ -309,12 +327,42 @@ class RecordAndCaptureActivity : AppCompatActivity() {
                     set(CaptureRequest.CONTROL_AWB_MODE, wbMode)
                 }
             }
+            binding.cameraParams.setParamEnable(CameraParamID.TEMP, isManual)
+            binding.cameraParams.setParamEnable(CameraParamID.TINT, isManual)
         }
 
         binding.cameraParams.addValueListener(CameraParamID.FLASH_MODE) { mode ->
             val flashMode = mode as? FlashUtil.FlashMode ?: return@addValueListener
             cameraLogic.updateCaptureRequestParams { builder ->
                 setFlashMode(flashMode, builder)
+            }
+        }
+
+        binding.cameraParams.addValueListener(CameraParamID.TEMP) { value ->
+            if (!isWbModeOff) {
+                return@addValueListener
+            }
+            val temp = value as? Int ?: return@addValueListener
+            val tint = binding.cameraParams.getParamValue(CameraParamID.TINT) as? Int ?: return@addValueListener
+            val vector = WbUtil.computeRggbChannelVector(temp, tint)
+            cameraLogic.updateCaptureRequestParams { builder ->
+                builder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+                builder.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, WbUtil.previousCST)
+                builder.set(CaptureRequest.COLOR_CORRECTION_GAINS, vector)
+            }
+        }
+
+        binding.cameraParams.addValueListener(CameraParamID.TINT) { value ->
+            if (!isWbModeOff) {
+                return@addValueListener
+            }
+            val temp = binding.cameraParams.getParamValue(CameraParamID.TEMP) as? Int ?: return@addValueListener
+            val tint = value as? Int ?: return@addValueListener
+            val vector = WbUtil.computeRggbChannelVector(temp, tint)
+            cameraLogic.updateCaptureRequestParams { builder ->
+                builder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+                builder.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, WbUtil.previousCST)
+                builder.set(CaptureRequest.COLOR_CORRECTION_GAINS, vector)
             }
         }
 
@@ -348,7 +396,11 @@ class RecordAndCaptureActivity : AppCompatActivity() {
             }
         } else {
             cameraLogic.updateCaptureRequestParams { builder ->
+                val sec = binding.cameraParams.getParamValue(CameraParamID.SEC) as Long
+                val iso = binding.cameraParams.getParamValue(CameraParamID.ISO) as Int
                 builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+                builder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, sec)
+                builder.set(CaptureRequest.SENSOR_SENSITIVITY, iso)
             }
         }
     }
@@ -393,77 +445,7 @@ class RecordAndCaptureActivity : AppCompatActivity() {
 
     }
 
-    private fun createVideoUri(context: Context, name: String, isPending: Boolean = false): Uri? {
-        val DCIM = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-        val folderPath = "$DCIM/CameraUtil/video/"
-        val relativePath = folderPath.substring(folderPath.indexOf("DCIM"))
-        val contentValues = ContentValues().apply {
-            put(MediaStore.Video.Media.DISPLAY_NAME, name)
-            put(MediaStore.Video.Media.TITLE, name)
-            put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-            put(MediaStore.Video.Media.DATA, "$folderPath$name")
-            put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
-            if (isPending) {
-                put(MediaStore.Video.Media.IS_PENDING, 1)
-            }
-        }
 
-        contentValues.run {
-            Timber.d("""
-                    createVideoUri:
-                        display_name = ${get(MediaStore.Video.Media.DISPLAY_NAME)}
-                        title = ${get(MediaStore.Video.Media.TITLE)}
-                        mime_type = ${get(MediaStore.Video.Media.MIME_TYPE)}
-                        data = ${get(MediaStore.Video.Media.DATA)}
-                        relative_path = ${get(MediaStore.Video.Media.RELATIVE_PATH)}
-                """.trimIndent())
-        }
-        var collectionUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            MediaStore.Video.Media.getContentUri(
-                MediaStore.VOLUME_EXTERNAL_PRIMARY
-            )
-        } else {
-            MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-        }
-        val uri = context.contentResolver.insert(collectionUri, contentValues)
-        return uri
-    }
-
-    private fun createPictureUri(context: Context, name: String, isPending: Boolean = false): Uri? {
-        val DCIM = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-        val folderPath = "$DCIM/CameraUtil/picture/"
-        val relativePath = folderPath.substring(folderPath.indexOf("DCIM"))
-        val contentValues = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, name)
-            put(MediaStore.Images.Media.TITLE, name)
-            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-            put(MediaStore.Images.Media.DATA, "$folderPath$name")
-            put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
-            if (isPending) {
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-            }
-        }
-
-        contentValues.run {
-            Timber.d("""
-                    createPictureUri:
-                        display_name = ${get(MediaStore.Images.Media.DISPLAY_NAME)}
-                        title = ${get(MediaStore.Images.Media.TITLE)}
-                        mime_type = ${get(MediaStore.Images.Media.MIME_TYPE)}
-                        data = ${get(MediaStore.Images.Media.DATA)}
-                        relative_path = ${get(MediaStore.Images.Media.RELATIVE_PATH)}
-                """.trimIndent())
-        }
-        var collectionUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            MediaStore.Images.Media.getContentUri(
-                MediaStore.VOLUME_EXTERNAL_PRIMARY
-            )
-        } else {
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-        }
-        val uri = context.contentResolver.insert(collectionUri, contentValues)
-        return uri
-    }
 
     private fun stopRecord() {
         val previousParams = recordParams
@@ -484,22 +466,38 @@ class RecordAndCaptureActivity : AppCompatActivity() {
     }
 
     private fun takePicture() {
+        val flashMode = binding.cameraParams.getParamValue(CameraParamID.FLASH_MODE) as FlashUtil.FlashMode
+        if (flashMode == FlashUtil.FlashMode.ON || flashMode == FlashUtil.FlashMode.AUTO) {
+            startAeTrigger()
+            return
+        }
+        realTakePicture()
+    }
+
+    private fun startAeTrigger() {
+
+    }
+
+
+    private fun realTakePicture() {
         val size = currentSize ?: return
         val reader = imageReader ?: return
 
-        cameraLogic.updateSession {
-            val request = it.device.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
-            request.set(
-                CaptureRequest.CONTROL_CAPTURE_INTENT,
-                CaptureRequest.CONTROL_CAPTURE_INTENT_STILL_CAPTURE)
+        cameraLogic.updateSession { session ->
+            val camera = cameraInfoMap[openedCameraID!!]!!
+            val request = session.device.createCaptureRequest(CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG)
+            request.set(CaptureRequest.JPEG_ORIENTATION, computeRotation(camera.sensorOrientation, binding.root.display.rotation * 90, camera.lensFacing))
+//            request.set(
+//                CaptureRequest.CONTROL_CAPTURE_INTENT,
+//                CaptureRequest.CONTROL_CAPTURE_INTENT_STILL_CAPTURE)
             request.addTarget(reader.surface)
             request.addTarget(binding.surfaceMain.surface)
             recorder.getSurface()?.let { surface ->
                 request.addTarget(surface)
             }
             setFlashMode(binding.cameraParams.getParamValue(CameraParamID.FLASH_MODE) as FlashUtil.FlashMode, request)
-            it.stopRepeating()
-            it.capture(
+            session.stopRepeating()
+            session.capture(
                 request.build(),
                 object : CameraCaptureSession.CaptureCallback() {
                     override fun onCaptureCompleted(
@@ -508,6 +506,7 @@ class RecordAndCaptureActivity : AppCompatActivity() {
                         result: TotalCaptureResult
                     ) {
                         super.onCaptureCompleted(session, request, result)
+                        resumePreview()
                     }
 
                     override fun onCaptureFailed(
@@ -516,6 +515,11 @@ class RecordAndCaptureActivity : AppCompatActivity() {
                         failure: CaptureFailure
                     ) {
                         super.onCaptureFailed(session, request, failure)
+                        resumePreview()
+                    }
+
+                    fun resumePreview() {
+                        cameraLogic.startRepeating()
                     }
                 },
                 handler)
@@ -539,4 +543,7 @@ class RecordAndCaptureActivity : AppCompatActivity() {
             it.write(buffer)
         }
     }
+
+
+
 }

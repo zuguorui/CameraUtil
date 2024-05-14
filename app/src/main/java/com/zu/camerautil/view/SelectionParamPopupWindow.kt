@@ -9,6 +9,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.zu.camerautil.bean.CameraParamID
 import com.zu.camerautil.bean.SelectionParam
 import com.zu.camerautil.bean.UiElement
 import com.zu.camerautil.bean.ValuesListener
@@ -16,6 +17,8 @@ import com.zu.camerautil.util.dpToPx
 import timber.log.Timber
 
 class SelectionParamPopupWindow: EasyLayoutPopupWindow {
+
+    private val id: CameraParamID
 
     private var recyclerView: RecyclerView
 
@@ -53,7 +56,8 @@ class SelectionParamPopupWindow: EasyLayoutPopupWindow {
         }
     }
 
-    constructor(context: Context): super(context) {
+    constructor(context: Context, id: CameraParamID): super(context) {
+        this.id = id
         isOutsideTouchable = true
         setBackgroundDrawable(ColorDrawable(Color.WHITE))
 

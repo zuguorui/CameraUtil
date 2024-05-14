@@ -7,6 +7,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import com.zu.camerautil.bean.AutoModeListener
+import com.zu.camerautil.bean.CameraParamID
 import com.zu.camerautil.bean.RangeListener
 import com.zu.camerautil.bean.RangeParam
 import com.zu.camerautil.bean.ValueListener
@@ -14,6 +15,8 @@ import com.zu.camerautil.databinding.ParamRangeBinding
 import timber.log.Timber
 
 class RangeParamPopupWindow: EasyLayoutPopupWindow {
+
+    private lateinit var id: CameraParamID
 
     private val layoutInflater: LayoutInflater
 
@@ -32,6 +35,7 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
     }
 
     private val rangeListener: RangeListener<Any> = { min, max ->
+        Timber.d("param $id range changed: min = $min, max = $max")
         refreshView()
     }
 
@@ -39,8 +43,15 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
         binding.swAuto.isChecked = isAuto
     }
 
+    override var isEnabled = true
+        set(value) {
+            binding.slider.isEnabled = value
+            field = value
+        }
+
     var param: RangeParam<Any>? = null
         set(value) {
+            Timber.d("param $id set")
             if (field == value) {
                 return
             }
@@ -58,7 +69,8 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
             refreshView()
         }
 
-    constructor(context: Context): super(context) {
+    constructor(context: Context, id: CameraParamID): super(context) {
+        this.id = id
         layoutInflater = LayoutInflater.from(context)
         binding = ParamRangeBinding.inflate(layoutInflater)
         binding.root.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -74,7 +86,10 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
 
         binding.slider.addOnChangeListener { slider, value, fromUser ->
             param?.let {
-                if (!it.isAutoMode && fromUser) {
+                if (it.isModal && it.isAutoMode) {
+                    return@let
+                }
+                if (fromUser) {
                     it.value = it.uiValueToValue(value)
                 }
             }
@@ -86,11 +101,12 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
     }
 
     private fun refreshView() {
+        Timber.d("param $id refresh view")
         param?.let {
             it.min?.let { min ->
                 val uiMin = it.valueToUiValue(min)
                 val minName = it.valueToUiName(min)
-                Timber.d("param.min = $min, uiMin = $uiMin, minName = $minName")
+                Timber.d("param $id min = $min, uiMin = $uiMin, minName = $minName")
                 binding.tvMin.text = minName
                 binding.slider.valueFrom = uiMin
             }
@@ -98,7 +114,7 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
             it.max?.let { max ->
                 val uiMax = it.valueToUiValue(max)
                 val maxName = it.valueToUiName(max)
-                Timber.d("param.max = $max, uiMax = $uiMax, maxName = $maxName")
+                Timber.d("param $id max = $max, uiMax = $uiMax, maxName = $maxName")
                 binding.tvMax.text = maxName
                 binding.slider.valueTo = uiMax
             }
@@ -106,7 +122,7 @@ class RangeParamPopupWindow: EasyLayoutPopupWindow {
             it.value?.let { value ->
                 val uiValue = it.valueToUiValue(value)
                 val valueName = it.valueToUiName(value)
-                Timber.d("param.value = $value, uiValue = $uiValue, valueName = $valueName")
+                Timber.d("param $id value = $value, uiValue = $uiValue, valueName = $valueName")
                 binding.tvValue.text = valueName
                 binding.slider.value = uiValue
             }

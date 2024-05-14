@@ -7,6 +7,7 @@ import android.util.AttributeSet
 import android.util.Size
 import com.zu.camerautil.bean.AbsCameraParam
 import com.zu.camerautil.bean.CameraInfoWrapper
+import com.zu.camerautil.bean.CameraParamID
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.bean.FpsParam
 import com.zu.camerautil.bean.LensParam
@@ -154,15 +155,15 @@ class CameraLensView: AbsCameraParamView {
 
         setItems(itemViews)
 
-        lensPopupWindow = SelectionParamPopupWindow(context).apply {
+        lensPopupWindow = SelectionParamPopupWindow(context, CameraParamID.LENS).apply {
             param = lensParam as SelectionParam<Any>
         }
 
-        sizePopupWindow = SelectionParamPopupWindow(context).apply {
+        sizePopupWindow = SelectionParamPopupWindow(context, CameraParamID.SIZE).apply {
             param = sizeParam as SelectionParam<Any>
         }
 
-        fpsPopupWindow = SelectionParamPopupWindow(context).apply {
+        fpsPopupWindow = SelectionParamPopupWindow(context, CameraParamID.FPS).apply {
             param = fpsParam as SelectionParam<Any>
         }
 

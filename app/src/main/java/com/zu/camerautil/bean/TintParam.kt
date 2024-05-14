@@ -21,6 +21,24 @@ class TintParam: RangeParam<Int>(CameraParamID.TINT) {
     override val uiStep: Float
         get() = throw UnsupportedOperationException("tint is not discrete")
 
+    override var value: Int? = null
+        set(value) {
+            var finalValue = if (value == null) {
+                null
+            } else if (max != null && max!! < value) {
+                max!!
+            } else if (min != null && min!! > value) {
+                min!!
+            } else {
+                value
+            }
+            val diff = finalValue != field
+            field = finalValue
+            if (diff) {
+                notifyValueChanged()
+            }
+        }
+
     override fun uiValueToValue(uiValue: Float): Int {
         return uiValue.roundToInt()
     }
