@@ -20,7 +20,6 @@ import android.widget.ArrayAdapter
 import android.widget.SeekBar
 import android.widget.SeekBar.OnSeekBarChangeListener
 import com.zu.camerautil.bean.CameraInfoWrapper
-import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.WbUtil
@@ -110,8 +109,8 @@ class WbActivity : AppCompatActivity() {
                 return currentSize!!
             }
 
-            override fun getUsage(): CameraUsage {
-                return CameraUsage.PREVIEW
+            override fun getTemplate(): Int {
+                return CameraDevice.TEMPLATE_PREVIEW
             }
 
             override fun configBuilder(requestBuilder: CaptureRequest.Builder) {

@@ -5,6 +5,9 @@ import android.util.AttributeSet
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.TextView
+import androidx.core.graphics.toColorInt
+import androidx.core.view.children
 import com.zu.camerautil.bean.AbsCameraParam
 import com.zu.camerautil.bean.AutoModeListener
 import com.zu.camerautil.bean.ValueListener
@@ -59,6 +62,24 @@ class ParamView: FrameLayout {
             }
 
         }
+    }
+
+    private var enabled = true
+
+    override fun isEnabled(): Boolean {
+        return enabled
+    }
+
+    override fun setEnabled(enabled: Boolean) {
+        val color = if (enabled) {
+            (0xFFFF4900).toInt()
+        } else {
+            (0xAAFF4900).toInt()
+        }
+        binding.tvMode.setBackgroundColor(color)
+        binding.tvName.setTextColor(color)
+        binding.tvValue.setTextColor(color)
+        this.enabled = enabled
     }
 
 

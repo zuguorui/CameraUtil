@@ -12,6 +12,7 @@ import android.media.MediaRecorder.VideoSource
 import android.view.Surface
 import androidx.core.graphics.scaleMatrix
 import com.zu.camerautil.MyApplication
+import com.zu.camerautil.util.printTimeCost
 import timber.log.Timber
 
 /**
@@ -75,7 +76,7 @@ class SystemRecorder: IRecorder {
             setVideoSize(params.resolution.width, params.resolution.height)
             val bitrate = computeVideoBitRate(params.resolution.width, params.resolution.height, params.outputFps, 8)
             Timber.d("bitrate = ${bitrate / 1000_000}Mbps")
-            setVideoEncodingBitRate(48 * 1024 * 1024)
+            setVideoEncodingBitRate(bitrate)
 
             if (params.outputUri != null) {
                 setOutputFile(MyApplication.context.contentResolver.openFileDescriptor(params.outputUri, "w")!!.fileDescriptor)
@@ -84,7 +85,9 @@ class SystemRecorder: IRecorder {
             }
 
         }
-        mediaRecorder?.prepare()
+        printTimeCost {
+            mediaRecorder?.prepare()
+        }
         return true
     }
 

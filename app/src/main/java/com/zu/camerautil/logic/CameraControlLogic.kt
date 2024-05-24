@@ -3,20 +3,23 @@ package com.zu.camerautil.logic
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCaptureSession.CaptureCallback
 import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CaptureFailure
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.TotalCaptureResult
+import android.os.Build
 import android.util.Rational
 import android.util.Size
 import android.view.Surface
-import com.zu.camerautil.bean.CameraInfoWrapper
+import androidx.annotation.RequiresApi
 import com.zu.camerautil.bean.CameraParamID
-import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
+import com.zu.camerautil.camera.FlashUtil
 import com.zu.camerautil.camera.WbUtil
+import com.zu.camerautil.util.refreshCameraParams
 import com.zu.camerautil.util.setAe
-import com.zu.camerautil.util.setSec
+import com.zu.camerautil.util.setFlashMode
 import com.zu.camerautil.util.setWb
 import com.zu.camerautil.view.CameraLensView
 import com.zu.camerautil.view.CameraParamsView
@@ -29,10 +32,11 @@ import timber.log.Timber
  */
 class CameraControlLogic(val cameraLogic: BaseCameraLogic,
                          val cameraLensView: CameraLensView,
-                         val cameraParamsView: CameraParamsView) {
+                         val cameraParamsView: CameraParamsView,
+                         val configCallback: ConfigCallback) {
 
-    var configCallback: ConfigCallback? = null
     var cameraConfigListener: CameraConfigListener? = null
+    var captureCallback: CaptureCallback? = null
 
     var currentCameraID: String? = null
         private set
@@ -57,18 +61,18 @@ class CameraControlLogic(val cameraLogic: BaseCameraLogic,
     }
 
     private fun initCameraLogic() {
-        val configCallback = configCallback ?: return
         cameraLogic.configCallback = object : BaseCameraLogic.ConfigCallback {
             override fun getFps(): FPS {
                 return cameraLensView.currentFps!!
             }
 
             override fun getSize(): Size {
+                Timber.d("getSize: ${cameraLensView.currentSize}")
                 return cameraLensView.currentSize!!
             }
 
-            override fun getUsage(): CameraUsage {
-                return configCallback.getUsage()
+            override fun getTemplate(): Int {
+                return configCallback.getTemplate()
             }
 
             override fun getSessionSurfaceList(): List<Surface> {
@@ -80,11 +84,68 @@ class CameraControlLogic(val cameraLogic: BaseCameraLogic,
             }
 
             override fun configBuilder(requestBuilder: CaptureRequest.Builder) {
-
+                refreshCameraParams(cameraParamsView, requestBuilder)
             }
         }
 
         cameraLogic.captureCallback = object : CaptureCallback() {
+            override fun onCaptureStarted(
+                session: CameraCaptureSession,
+                request: CaptureRequest,
+                timestamp: Long,
+                frameNumber: Long
+            ) {
+                captureCallback?.onCaptureStarted(session, request, timestamp, frameNumber)
+            }
+
+
+            override fun onCaptureProgressed(
+                session: CameraCaptureSession,
+                request: CaptureRequest,
+                partialResult: CaptureResult
+            ) {
+                captureCallback?.onCaptureProgressed(session, request, partialResult)
+            }
+
+            override fun onCaptureFailed(
+                session: CameraCaptureSession,
+                request: CaptureRequest,
+                failure: CaptureFailure
+            ) {
+                captureCallback?.onCaptureFailed(session, request, failure)
+            }
+
+            override fun onCaptureSequenceCompleted(
+                session: CameraCaptureSession,
+                sequenceId: Int,
+                frameNumber: Long
+            ) {
+                captureCallback?.onCaptureSequenceCompleted(session, sequenceId, frameNumber)
+            }
+
+            override fun onCaptureSequenceAborted(session: CameraCaptureSession, sequenceId: Int) {
+                captureCallback?.onCaptureSequenceAborted(session, sequenceId)
+            }
+
+            @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+            override fun onReadoutStarted(
+                session: CameraCaptureSession,
+                request: CaptureRequest,
+                timestamp: Long,
+                frameNumber: Long
+            ) {
+                captureCallback?.onReadoutStarted(session, request, timestamp, frameNumber)
+            }
+
+            override fun onCaptureBufferLost(
+                session: CameraCaptureSession,
+                request: CaptureRequest,
+                target: Surface,
+                frameNumber: Long
+            ) {
+                captureCallback?.onCaptureBufferLost(session, request, target, frameNumber)
+            }
+
             override fun onCaptureCompleted(
                 session: CameraCaptureSession,
                 request: CaptureRequest,
@@ -119,6 +180,8 @@ class CameraControlLogic(val cameraLogic: BaseCameraLogic,
                         }
                     }
                 }
+
+                captureCallback?.onCaptureCompleted(session, request, result)
             }
         }
     }
@@ -160,6 +223,7 @@ class CameraControlLogic(val cameraLogic: BaseCameraLogic,
                     cameraLogic.openCamera(camera)
                 }
             }
+            cameraParamsView.setCameraConfig(camera, size, fps)
         }
 
         cameraParamsView.addAutoModeListener(CameraParamID.SEC) { secAuto ->
@@ -201,7 +265,7 @@ class CameraControlLogic(val cameraLogic: BaseCameraLogic,
         cameraParamsView.addValueListener(CameraParamID.WB_MODE) { mode ->
             val wbMode = mode as? Int ?: return@addValueListener
             val isManual = mode == CameraCharacteristics.CONTROL_AWB_MODE_OFF
-            if (isManual) {
+            if (!isManual) {
                 cameraLogic.updateCaptureRequestParams { builder ->
                     setWb(wbMode, null, null, builder)
                 }
@@ -237,6 +301,13 @@ class CameraControlLogic(val cameraLogic: BaseCameraLogic,
                 setWb(CameraCharacteristics.CONTROL_AWB_MODE_OFF, temp, tint, builder)
             }
         }
+
+        cameraParamsView.addValueListener(CameraParamID.FLASH_MODE) { value ->
+            val flashMode = value as FlashUtil.FlashMode
+            cameraLogic.updateCaptureRequestParams { builder ->
+                setFlashMode(flashMode, builder)
+            }
+        }
     }
 
     private fun setSecAndIsoAuto(auto: Boolean) {
@@ -254,7 +325,7 @@ class CameraControlLogic(val cameraLogic: BaseCameraLogic,
     }
 
     interface ConfigCallback {
-        fun getUsage(): CameraUsage
+        fun getTemplate(): Int
         fun getSessionSurfaceList(): List<Surface>
         fun getCaptureSurfaceList(): List<Surface>
     }

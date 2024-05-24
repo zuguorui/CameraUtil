@@ -16,7 +16,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraParamID
-import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.queryCameraInfo
@@ -93,8 +92,8 @@ class SecAndIsoActivity : AppCompatActivity() {
                 return currentSize!!
             }
 
-            override fun getUsage(): CameraUsage {
-                return CameraUsage.PREVIEW
+            override fun getTemplate(): Int {
+                return CameraDevice.TEMPLATE_PREVIEW
             }
 
             override fun configBuilder(requestBuilder: CaptureRequest.Builder) {

@@ -3,12 +3,9 @@ package com.zu.camerautil
 import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.Context
-import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCaptureSession
-import android.hardware.camera2.CameraCaptureSession.CaptureCallback
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
-import android.hardware.camera2.CaptureFailure
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.TotalCaptureResult
@@ -25,7 +22,6 @@ import android.view.Surface
 import androidx.appcompat.app.AppCompatActivity
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraParamID
-import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.FlashUtil
@@ -37,7 +33,6 @@ import com.zu.camerautil.recorder.IRecorder
 import com.zu.camerautil.recorder.RecorderParams
 import com.zu.camerautil.recorder.SystemRecorder
 import timber.log.Timber
-import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -116,11 +111,11 @@ class RecordActivity : AppCompatActivity() {
                 return currentSize!!
             }
 
-            override fun getUsage(): CameraUsage {
+            override fun getTemplate(): Int {
                 return if (recording) {
-                    CameraUsage.RECORD
+                    CameraDevice.TEMPLATE_RECORD
                 } else {
-                    CameraUsage.PREVIEW
+                    CameraDevice.TEMPLATE_PREVIEW
                 }
             }
 

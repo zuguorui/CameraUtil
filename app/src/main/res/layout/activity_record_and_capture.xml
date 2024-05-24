@@ -19,6 +19,7 @@
         app:layout_constraintTop_toTopOf="parent"
         android:orientation="horizontal"
         app:paramPanelPopupGravity="bottom"
+        app:enableHighFps="false"
         android:id="@+id/camera_lens"/>
 
     <Button

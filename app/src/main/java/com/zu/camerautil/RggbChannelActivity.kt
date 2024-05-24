@@ -1,7 +1,6 @@
 package com.zu.camerautil
 
 import android.hardware.camera2.CameraCaptureSession
-import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CaptureResult
@@ -9,28 +8,18 @@ import android.hardware.camera2.TotalCaptureResult
 import android.hardware.camera2.params.ColorSpaceTransform
 import android.hardware.camera2.params.RggbChannelVector
 import android.os.Bundle
-import android.util.Rational
 import android.util.Size
 import android.view.Surface
-import android.widget.SeekBar
-import android.widget.SeekBar.OnSeekBarChangeListener
-import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import com.zu.camerautil.bean.CameraInfoWrapper
-import com.zu.camerautil.bean.CameraParamID
-import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.WbUtil
 import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.databinding.ActivityRggbChannelBinding
-import com.zu.camerautil.databinding.ActivitySecAndIsoBinding
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
 import timber.log.Timber
-import kotlin.math.roundToInt
 
 class RggbChannelActivity : AppCompatActivity() {
 
@@ -133,8 +122,8 @@ class RggbChannelActivity : AppCompatActivity() {
                 return currentSize!!
             }
 
-            override fun getUsage(): CameraUsage {
-                return CameraUsage.PREVIEW
+            override fun getTemplate(): Int {
+                return CameraDevice.TEMPLATE_PREVIEW
             }
 
             override fun configBuilder(requestBuilder: CaptureRequest.Builder) {

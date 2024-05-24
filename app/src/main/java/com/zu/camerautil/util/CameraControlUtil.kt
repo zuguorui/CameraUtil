@@ -8,6 +8,7 @@ import com.zu.camerautil.bean.CameraParamID
 import com.zu.camerautil.camera.FlashUtil
 import com.zu.camerautil.camera.WbUtil
 import com.zu.camerautil.view.CameraParamsView
+import timber.log.Timber
 
 /**
  * @author zuguorui
@@ -28,10 +29,14 @@ fun refreshCameraParams(cameraParamsView: CameraParamsView, builder: Builder) {
 
     // wb
     val wbMode = cameraParamsView.getParamValue(CameraParamID.WB_MODE) as Int
-    val temp = cameraParamsView.getParamValue(CameraParamID.TEMP) as Int
-    val tint = cameraParamsView.getParamValue(CameraParamID.TINT) as Int
-    setWb(wbMode, temp, tint, builder)
-
+    Timber.d("wbMode = $wbMode")
+    if (wbMode == CameraCharacteristics.CONTROL_AWB_MODE_OFF) {
+        val temp = cameraParamsView.getParamValue(CameraParamID.TEMP) as Int
+        val tint = cameraParamsView.getParamValue(CameraParamID.TINT) as Int
+        setWb(wbMode, temp, tint, builder)
+    } else {
+        setWb(wbMode, null, null, builder)
+    }
 }
 
 fun setAe(aeAuto: Boolean, sec: Long?, iso: Int?, builder: Builder) {

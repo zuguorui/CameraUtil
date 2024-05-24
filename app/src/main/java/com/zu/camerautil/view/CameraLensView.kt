@@ -5,6 +5,7 @@ import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCharacteristics
 import android.util.AttributeSet
 import android.util.Size
+import com.zu.camerautil.R
 import com.zu.camerautil.bean.AbsCameraParam
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraParamID
@@ -63,6 +64,7 @@ class CameraLensView: AbsCameraParamView {
     private val sizeFpsMap = HashMap<Size, List<FPS>>()
 
     private var configChanged = false
+
     var currentCamera: CameraInfoWrapper?
         get() = lensParam.value
         private set(value) {
@@ -81,7 +83,14 @@ class CameraLensView: AbsCameraParamView {
             sizeParam.value = value
         }
 
+    var enableHighFps = true
+        set(value) {
+            field = value
+            updateFpsBySize()
+        }
+
     var onConfigChangedListener: ((cameraInfoWrapper: CameraInfoWrapper, fps: FPS, size: Size) -> Unit)? = null
+
     constructor(context: Context): this(context, null)
 
     constructor(context: Context, attributeSet: AttributeSet?): this(context, attributeSet, 0)
@@ -90,8 +99,12 @@ class CameraLensView: AbsCameraParamView {
 
     constructor(context: Context, attributeSet: AttributeSet?, defStyleAttr: Int, defStyleRes: Int) : super(context, attributeSet, defStyleAttr, defStyleRes) {
         initViews()
-        if (isInEditMode) {
 
+        val typeArray = context.obtainStyledAttributes(attributeSet, R.styleable.CameraLensView)
+
+        enableHighFps = typeArray.getBoolean(R.styleable.CameraLensView_enableHighFps, true)
+
+        if (isInEditMode) {
             lensView.param = object : AbsCameraParam<CameraInfoWrapper>() {
                 override val name: String
                     get() = "Lens"
@@ -301,9 +314,18 @@ class CameraLensView: AbsCameraParamView {
     }
 
     private fun updateFpsBySize() {
+        if (currentSize == null) {
+            return
+        }
         fpsParam.values.clear()
-        sizeFpsMap[currentSize]?.let {
-            fpsParam.values.addAll(it)
+        if (enableHighFps) {
+            sizeFpsMap[currentSize]?.let {
+                fpsParam.values.addAll(it)
+            }
+        } else {
+            sizeFpsMap[currentSize]?.filter { fps -> fps.type == FPS.Type.NORMAL }?.let {
+                fpsParam.values.addAll(it)
+            }
         }
 
         val fps = currentFps?.let {

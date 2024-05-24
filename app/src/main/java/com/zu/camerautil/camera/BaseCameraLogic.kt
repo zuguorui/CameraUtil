@@ -22,7 +22,6 @@ import androidx.annotation.RequiresApi
 import com.zu.camerautil.OpenCameraMethod
 import com.zu.camerautil.Settings
 import com.zu.camerautil.bean.CameraInfoWrapper
-import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.recorder.FakeMediaRecorderSurfaceProvider
 import com.zu.camerautil.util.waitCallbackResult
@@ -48,9 +47,10 @@ open class BaseCameraLogic(val context: Context) {
     var currentCameraInfo: CameraInfoWrapper? = null
     var currentFps: FPS? = null
     var currentSize: Size? = null
-    var currentUsage: CameraUsage? = null
+    var currentTemplate: Int = CameraDevice.TEMPLATE_PREVIEW
 
     protected var internalCaptureCallback = object : CameraCaptureSession.CaptureCallback() {
+
         override fun onCaptureStarted(
             session: CameraCaptureSession,
             request: CaptureRequest,
@@ -122,8 +122,8 @@ open class BaseCameraLogic(val context: Context) {
     }
 
 
-    protected var camera: CameraDevice? = null
-
+    var camera: CameraDevice? = null
+        protected set
     protected var session: CameraCaptureSession? = null
     protected var highSpeedSession: CameraConstrainedHighSpeedCaptureSession? = null
 
@@ -218,14 +218,28 @@ open class BaseCameraLogic(val context: Context) {
             addAll(captureSurfaceList)
         }
         val isHighSpeed = fps.type == FPS.Type.HIGH_SPEED
-        if (isHighSpeed && currentUsage == CameraUsage.PREVIEW && Settings.highSpeedPreviewExtraSurface) {
+        if (isHighSpeed && currentTemplate == CameraDevice.TEMPLATE_PREVIEW && Settings.highSpeedPreviewExtraSurface) {
             Timber.w("add fake surface when high speed preview")
             target.add(fakeSurfaceProvider.getSurface()!!)
         }
 
-        captureRequestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
-            set(CaptureRequest.CONTROL_AF_MODE,
-                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+        captureRequestBuilder = camera.createCaptureRequest(currentTemplate).apply {
+//            when (currentTemplate) {
+//                CameraDevice.TEMPLATE_RECORD,
+//                CameraDevice.TEMPLATE_PREVIEW -> {
+//                    set(CaptureRequest.CONTROL_AF_MODE,
+//                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+//                }
+//                CameraDevice.TEMPLATE_STILL_CAPTURE -> {
+//                    set(CaptureRequest.CONTROL_AF_MODE,
+//                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+//                }
+//                else -> {
+//                    set(CaptureRequest.CONTROL_AF_MODE,
+//                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+//                }
+//            }
+            set(CaptureRequest.CONTROL_CAPTURE_INTENT, CaptureRequest.CONTROL_CAPTURE_INTENT_VIDEO_RECORD)
             target.forEach {
                 addTarget(it)
             }
@@ -235,10 +249,6 @@ open class BaseCameraLogic(val context: Context) {
         // 给客户端有机会做自定义配置
         configCallback?.configBuilder(captureRequestBuilder!!)
     }
-
-
-
-
 
     private fun openCameraInternal(cameraInfo: CameraInfoWrapper): Boolean {
         Timber.d("openCameraInternal")
@@ -325,8 +335,7 @@ open class BaseCameraLogic(val context: Context) {
         currentSize = size
         val fps = configCallback.getFps()
         currentFps = fps
-        val usage = configCallback.getUsage()
-        currentUsage = usage
+        currentTemplate = configCallback.getTemplate()
 
         val isHighSpeed = fps.type == FPS.Type.HIGH_SPEED
 
@@ -360,7 +369,7 @@ open class BaseCameraLogic(val context: Context) {
             val target = ArrayList<Surface>().apply {
                 addAll(sessionSurfaceList)
             }
-            if (isHighSpeed && usage == CameraUsage.PREVIEW && Settings.highSpeedPreviewExtraSurface) {
+            if (isHighSpeed && currentTemplate == CameraDevice.TEMPLATE_PREVIEW && Settings.highSpeedPreviewExtraSurface) {
                 Timber.w("add fake surface when high speed preview")
                 if (!fakeSurfaceProvider.isReady) {
                     fakeSurfaceProvider.prepare(size, fps.value)
@@ -380,9 +389,6 @@ open class BaseCameraLogic(val context: Context) {
                         Timber.w("camera${info.cameraID} belong to logical camera${info.logicalID}, set physical camera")
                         outputConfiguration.setPhysicalCameraId(info.cameraID)
                     }
-//                    if (Build.VERSION.SDK_INT >= 33) {
-//                        outputConfiguration.mirrorMode = OutputConfiguration.MIRROR_MODE_NONE
-//                    }
                     outputConfigurations.add(outputConfiguration)
                 }
                 val sessionType = if (isHighSpeed) {
@@ -475,7 +481,7 @@ open class BaseCameraLogic(val context: Context) {
             captureRequestBuilder?.let {
                 func.invoke(it)
                 startRepeatingInternal()
-            } ?: Timber.e("requestBuilder is null")
+            } ?: Timber.e("requestBuilder is null, func = $func")
         }
     }
 
@@ -493,7 +499,7 @@ open class BaseCameraLogic(val context: Context) {
     interface ConfigCallback {
         fun getFps(): FPS
         fun getSize(): Size
-        fun getUsage(): CameraUsage
+        fun getTemplate(): Int
         fun getSessionSurfaceList(): List<Surface>
         fun getCaptureSurfaceList(): List<Surface>
         fun configBuilder(requestBuilder: CaptureRequest.Builder)

@@ -23,10 +23,11 @@
         android:id="@+id/tv_name"
         android:text="参数"
         android:lines="1"
-        android:textColor="#FF4900"
+        android:textColor="@color/param_view_color"
         android:textStyle="bold"
         android:layout_marginRight="3dp"
-        app:layout_constraintHorizontal_chainStyle="packed"/>
+        app:layout_constraintHorizontal_chainStyle="packed"
+        />
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -37,7 +38,7 @@
         app:layout_constraintHorizontal_chainStyle="packed"
         android:id="@+id/tv_mode"
         android:text="M"
-        android:background="#FF4900"
+        android:background="@color/param_view_color"
         android:gravity="center"
         android:paddingHorizontal="3dp"
         android:textStyle="bold"
@@ -52,6 +53,6 @@
         app:layout_constraintBottom_toBottomOf="parent"
         android:gravity="center"
         android:id="@+id/tv_value"
-        android:textColor="#FF4900"
+        android:textColor="@color/param_view_color"
         android:text="1000"/>
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -60,14 +60,14 @@ class CameraParamsView: AbsCameraParamView {
         initParam(CameraParamID.WB_MODE, WbModeParam::class.java)
         viewList.add(viewMap[CameraParamID.WB_MODE]!!)
 
-        initParam(CameraParamID.FLASH_MODE, FlashParam::class.java)
-        viewList.add(viewMap[CameraParamID.FLASH_MODE]!!)
-
         initParam(CameraParamID.TEMP, TempParam::class.java)
         viewList.add(viewMap[CameraParamID.TEMP]!!)
 
         initParam(CameraParamID.TINT, TintParam::class.java)
         viewList.add(viewMap[CameraParamID.TINT]!!)
+
+        initParam(CameraParamID.FLASH_MODE, FlashParam::class.java)
+        viewList.add(viewMap[CameraParamID.FLASH_MODE]!!)
 
         setItems(viewList)
     }
@@ -185,7 +185,7 @@ class CameraParamsView: AbsCameraParamView {
     fun setParamEnable(paramID: CameraParamID, enable: Boolean) {
         val paramView = viewMap[paramID] ?: return
         val paramPanel = panelMap[paramID] ?: return
-        //paramView.isEnabled = enable
+        paramView.isEnabled = enable
         paramPanel.isEnabled = enable
     }
 

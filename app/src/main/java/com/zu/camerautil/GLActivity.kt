@@ -14,7 +14,6 @@ import android.view.SurfaceHolder
 import androidx.appcompat.app.AppCompatActivity
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraParamID
-import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.FlashUtil
@@ -118,8 +117,8 @@ class GLActivity : AppCompatActivity() {
                 return size
             }
 
-            override fun getUsage(): CameraUsage {
-                return CameraUsage.PREVIEW
+            override fun getTemplate(): Int {
+                return CameraDevice.TEMPLATE_PREVIEW
             }
 
             override fun getSessionSurfaceList(): List<Surface> {

@@ -25,7 +25,6 @@ import android.util.Size
 import android.view.Surface
 import com.zu.camerautil.bean.CameraInfoWrapper
 import com.zu.camerautil.bean.CameraParamID
-import com.zu.camerautil.bean.CameraUsage
 import com.zu.camerautil.bean.FPS
 import com.zu.camerautil.camera.BaseCameraLogic
 import com.zu.camerautil.camera.FlashUtil
@@ -107,8 +106,8 @@ class CaptureActivity : AppCompatActivity() {
                 return currentSize!!
             }
 
-            override fun getUsage(): CameraUsage {
-                return CameraUsage.STILL_CAPTURE
+            override fun getTemplate(): Int {
+                return CameraDevice.TEMPLATE_STILL_CAPTURE
             }
 
             override fun getSessionSurfaceList(): List<Surface> {
@@ -373,8 +372,8 @@ class CaptureActivity : AppCompatActivity() {
             request.set(CaptureRequest.JPEG_ORIENTATION, getRotation())
             request.addTarget(reader.surface)
             request.addTarget(binding.surfaceMain.surface)
-            setFlashMode(binding.cameraParams.getParamValue(CameraParamID.FLASH_MODE) as FlashUtil.FlashMode, request)
-            it.stopRepeating()
+            //setFlashMode(binding.cameraParams.getParamValue(CameraParamID.FLASH_MODE) as FlashUtil.FlashMode, request)
+            //it.stopRepeating()
             it.capture(
                 request.build(),
                 object : CameraCaptureSession.CaptureCallback() {
