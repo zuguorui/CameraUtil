@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import timber.log.Timber
+import java.io.File
 
 /**
  * @author zuguorui
@@ -60,7 +61,9 @@ fun createVideoUri(context: Context, name: String, isPending: Boolean = false): 
         put(MediaStore.Video.Media.TITLE, name)
         put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
         put(MediaStore.Video.Media.DATA, "$folderPath$name")
-        put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
+        }
         if (isPending) {
             put(MediaStore.Video.Media.IS_PENDING, 1)
         }
@@ -85,4 +88,14 @@ fun createVideoUri(context: Context, name: String, isPending: Boolean = false): 
     }
     val uri = context.contentResolver.insert(collectionUri, contentValues)
     return uri
+}
+
+fun createVideoPath(name: String): String {
+    val DCIM = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
+    val folderPath = "$DCIM/CameraUtil/video/"
+    val folder = File(folderPath)
+    if (!folder.exists()) {
+        folder.mkdirs()
+    }
+    return "$folderPath$name"
 }

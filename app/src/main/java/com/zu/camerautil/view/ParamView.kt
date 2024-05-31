@@ -47,6 +47,7 @@ class ParamView: FrameLayout {
         binding = ItemCameraParamBinding.inflate(layoutInflater, this, false)
         addView(binding.root)
         isClickable = true
+        setEnabled(true)
         notifyDataChanged()
     }
 
@@ -72,9 +73,9 @@ class ParamView: FrameLayout {
 
     override fun setEnabled(enabled: Boolean) {
         val color = if (enabled) {
-            (0xFFFF4900).toInt()
+            ENABLE_COLOR
         } else {
-            (0xAAFF4900).toInt()
+            DISABLE_COLOR
         }
         binding.tvMode.setBackgroundColor(color)
         binding.tvName.setTextColor(color)
@@ -82,5 +83,9 @@ class ParamView: FrameLayout {
         this.enabled = enabled
     }
 
+    companion object {
+        private const val ENABLE_COLOR = (0xFFFF4900).toInt()
+        private const val DISABLE_COLOR = (0xAAFF4900).toInt()
+    }
 
 }

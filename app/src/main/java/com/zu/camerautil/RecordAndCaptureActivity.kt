@@ -13,6 +13,7 @@ import android.hardware.camera2.TotalCaptureResult
 import android.media.ExifInterface
 import android.media.Image
 import android.media.ImageReader
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
@@ -35,6 +36,7 @@ import com.zu.camerautil.recorder.IRecorder
 import com.zu.camerautil.recorder.RecorderParams
 import com.zu.camerautil.recorder.SystemRecorder
 import com.zu.camerautil.util.createPictureUri
+import com.zu.camerautil.util.createVideoPath
 import com.zu.camerautil.util.createVideoUri
 import com.zu.camerautil.util.printTimeCost
 import com.zu.camerautil.util.refreshCameraParams
@@ -81,7 +83,7 @@ class RecordAndCaptureActivity : AppCompatActivity() {
             result: TotalCaptureResult
         ) {
             val aeState = result.get(CaptureResult.CONTROL_AE_STATE) ?: -1
-            Timber.d("aeState: $aeState, aeMeasureState: $aeMeasureState")
+            //Timber.d("aeState: $aeState, aeMeasureState: $aeMeasureState")
             when (aeMeasureState) {
                 AeMeasureState.WAITING_START -> {
                     when (aeState) {
@@ -236,10 +238,20 @@ class RecordAndCaptureActivity : AppCompatActivity() {
         } ?: return
         val title = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis())) + ".mp4"
 
-        val saveUri = createVideoUri(this, title) ?: kotlin.run {
-            Timber.e("create uri failed")
-            recording = false
-            return
+        val saveUri = if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            createVideoUri(this, title) ?: kotlin.run {
+                Timber.e("create uri failed")
+                recording = false
+                return
+            }
+        } else {
+            null
+        }
+
+        val savePath = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            createVideoPath(title)
+        } else {
+            null
         }
 
 
@@ -249,7 +261,7 @@ class RecordAndCaptureActivity : AppCompatActivity() {
             inputFps = fps.value,
             outputFps = fps.value,
             sampleRate = 44100,
-            outputFile = null,
+            outputPath = savePath,
             outputUri = saveUri,
             viewOrientation = binding.root.display.rotation,
             sensorOrientation = camera.sensorOrientation!!,

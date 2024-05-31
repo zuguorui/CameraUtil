@@ -32,6 +32,7 @@ import com.zu.camerautil.preview.PreviewViewImplementation
 import com.zu.camerautil.recorder.IRecorder
 import com.zu.camerautil.recorder.RecorderParams
 import com.zu.camerautil.recorder.SystemRecorder
+import com.zu.camerautil.util.createVideoPath
 import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -40,7 +41,6 @@ import java.util.Date
 class RecordActivity : AppCompatActivity() {
 
     // camera objects start
-
     private val cameraInfoMap: HashMap<String, CameraInfoWrapper> by lazy {
         queryCameraInfo(this)
     }
@@ -334,10 +334,20 @@ class RecordActivity : AppCompatActivity() {
         } ?: return
         val title = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis())) + ".mp4"
 
-        val saveUri = createVideoUri(this, title) ?: kotlin.run {
-            Timber.e("create uri failed")
-            recording = false
-            return
+        val saveUri = if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            com.zu.camerautil.util.createVideoUri(this, title) ?: kotlin.run {
+                Timber.e("create uri failed")
+                recording = false
+                return
+            }
+        } else {
+            null
+        }
+
+        val savePath = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            createVideoPath(title)
+        } else {
+            null
         }
 
 
@@ -347,7 +357,7 @@ class RecordActivity : AppCompatActivity() {
             inputFps = fps.value,
             outputFps = fps.value,
             sampleRate = 44100,
-            outputFile = null,
+            outputPath = savePath,
             outputUri = saveUri,
             viewOrientation = binding.root.display.rotation * 90,
             sensorOrientation = camera.sensorOrientation!!,
@@ -364,78 +374,6 @@ class RecordActivity : AppCompatActivity() {
         recording = recorder.start()
         cameraLogic.createSession()
 
-    }
-
-    private fun createVideoUri(context: Context, name: String, isPending: Boolean = false): Uri? {
-        val DCIM = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-        val folderPath = "$DCIM/CameraUtil/video/"
-        val relativePath = folderPath.substring(folderPath.indexOf("DCIM"))
-        val contentValues = ContentValues().apply {
-            put(MediaStore.Video.Media.DISPLAY_NAME, name)
-            put(MediaStore.Video.Media.TITLE, name)
-            put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-            put(MediaStore.Video.Media.DATA, "$folderPath$name")
-            put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
-            if (isPending) {
-                put(MediaStore.Video.Media.IS_PENDING, 1)
-            }
-        }
-
-        contentValues.run {
-            Timber.d("""
-                    createVideoUri:
-                        display_name = ${get(MediaStore.Video.Media.DISPLAY_NAME)}
-                        title = ${get(MediaStore.Video.Media.TITLE)}
-                        mime_type = ${get(MediaStore.Video.Media.MIME_TYPE)}
-                        data = ${get(MediaStore.Video.Media.DATA)}
-                        relative_path = ${get(MediaStore.Video.Media.RELATIVE_PATH)}
-                """.trimIndent())
-        }
-        var collectionUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            MediaStore.Video.Media.getContentUri(
-                MediaStore.VOLUME_EXTERNAL_PRIMARY
-            )
-        } else {
-            MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-        }
-        val uri = context.contentResolver.insert(collectionUri, contentValues)
-        return uri
-    }
-
-    private fun createPictureUri(context: Context, name: String, isPending: Boolean = false): Uri? {
-        val DCIM = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-        val folderPath = "$DCIM/CameraUtil/picture/"
-        val relativePath = folderPath.substring(folderPath.indexOf("DCIM"))
-        val contentValues = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, name)
-            put(MediaStore.Images.Media.TITLE, name)
-            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-            put(MediaStore.Images.Media.DATA, "$folderPath$name")
-            put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
-            if (isPending) {
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-            }
-        }
-
-        contentValues.run {
-            Timber.d("""
-                    createPictureUri:
-                        display_name = ${get(MediaStore.Images.Media.DISPLAY_NAME)}
-                        title = ${get(MediaStore.Images.Media.TITLE)}
-                        mime_type = ${get(MediaStore.Images.Media.MIME_TYPE)}
-                        data = ${get(MediaStore.Images.Media.DATA)}
-                        relative_path = ${get(MediaStore.Images.Media.RELATIVE_PATH)}
-                """.trimIndent())
-        }
-        var collectionUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            MediaStore.Images.Media.getContentUri(
-                MediaStore.VOLUME_EXTERNAL_PRIMARY
-            )
-        } else {
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-        }
-        val uri = context.contentResolver.insert(collectionUri, contentValues)
-        return uri
     }
 
     private fun stopRecord() {

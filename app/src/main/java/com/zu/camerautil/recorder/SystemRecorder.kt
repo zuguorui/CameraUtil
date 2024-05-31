@@ -1,8 +1,6 @@
 package com.zu.camerautil.recorder
 
 import android.hardware.camera2.CameraCharacteristics
-import android.media.EncoderProfiles
-import android.media.EncoderProfiles.VideoProfile
 import android.media.MediaRecorder
 import android.media.MediaRecorder.AudioEncoder
 import android.media.MediaRecorder.AudioSource
@@ -35,7 +33,7 @@ class SystemRecorder: IRecorder {
         if (mediaRecorder != null) {
             return false
         }
-        if (params.outputUri == null && params.outputFile == null) {
+        if (params.outputUri == null && params.outputPath == null) {
             return false
         }
         mediaRecorder = MediaRecorder()
@@ -80,8 +78,8 @@ class SystemRecorder: IRecorder {
 
             if (params.outputUri != null) {
                 setOutputFile(MyApplication.context.contentResolver.openFileDescriptor(params.outputUri, "w")!!.fileDescriptor)
-            } else if (params.outputFile != null) {
-                setOutputFile(params.outputFile.absolutePath)
+            } else if (params.outputPath != null) {
+                setOutputFile(params.outputPath)
             }
 
         }
