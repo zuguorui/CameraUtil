@@ -486,8 +486,14 @@ open class BaseCameraLogic(val context: Context) {
     }
 
     fun updateSession(func: ((CameraCaptureSession) -> Unit)) {
-        val session = session ?: return
         cameraOperationExecutor.execute {
+            val session = if (session != null) {
+                session!!
+            } else if (highSpeedSession != null) {
+                highSpeedSession!!
+            } else {
+                return@execute
+            }
             func.invoke(session)
         }
     }

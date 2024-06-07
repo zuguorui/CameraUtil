@@ -1,5 +1,7 @@
 package com.zu.camerautil.recorder
 
+import android.media.AudioFormat
+import android.media.AudioRecord
 import android.net.Uri
 import android.util.Size
 import java.io.File
@@ -15,12 +17,15 @@ data class RecorderParams(
     val outputFps: Int,
     val inputFps: Int,
     val sampleRate: Int,
+    val channelConfig: Int = AudioFormat.CHANNEL_IN_STEREO,
     val outputPath: String?,
     val outputUri: Uri?,
     val viewOrientation: Int,
     val sensorOrientation: Int,
-    val facing: Int
+    val facing: Int,
 ) {
+    val audioBufferSize = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT)
+
     override fun toString(): String {
         return """
             RecordParams {

@@ -32,7 +32,6 @@ import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.databinding.ActivityCaptureBinding
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
-import com.zu.camerautil.recorder.RecorderParams
 import timber.log.Timber
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -51,8 +50,6 @@ class CaptureActivity : AppCompatActivity() {
     private var openedCameraID: String? = null
     private var currentSize: Size? = null
     private var currentFps: FPS? = null
-
-    private var recordParams: RecorderParams? = null
 
     private val surfaceStateListener = object : PreviewViewImplementation.SurfaceStateListener {
         override fun onSurfaceCreated(surface: Surface) {
