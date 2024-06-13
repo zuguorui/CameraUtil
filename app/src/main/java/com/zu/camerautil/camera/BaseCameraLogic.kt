@@ -224,21 +224,21 @@ open class BaseCameraLogic(val context: Context) {
         }
 
         captureRequestBuilder = camera.createCaptureRequest(currentTemplate).apply {
-//            when (currentTemplate) {
-//                CameraDevice.TEMPLATE_RECORD,
-//                CameraDevice.TEMPLATE_PREVIEW -> {
-//                    set(CaptureRequest.CONTROL_AF_MODE,
-//                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
-//                }
-//                CameraDevice.TEMPLATE_STILL_CAPTURE -> {
-//                    set(CaptureRequest.CONTROL_AF_MODE,
-//                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
-//                }
-//                else -> {
-//                    set(CaptureRequest.CONTROL_AF_MODE,
-//                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
-//                }
-//            }
+            when (currentTemplate) {
+                CameraDevice.TEMPLATE_RECORD,
+                CameraDevice.TEMPLATE_PREVIEW -> {
+                    set(CaptureRequest.CONTROL_AF_MODE,
+                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+                }
+                CameraDevice.TEMPLATE_STILL_CAPTURE -> {
+                    set(CaptureRequest.CONTROL_AF_MODE,
+                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+                }
+                else -> {
+                    set(CaptureRequest.CONTROL_AF_MODE,
+                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+                }
+            }
             set(CaptureRequest.CONTROL_CAPTURE_INTENT, CaptureRequest.CONTROL_CAPTURE_INTENT_VIDEO_RECORD)
             target.forEach {
                 addTarget(it)

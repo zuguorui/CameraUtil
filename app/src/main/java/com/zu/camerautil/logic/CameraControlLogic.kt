@@ -85,6 +85,7 @@ class CameraControlLogic(val cameraLogic: BaseCameraLogic,
 
             override fun configBuilder(requestBuilder: CaptureRequest.Builder) {
                 refreshCameraParams(cameraParamsView, requestBuilder)
+                configCallback.configBuilder(requestBuilder)
             }
         }
 
@@ -180,6 +181,11 @@ class CameraControlLogic(val cameraLogic: BaseCameraLogic,
                         }
                     }
                 }
+
+//                result.get(CaptureResult.SENSOR_TIMESTAMP)?.let {
+//                    Timber.d("timeStamp: ${it / 1000L} ms")
+//                }
+
 
                 captureCallback?.onCaptureCompleted(session, request, result)
             }
@@ -328,6 +334,7 @@ class CameraControlLogic(val cameraLogic: BaseCameraLogic,
         fun getTemplate(): Int
         fun getSessionSurfaceList(): List<Surface>
         fun getCaptureSurfaceList(): List<Surface>
+        fun configBuilder(requestBuilder: CaptureRequest.Builder)
     }
 
     interface CameraConfigListener {

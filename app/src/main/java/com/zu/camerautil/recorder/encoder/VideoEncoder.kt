@@ -6,6 +6,7 @@ import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.view.Surface
 import com.zu.camerautil.recorder.RecorderParams
+import timber.log.Timber
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -18,8 +19,8 @@ class VideoEncoder: BaseEncoder("VideoEncoder") {
     var surface: Surface? = null
         private set
 
-    override fun prepare(params: RecorderParams, callback: EncoderCallback): Boolean {
-        this.callback = callback
+    override fun prepare(params: RecorderParams): Boolean = synchronized(lockObj) {
+        val callback = this.callback ?: return false
         if (state != EncoderState.IDLE) {
             return false
         }
@@ -32,12 +33,13 @@ class VideoEncoder: BaseEncoder("VideoEncoder") {
         val format = MediaFormat.createVideoFormat(mimeType, width, height)
         format.setInteger(MediaFormat.KEY_COLOR_STANDARD, MediaFormat.COLOR_STANDARD_BT709)
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
-
         val bitrate = computeVideoBitRate(width, height, params.outputFps, 8)
+        Timber.d("bitrate: $bitrate bps")
         format.setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
         format.setInteger(MediaFormat.KEY_FRAME_RATE, params.outputFps)
-        format.setInteger(MediaFormat.KEY_CAPTURE_RATE, params.inputFps)
+        format.setFloat(MediaFormat.KEY_CAPTURE_RATE, params.inputFps.toFloat())
         format.setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)
+        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
         try {
             encoder = MediaCodec.createEncoderByType(mimeType)
             encoder?.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
@@ -47,11 +49,13 @@ class VideoEncoder: BaseEncoder("VideoEncoder") {
             callback.onError()
             return false
         }
-        state = EncoderState.READY
+        state = EncoderState.PREPARED
         return true
     }
 
-
+    override fun signalEndOfStream() {
+        encoder?.signalEndOfInputStream()
+    }
 
     private fun supportHEVC(): Boolean {
         val allCodec = MediaCodecList(MediaCodecList.ALL_CODECS)

@@ -23,7 +23,7 @@ class AudioInput {
 
     private var audioRecorder: AudioRecord? = null
 
-    var dataCallback: ((data: ByteArray, offset: Int, size: Int) -> Unit)? = null
+    var dataCallback: ((data: ByteArray, offset: Int, size: Int) -> Unit?)? = null
 
     private val stopFlag = AtomicBoolean(false)
 

@@ -32,6 +32,7 @@ import com.zu.camerautil.databinding.ActivityRecordAndCaptureBinding
 import com.zu.camerautil.logic.CameraControlLogic
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
+import com.zu.camerautil.recorder.CodecRecorder
 import com.zu.camerautil.recorder.IRecorder
 import com.zu.camerautil.recorder.RecorderParams
 import com.zu.camerautil.recorder.SystemRecorder
@@ -116,7 +117,7 @@ class RecordAndCaptureActivity : AppCompatActivity() {
 
     private var imageReader: ImageReader? = null
 
-    private var recorder: IRecorder = SystemRecorder()
+    private var recorder: IRecorder = CodecRecorder()
     private var recording = false
         set(value) {
             field = value
@@ -159,6 +160,8 @@ class RecordAndCaptureActivity : AppCompatActivity() {
                         recorder.getSurface()!!
                     }
                     surfaceList.add(recordSurface)
+                } else {
+                    Timber.w("record is not ready")
                 }
                 imageReader?.let {
                     surfaceList.add(it.surface)
@@ -172,6 +175,10 @@ class RecordAndCaptureActivity : AppCompatActivity() {
                     surfaceList.add(recorder.getSurface()!!)
                 }
                 return surfaceList
+            }
+
+            override fun configBuilder(requestBuilder: CaptureRequest.Builder) {
+
             }
         }
         cameraLogic = BaseCameraLogic(this)

@@ -2,13 +2,15 @@ package com.zu.camerautil.recorder.encoder
 
 import android.media.MediaCodec
 import com.zu.camerautil.recorder.RecorderParams
+import timber.log.Timber
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.locks.ReentrantLock
 
 /**
  * @author zuguorui
  * @date 2024/6/6
- * @description
+ * @description 基本编码器。
  */
 abstract class BaseEncoder(val name: String) {
 
@@ -17,53 +19,68 @@ abstract class BaseEncoder(val name: String) {
 
     protected var encoder: MediaCodec? = null
 
-    protected var callback: EncoderCallback? = null
+    var callback: EncoderCallback? = null
 
     protected var encodeThread: Thread? = null
 
     protected var stopFlag = AtomicBoolean(false)
 
-    abstract fun prepare(params: RecorderParams, callback: EncoderCallback): Boolean
+    protected var lockObj = Any()
+
+    abstract fun prepare(params: RecorderParams): Boolean
 
     /**
      * 开始编码。
-     * 必须在state为[EncoderState.READY]时调用才会成功。
-     * 调用成功后，state切换为[EncoderState.RUNNING]
+     * 必须在state为[EncoderState.PREPARED]时调用才会成功。
+     * 调用成功后，state切换为[EncoderState.STARTED]
      * */
-    @Synchronized
-    open fun start() {
-        if (state != EncoderState.READY) {
+    open fun start() = synchronized(lockObj) {
+        if (state != EncoderState.PREPARED) {
+            Timber.e("current state is $state, start() only can be called when state is ${EncoderState.PREPARED}")
             return
         }
         startEncodeThread()
+        state = EncoderState.STARTED
     }
-
-    /**
-     * 停止编码。
-     * 必须在state为[EncoderState.RUNNING]时调用才会成功。
-     * 调用成功后，state切换为[EncoderState.READY]。
-     * 可以再次调用[start]开始编码。
-     * */
-    @Synchronized
-    open fun stop() {
-        if (state != EncoderState.RUNNING) {
-            return
-        }
-        stopEncodeThread()
-    }
-
 
     /**
      * 结束编码。
      * 必须在编码器已经运行时才会起作用。结束之后，该编码器不再可用，
      * state切换为[EncoderState.IDLE]，必须重新prepare。
      * */
-    @Synchronized
-    open fun finish() {
-        if (state != EncoderState.RUNNING) {
+    open fun stop() = synchronized(lockObj) {
+        if (state != EncoderState.STARTED) {
+            Timber.e("current state is $state, stop() only can be called when state is ${EncoderState.STARTED}")
             return
         }
-        encoder?.signalEndOfInputStream()
+        signalEndOfStream()
+        encodeThread?.join()
+        encodeThread = null
+        encoder?.release()
+        encoder = null
+        state = EncoderState.IDLE
+    }
+
+    /**
+     * 暂停编码
+     * */
+    open fun pause() = synchronized(lockObj) {
+        if (state != EncoderState.STARTED) {
+            Timber.e("current state is $state, pause() only can be called when state is ${EncoderState.STARTED}")
+            return
+        }
+        stopEncodeThread()
+        state = EncoderState.PAUSED
+    }
+
+
+    open fun resume() = synchronized(lockObj) {
+        if (state != EncoderState.PAUSED) {
+            Timber.e("current state is $state, resume() only can be called when state is ${EncoderState.PAUSED}")
+            return
+        }
+        startEncodeThread()
+        state = EncoderState.STARTED
     }
 
     /**
@@ -71,11 +88,16 @@ abstract class BaseEncoder(val name: String) {
      * 如果有正在进行的编码，将会结束编码。
      * 释放之后，state切换为[EncoderState.IDLE]
      * */
-    @Synchronized
-    open fun release() {
-        finish()
+    open fun release() = synchronized(lockObj) {
+        // 如果编码器不为空，那就通知其结束录制，并等待线程退出
+        if (encoder != null) {
+            signalEndOfStream()
+            startEncodeThread()
+        }
         encodeThread?.join()
         encodeThread = null
+        encoder?.release()
+        encoder = null
         state = EncoderState.IDLE
     }
 
@@ -107,7 +129,6 @@ abstract class BaseEncoder(val name: String) {
         var outputBuffer: ByteBuffer? = null
         var isEof = false
         encoder.start()
-        state = EncoderState.RUNNING
         callback?.onStart()
         while (!stopFlag.get()) {
             outputBufferId = encoder.dequeueOutputBuffer(outputBufferInfo, 5000)
@@ -120,19 +141,24 @@ abstract class BaseEncoder(val name: String) {
                 callback.onOutputBufferAvailable(outputBuffer!!, outputBufferInfo)
                 encoder.releaseOutputBuffer(outputBufferId, false)
                 outputBuffer = null
-            } else if (outputBufferId and MediaCodec.INFO_OUTPUT_FORMAT_CHANGED != 0) {
+            } else if (outputBufferId == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                 callback?.onOutputFormatChanged(encoder.outputFormat)
             }
         }
         if (isEof) {
+            Timber.d("$name meets eof")
             encoder.release()
             this.encoder = null
             state = EncoderState.IDLE
             callback?.onFinish()
         } else {
             encoder.stop()
-            state = EncoderState.READY
             callback?.onStop()
         }
     }
+
+    // 不同的编码器实现有不同的结束方式。
+    // 对于音频编码器，没有surface，只能用传统的传入空的buffer并且flag为[MediaCodec.BUFFER_FLAG_END_OF_STREAM]。
+    // 对于视频编码器，有surface，只能用encoder.signalEndOfStream
+    protected abstract fun signalEndOfStream()
 }
