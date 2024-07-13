@@ -74,6 +74,7 @@ class AudioEncoder: BaseEncoder("AudioEncoder") {
             retryTimes++
         }
         Timber.e("signalEndOfStream failed")
+        //encoder?.queueInputBuffer(0, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
     }
 
     private fun computeAudioBitRate(sampleRate: Int, channel: Int, depth: Int): Int {
