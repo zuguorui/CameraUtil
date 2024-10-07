@@ -1,16 +1,13 @@
 package com.zu.camerautil
 
 import android.graphics.Rect
-import android.hardware.camera2.params.ColorSpaceTransform
 import android.hardware.camera2.params.RggbChannelVector
 import android.util.Range
 import android.util.Rational
 import android.util.Size
 import java.lang.StringBuilder
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.math.abs
-import kotlin.reflect.typeOf
 
 inline fun <reified T> ArrayList<T>.copyToArray(): Array<T> {
     var result = Array(size){
@@ -26,49 +23,97 @@ fun Size.area(): Int = width * height
 
 fun Rect.toRational(): Rational = Rational(width(), height())
 
-fun FloatArray.toFormattedText(points: Int = 2): String {
-    val formatText = "%.${points}f"
-    val sb = StringBuilder()
-    sb.append("[")
-    for (i in indices) {
-        sb.append(String.format(formatText, get(i)))
-        if (i < size - 1) {
-            sb.append(", ")
-        }
+fun <T> Collection<T>.toFormattedString(): String {
+    return this.toFormattedString("\n")
+}
+
+fun <T> Collection<T>.toFormattedString(separator: String): String {
+    return this.toFormattedString(separator) {
+        it.toString()
     }
-    sb.append("]")
+}
+
+fun <T> Collection<T>.toFormattedString(separator: String, toStringFunction: ((T) -> String)): String {
+    val sb = StringBuilder()
+    var i = 0
+    var it = this.iterator()
+    while (it.hasNext()) {
+        sb.append(toStringFunction(it.next()))
+        if (i < this.size - 1) {
+            sb.append(separator)
+        }
+        i++
+    }
     return sb.toString()
 }
+
+
 
 fun <T> Array<T>.toFormattedString(): String {
-    val sb = StringBuilder()
-    sb.append("[")
-    var i = 0
-    for (t in iterator()) {
-        sb.append("$t")
-        if (i < size - 1) {
-            sb.append(", ")
-        }
-        i++
+    return this.toFormattedString("\n")
+}
+
+fun <T> Array<T>.toFormattedString(separator: String): String {
+    return this.toFormattedString(separator) {
+        it.toString()
     }
-    sb.append("]")
+}
+
+fun <T> Array<T>.toFormattedString(separator: String, toStringFunction: (T) -> String): String {
+    val sb = StringBuilder()
+    for (i in this.indices) {
+        sb.append(toStringFunction(this[i]))
+        if (i < this.size - 1) {
+            sb.append(separator)
+        }
+    }
     return sb.toString()
 }
 
-fun <T> Collection<T>.toFormattedString(): String {
+fun IntArray.toFormattedString(): String {
+    return this.toFormattedString("\n")
+}
+fun IntArray.toFormattedString(separator: String): String {
     val sb = StringBuilder()
-    sb.append("[")
-    var i = 0
-    for (t in iterator()) {
-        sb.append("$t")
-        if (i < size - 1) {
-            sb.append(", ")
+    for (i in this.indices) {
+        sb.append(this[i].toString())
+        if (i < this.size - 1) {
+            sb.append(separator)
         }
-        i++
     }
-    sb.append("]")
     return sb.toString()
 }
+
+fun FloatArray.toFormattedString(): String {
+    return this.toFormattedString("\n")
+}
+
+fun FloatArray.toFormattedString(points: Int): String {
+    return this.toFormattedString("\n", points)
+}
+
+fun FloatArray.toFormattedString(separator: String): String {
+    return this.toFormattedString(separator, 2)
+}
+
+fun FloatArray.toFormattedString(separator: String, points: Int): String {
+    val formatText = "%.${points}f"
+    return this.toFormattedString(separator) {
+        String.format(formatText, it)
+    }
+}
+
+fun FloatArray.toFormattedString(separator: String, transformer: (Float) -> String): String {
+    val sb = StringBuilder()
+    for (i in indices) {
+        sb.append(transformer(this[i]))
+        if (i < size - 1) {
+            sb.append(separator)
+        }
+    }
+    return sb.toString()
+}
+
 
 fun <T> lockBlock(lock: ReentrantLock, block: () -> T): T {
     lock.lock()
@@ -93,6 +138,9 @@ fun isColorGainEqual(vec1: RggbChannelVector, vec2: RggbChannelVector): Boolean 
     return abs(vec1.red - vec2.red) < limit && abs(vec1.greenOdd - vec2.greenOdd) < limit
             && abs(vec1.greenEven - vec2.greenEven) < limit && abs(vec1.blue - vec2.blue) < limit
 }
+
+
+
 
 
 

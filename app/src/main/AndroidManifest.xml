@@ -28,9 +28,15 @@
         android:theme="@style/AppTheme"
         tools:targetApi="31">
         <activity
+            android:name=".CodecDetailActivity"
+            android:exported="false" />
+        <activity
+            android:name=".CodecListActivity"
+            android:exported="false" />
+        <activity
             android:name=".GLActivity"
             android:exported="false"
-            android:screenOrientation="portrait"/>
+            android:screenOrientation="portrait" />
         <activity
             android:name=".CaptureActivity"
             android:exported="false" />

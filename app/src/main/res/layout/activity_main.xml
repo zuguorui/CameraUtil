@@ -86,7 +86,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:id="@+id/btn_opengl"
+                android:layout_margin="10dp"
                 android:text="OpenGL ES"/>
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/btn_codec"
+                android:layout_margin="10dp"
+                android:text="MediaCodec信息"/>
             <Button
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

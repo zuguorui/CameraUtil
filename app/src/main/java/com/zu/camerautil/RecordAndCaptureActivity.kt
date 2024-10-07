@@ -243,7 +243,8 @@ class RecordAndCaptureActivity : AppCompatActivity() {
         val camera = controlLogic.currentCameraID?.let {
             cameraInfoMap[it] ?: return
         } ?: return
-        val title = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis())) + ".mp4"
+        val timeStamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis()))
+        val title = "${size.width}x${size.height}.${fps.value}FPS.$timeStamp.mp4"
 
         val saveUri = if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             createVideoUri(this, title) ?: kotlin.run {

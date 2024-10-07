@@ -1,6 +1,7 @@
 package com.zu.camerautil.recorder
 
 import android.hardware.camera2.CameraCharacteristics
+import android.media.MediaCodec
 import android.media.MediaRecorder
 import android.media.MediaRecorder.AudioEncoder
 import android.media.MediaRecorder.AudioSource
@@ -28,6 +29,8 @@ class SystemRecorder: IRecorder {
     private var _isRecording = false
 
     private var mediaRecorder: MediaRecorder? = null
+
+    private var s = MediaCodec.createPersistentInputSurface()
 
     override fun prepare(params: RecorderParams): Boolean {
         if (mediaRecorder != null) {

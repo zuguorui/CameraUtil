@@ -29,6 +29,7 @@ import com.zu.camerautil.camera.queryCameraInfo
 import com.zu.camerautil.databinding.ActivityRecordBinding
 import com.zu.camerautil.preview.Camera2PreviewView
 import com.zu.camerautil.preview.PreviewViewImplementation
+import com.zu.camerautil.recorder.CodecRecorder
 import com.zu.camerautil.recorder.IRecorder
 import com.zu.camerautil.recorder.RecorderParams
 import com.zu.camerautil.recorder.SystemRecorder
@@ -70,7 +71,7 @@ class RecordActivity : AppCompatActivity() {
     }
     // camera objects end
 
-    private var recorder: IRecorder = SystemRecorder()
+    private var recorder: IRecorder = CodecRecorder()
     private var recording = false
         set(value) {
             field = value
@@ -332,7 +333,8 @@ class RecordActivity : AppCompatActivity() {
         val camera = openedCameraID?.let {
             cameraInfoMap[it] ?: return
         } ?: return
-        val title = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis())) + ".mp4"
+        val timeStamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis()))
+        val title = "${size.width}x${size.height}.${fps.value}FPS.$timeStamp.mp4"
 
         val saveUri = if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             com.zu.camerautil.util.createVideoUri(this, title) ?: kotlin.run {

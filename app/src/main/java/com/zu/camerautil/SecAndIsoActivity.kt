@@ -60,10 +60,10 @@ class SecAndIsoActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivitySecAndIsoBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        val windowInsetsController =
-            WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
-        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+//        val windowInsetsController =
+//            WindowCompat.getInsetsController(window, window.decorView)
+//        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+//        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         initCameraLogic()
         initViews()
     }

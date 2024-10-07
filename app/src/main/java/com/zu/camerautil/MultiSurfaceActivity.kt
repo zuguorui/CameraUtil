@@ -6,6 +6,7 @@ import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CaptureRequest
 import android.media.ImageReader
+import android.media.ImageReader.OnImageAvailableListener
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
@@ -267,25 +268,42 @@ class MultiSurfaceActivity : AppCompatActivity() {
                 imageReaderFormat,
                 2
             ).apply {
-                setOnImageAvailableListener({ reader ->
-                    val image = reader.acquireLatestImage() ?: kotlin.run {
-                        Timber.e("image 2 is null")
-                        return@setOnImageAvailableListener
-                    }
-                    //val bitmap = convertYPlaneToBitmap(image)
-                    val rotation = binding?.root?.display?.rotation ?: kotlin.run {
-                        image.close()
-                        return@setOnImageAvailableListener
-                    }
-                    // Timber.d("imageReader2 get a bitmap")
-                    val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(
-                        image,
-                        rotation,
-                        binding.cameraSelector.currentCamera.lensFacing
-                    )
-                    image.close()
-                    runOnUiThread {
-                        binding.iv2.setImageBitmap(bitmap)
+//                setOnImageAvailableListener({ reader ->
+//                    val image = reader.acquireLatestImage() ?: kotlin.run {
+//                        Timber.e("image 2 is null")
+//                        return@setOnImageAvailableListener
+//                    }
+//                    //val bitmap = convertYPlaneToBitmap(image)
+//                    val rotation = binding?.root?.display?.rotation ?: kotlin.run {
+//                        image.close()
+//                        return@setOnImageAvailableListener
+//                    }
+//                    // Timber.d("imageReader2 get a bitmap")
+//                    val bitmap = ImageConverter.convertYUV_420_888_to_bitmap(
+//                        image,
+//                        rotation,
+//                        binding.cameraSelector.currentCamera.lensFacing
+//                    )
+//                    image.close()
+//                    runOnUiThread {
+//                        binding.iv2.setImageBitmap(bitmap)
+//                    }
+//                }, imageReaderHandler)
+
+                setOnImageAvailableListener(object : OnImageAvailableListener {
+                    var imageCount = 0
+                    var lastTime = -1L;
+                    override fun onImageAvailable(reader: ImageReader) {
+                        reader.acquireLatestImage().close()
+                        var now = System.currentTimeMillis()
+                        if (lastTime < 0) {
+                            lastTime = now
+                        } else if (now - lastTime >= 1000) {
+                            Timber.d("imageReader fps: $imageCount")
+                            imageCount = 0
+                            lastTime = now
+                        }
+                        imageCount++
                     }
                 }, imageReaderHandler)
             }

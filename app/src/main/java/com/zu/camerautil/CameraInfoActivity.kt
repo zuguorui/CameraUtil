@@ -213,8 +213,5 @@ class CameraInfoActivity : AppCompatActivity() {
         itemBinding.root.setBackgroundColor(getColor(color))
         binding.llItems.addView(itemBinding.root)
         itemIndex++
-
-        var webView = WebView(this)
-        webView.title
     }
 }

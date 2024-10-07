@@ -80,6 +80,10 @@ class MainActivity : AppCompatActivity() {
         binding.btnOpengl.setOnClickListener {
             startActivity(GLActivity::class.java)
         }
+
+        binding.btnCodec.setOnClickListener {
+            startActivity(CodecListActivity::class.java)
+        }
     }
 
     private fun <T> startActivity(target: Class<T>) {

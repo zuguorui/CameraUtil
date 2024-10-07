@@ -210,24 +210,24 @@ class CameraParamsView: AbsCameraParamView {
     }
 
     private fun updateSecParam() {
-//        val lens = currentLens ?: return
-//        val fps = currentFps ?: return
-//
-//        val max = 1_000_000_000 / fps.value
-//
-//        val secParam = paramMap[CameraParamID.SEC]!! as SecParam
-//        secParam.min = lens.exposureRange!!.lower
-//        secParam.max = max.toLong()
+        val lens = currentLens ?: return
+        val fps = currentFps ?: return
+
+        val max = 1_000_000_000 / fps.value
+
+        val secParam = paramMap[CameraParamID.SEC]!! as SecParam
+        secParam.min = lens.exposureRange!!.lower
+        secParam.max = max.toLong()
     }
 
     private fun updateISOParam() {
-//        val lens = currentLens ?: return
-//        val isoParam = paramMap[CameraParamID.ISO]!! as ISOParam
-//        if (isoParam.value == null || isoParam.value!! < lens.isoRange!!.lower) {
-//            isoParam.value = lens.isoRange!!.lower
-//        }
-//        isoParam.max = lens.isoRange!!.upper
-//        isoParam.min = lens.isoRange!!.lower
+        val lens = currentLens ?: return
+        val isoParam = paramMap[CameraParamID.ISO]!! as ISOParam
+        if (isoParam.value == null || isoParam.value!! < lens.isoRange!!.lower) {
+            isoParam.value = lens.isoRange!!.lower
+        }
+        isoParam.max = lens.isoRange!!.upper
+        isoParam.min = lens.isoRange!!.lower
     }
 
     private fun updateWbModeParam() {
